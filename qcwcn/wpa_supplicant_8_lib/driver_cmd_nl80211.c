@@ -90,6 +90,12 @@ int wpa_driver_nl80211_driver_cmd(void *priv, char *cmd, char *buf,
 				wpa_printf(MSG_DEBUG, "%s: P2P: %s ", __func__, buf);
 			else if (os_strcasecmp(cmd, "P2P_SET_NOA") == 0)
 				wpa_printf(MSG_DEBUG, "%s: P2P: %s ", __func__, buf);
+		        else if (os_strncasecmp(cmd, "GETDWELLTIME", 12) == 0){
+				wpa_printf(MSG_DEBUG, "%s: cmd:%s buf:%s", __func__, cmd, buf);
+				ret = strlen(buf);
+                        }
+                        else if (os_strncasecmp(cmd, "SETDWELLTIME", 12) == 0)
+				wpa_printf(MSG_DEBUG, "%s: cmd:%s buf:%s", __func__, cmd, buf);
 			else
 				wpa_printf(MSG_DEBUG, "%s %s len = %d, %d", __func__, buf, ret, strlen(buf));
 		}
