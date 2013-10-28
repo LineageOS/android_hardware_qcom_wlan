@@ -74,14 +74,15 @@ int wpa_driver_nl80211_driver_cmd(void *priv, char *cmd, char *buf,
 			ret = 0;
 			if ((os_strcasecmp(cmd, "LINKSPEED") == 0) ||
 			    (os_strcasecmp(cmd, "RSSI") == 0) ||
-			    (os_strcasecmp(cmd, "GETBAND") == 0) )
+			    (os_strcasecmp(cmd, "GETBAND") == 0) ){
 				ret = strlen(buf);
-			else if (os_strcasecmp(cmd, "COUNTRY") == 0)
+			} else if ((os_strncasecmp(cmd, "COUNTRY", 7) == 0) ||
+				   (os_strncasecmp(cmd, "SETBAND", 7) == 0) ||
+				   (os_strncasecmp(cmd, "SETCOUNTRYREV", 13) == 0)) {
+				wpa_printf(MSG_DEBUG, "%s: %s", __func__, cmd);
 				wpa_supplicant_event(drv->ctx,
 					EVENT_CHANNEL_LIST_CHANGED, NULL);
-			else if (os_strncasecmp(cmd, "SETBAND", 7) == 0)
-				wpa_printf(MSG_DEBUG, "%s: %s ", __func__, cmd);
-			else if (os_strcasecmp(cmd, "P2P_DEV_ADDR") == 0)
+			} else if (os_strcasecmp(cmd, "P2P_DEV_ADDR") == 0)
 				wpa_printf(MSG_DEBUG, "%s: P2P: Device address ("MACSTR")",
 					__func__, MAC2STR(buf));
 			else if (os_strcasecmp(cmd, "P2P_SET_PS") == 0)
