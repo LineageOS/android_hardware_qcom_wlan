@@ -83,7 +83,11 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifdef WCNSS_QMI
 #define WLAN_ADDR_SIZE   6
 unsigned char wlan_nv_mac_addr[WLAN_ADDR_SIZE];
+#ifdef WCNSS_QMI_MAC_ADDR_REV
+#define MAC_ADDR_ARRAY(a) (a)[5], (a)[4], (a)[3], (a)[2], (a)[1], (a)[0]
+#else
 #define MAC_ADDR_ARRAY(a) (a)[0], (a)[1], (a)[2], (a)[3], (a)[4], (a)[5]
+#endif
 #define MAC_ADDRESS_STR "%02x:%02x:%02x:%02x:%02x:%02x"
 
 /* As we Want to write in 00:0a:f5:11:22:33 format in sysfs file
@@ -432,12 +436,21 @@ void setup_wcnss_parameters(int *cal)
 		pos = 0;
 		msg[pos++] = WCNSS_USR_WLAN_MAC_ADDR >> BYTE_1;
 		msg[pos++] = WCNSS_USR_WLAN_MAC_ADDR >> BYTE_0;
+#ifdef WCNSS_QMI_MAC_ADDR_REV
+		msg[pos++] = wlan_nv_mac_addr[5];
+		msg[pos++] = wlan_nv_mac_addr[4];
+		msg[pos++] = wlan_nv_mac_addr[3];
+		msg[pos++] = wlan_nv_mac_addr[2];
+		msg[pos++] = wlan_nv_mac_addr[1];
+		msg[pos++] = wlan_nv_mac_addr[0];
+#else
 		msg[pos++] = wlan_nv_mac_addr[0];
 		msg[pos++] = wlan_nv_mac_addr[1];
 		msg[pos++] = wlan_nv_mac_addr[2];
 		msg[pos++] = wlan_nv_mac_addr[3];
 		msg[pos++] = wlan_nv_mac_addr[4];
 		msg[pos++] = wlan_nv_mac_addr[5];
+#endif
 
 		ALOGI("WLAN MAC Addr:" MAC_ADDRESS_STR,
 			MAC_ADDR_ARRAY(wlan_nv_mac_addr));
