@@ -9,6 +9,9 @@ LOCAL_HEADER_LIBRARIES += vendor_common_inc
 LOCAL_SRC_FILES := wcnss_service.c
 LOCAL_SHARED_LIBRARIES := libc libcutils libutils liblog
 ifeq ($(strip $(TARGET_USES_QCOM_WCNSS_QMI)),true)
+ifeq ($(TARGET_USES_WCNSS_MAC_ADDR_REV),true)
+LOCAL_CFLAGS += -DWCNSS_QMI_MAC_ADDR_REV
+endif
 ifeq ($(TARGET_PROVIDES_WCNSS_QMI),true)
 LOCAL_CFLAGS += -DWCNSS_QMI_OSS
 LOCAL_SHARED_LIBRARIES += libdl
