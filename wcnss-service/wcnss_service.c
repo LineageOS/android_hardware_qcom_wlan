@@ -71,7 +71,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifdef WCNSS_QMI
 #define WLAN_ADDR_SIZE   6
 unsigned char wlan_nv_mac_addr[WLAN_ADDR_SIZE];
-#ifndef WCNSS_QMI_MAC_ADDR_REV
+#ifdef WCNSS_QMI_MAC_ADDR_REV
 #define MAC_ADDR_ARRAY(a) (a)[5], (a)[4], (a)[3], (a)[2], (a)[1], (a)[0]
 #else
 #define MAC_ADDR_ARRAY(a) (a)[0], (a)[1], (a)[2], (a)[3], (a)[4], (a)[5]
