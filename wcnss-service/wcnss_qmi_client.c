@@ -29,6 +29,8 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifdef WCNSS_QMI
 #define LOG_TAG "wcnss_qmi"
 #include <cutils/log.h>
+#include <stdlib.h>
+#include <sys/stat.h>
 #include "wcnss_qmi_client.h"
 #include "qmi_client.h"
 #include "device_management_service_v01.h"
@@ -107,8 +109,63 @@ int wcnss_qmi_get_wlan_address(unsigned char *pBdAddr)
 		ALOGE("%s: Succesfully Read WLAN MAC Address", __func__);
 		return SUCCESS;
 	} else {
+#ifdef WCNSS_INVALID_MAC_PREFIX
+#ifndef WCNSS_GENMAC_FILE
+#define WCNSS_GENMAC_FILE "/persist/.genmac"
+#endif
+		int i = 0;
+		struct stat statbuf;
+		FILE *genmac;
+		int macbytes[6] = { 0, };
+		// Limit the prefix to 4 bytes, we want at least 2 to be random
+		int prefixlen = strnlen(WCNSS_INVALID_MAC_PREFIX,8)/2;
+
+		// Misconfigured device source...?
+		if (prefixlen < 2) {
+			return FAILED;
+		}
+
+		// Use a previously stored value if it exists
+		if (!stat(WCNSS_GENMAC_FILE, &statbuf)) {
+			genmac = fopen(WCNSS_GENMAC_FILE,"r");
+			if (fscanf(genmac, "%c%c%c%c%c%c", &pBdAddr[0],
+				     &pBdAddr[1], &pBdAddr[2], &pBdAddr[3],
+				     &pBdAddr[4], &pBdAddr[5]) == 6) {
+				fclose(genmac);
+				ALOGE("%s: Succesfully Read local WLAN MAC Address", __func__);
+				return SUCCESS;
+			}
+			fclose(genmac);
+		}
+
+		sscanf(WCNSS_INVALID_MAC_PREFIX, "%2x%2x%2x%2x",
+				&macbytes[0], &macbytes[1],
+				&macbytes[2], &macbytes[3]);
+
+		// We don't need strong randomness, and if the NV is corrupted
+		// any hardware values are suspect, so just seed it with the
+		// current time
+		srand(time(NULL));
+
+		for (i = prefixlen; i<6; i++) {
+			macbytes[i] = rand() % 255;
+		}
+		// Invert them
+		for (i = 0; i < 6; i++) {
+			pBdAddr[i] = macbytes[5-i];
+		}
+
+		// Store for reuse
+		genmac = fopen(WCNSS_GENMAC_FILE,"w");
+		fwrite(pBdAddr, 1, 6, genmac);
+		fclose(genmac);
+
+		ALOGE("%s: Failed to Read WLAN MAC Address, successfully randomized one", __func__);
+		return SUCCESS;
+#else
 		ALOGE("%s: Failed to Read WLAN MAC Address", __func__);
 		return FAILED;
+#endif
 	}
 }
 
