@@ -40,6 +40,10 @@ LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/qmi/core/lib/inc
 LOCAL_SHARED_LIBRARIES := libc libcutils libutils liblog
 LOCAL_SHARED_LIBRARIES += libqmiservices libqmi libqcci_legacy libqmi_client_qmux
 
+ifneq ($(TARGET_WCNSS_MAC_PREFIX),)
+    LOCAL_CFLAGS += -DWCNSS_INVALID_MAC_PREFIX=\"$(TARGET_WCNSS_MAC_PREFIX)\"
+endif
+
 LOCAL_CFLAGS += -DWCNSS_QMI
 LOCAL_SRC_FILES += wcnss_qmi_client.c
 
