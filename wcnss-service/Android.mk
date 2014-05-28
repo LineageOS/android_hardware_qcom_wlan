@@ -56,6 +56,11 @@ LOCAL_SHARED_LIBRARIES += libqmiservices libqmi_cci
 LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/libmdmdetect/inc
 LOCAL_SHARED_LIBRARIES += libmdmdetect
 LOCAL_HEADER_LIBRARIES += libril-qc-qmi-services-headers
+
+ifneq ($(TARGET_WCNSS_MAC_PREFIX),)
+    LOCAL_CFLAGS += -DWCNSS_INVALID_MAC_PREFIX=\"$(TARGET_WCNSS_MAC_PREFIX)\"
+endif
+
 LOCAL_CFLAGS += -DWCNSS_QMI
 LOCAL_SRC_FILES += wcnss_qmi_client.c
 
