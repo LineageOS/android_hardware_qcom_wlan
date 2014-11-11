@@ -17,6 +17,8 @@
 #ifndef __VENDOR_DEFINITIONS_H__
 #define __VENDOR_DEFINITIONS_H__
 
+#define WIFI_SCANNING_MAC_OUI_LENGTH 3
+
 /*Internal to Android HAL component */
 enum vendor_subcmds {
     /* subcommands for link layer statistics start here */
@@ -47,6 +49,8 @@ enum vendor_subcmds {
     QCA_NL80211_VENDOR_SUBCMD_GSCAN_SIGNIFICANT_CHANGE = 31,
     QCA_NL80211_VENDOR_SUBCMD_GSCAN_SET_SIGNIFICANT_CHANGE = 32,
     QCA_NL80211_VENDOR_SUBCMD_GSCAN_RESET_SIGNIFICANT_CHANGE = 33,
+    /* set scanning_mac_oui */
+    QCA_NL80211_VENDOR_SUBCMD_SCANNING_MAC_OUI = 39,
 };
 
 enum qca_wlan_vendor_attr_ll_stats_set
@@ -616,6 +620,17 @@ enum qca_wlan_vendor_attr_gscan_results
     QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_AFTER_LAST,
     QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_MAX =
         QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_AFTER_LAST - 1,
+};
+
+enum qca_wlan_vendor_attr_set_scanning_mac_oui
+{
+    QCA_WLAN_VENDOR_ATTR_SET_SCANNING_MAC_OUI_INVALID = 0,
+    /* An array of 3 x Unsigned 8-bit value */
+    QCA_WLAN_VENDOR_ATTR_SET_SCANNING_MAC_OUI = 1,
+    /* keep last */
+    QCA_WLAN_VENDOR_ATTR_SET_SCANNING_MAC_OUI_AFTER_LAST,
+    QCA_WLAN_VENDOR_ATTR_SET_SCANNING_MAC_OUI_MAX =
+        QCA_WLAN_VENDOR_ATTR_SET_SCANNING_MAC_OUI_AFTER_LAST - 1,
 };
 
 #endif
