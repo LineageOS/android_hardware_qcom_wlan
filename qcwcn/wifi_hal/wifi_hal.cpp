@@ -573,3 +573,6 @@ wifi_error wifi_get_concurrency_matrix(wifi_interface_handle handle, int max_siz
     return WIFI_ERROR_NOT_SUPPORTED;
 }
 
+wifi_error wifi_set_nodfs_flag(wifi_interface_handle iface __unused, u32 nodfs __unused) {
+    return WIFI_ERROR_NOT_SUPPORTED;
+}
