@@ -152,7 +152,7 @@ int error_handler(struct sockaddr_nl *nla,
 }
 static int no_seq_check(struct nl_msg *msg, void *arg)
 {
-    ALOGD("no_seq_check received");
+    ALOGV("no_seq_check received");
     return NL_OK;
 }
 
@@ -374,7 +374,7 @@ static void internal_event_handler(wifi_handle handle, int events)
     } else if (events & POLLHUP) {
         ALOGE("Remote side hung up");
     } else if (events & POLLIN) {
-        ALOGI("Found some events!!!");
+        ALOGV("Found some events!!!");
         internal_pollin_handler(handle);
     } else {
         ALOGE("Unknown event - %0x", events);
@@ -404,7 +404,7 @@ void wifi_event_loop(wifi_handle handle)
         pfd.revents = 0;
         //ALOGI("Polling socket");
         int result = poll(&pfd, 1, -1);
-        ALOGI("Poll result = %0x", result);
+        ALOGV("Poll result = %0x", result);
         if (result < 0) {
             ALOGE("Error polling socket");
         } else if (pfd.revents & (POLLIN | POLLHUP | POLLERR)) {
@@ -438,13 +438,13 @@ static int internal_valid_message_handler(nl_msg *msg, void *arg)
     if (cmd == NL80211_CMD_VENDOR) {
         vendor_id = event.get_u32(NL80211_ATTR_VENDOR_ID);
         subcmd = event.get_u32(NL80211_ATTR_VENDOR_SUBCMD);
-        ALOGI("event received %s, vendor_id = 0x%0x, subcmd = 0x%0x",
+        ALOGV("event received %s, vendor_id = 0x%0x, subcmd = 0x%0x",
                 event.get_cmdString(), vendor_id, subcmd);
     } else {
-        ALOGI("event received %s", event.get_cmdString());
+        ALOGV("event received %s", event.get_cmdString());
     }
 
-    ALOGI("event received %s, vendor_id = 0x%0x", event.get_cmdString(),
+    ALOGV("event received %s, vendor_id = 0x%0x", event.get_cmdString(),
             vendor_id);
     // event.log();
 
@@ -466,7 +466,7 @@ static int internal_valid_message_handler(nl_msg *msg, void *arg)
     }
 
     if (!dispatched) {
-        ALOGI("event ignored!!");
+        ALOGV("event ignored!!");
     }
 
     return NL_OK;
