@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "bacf61ea_5fec48c7",
+        "filename": "qcwcn/wifi_hal/wifi_hal.cpp",
+        "patchSetId": 1
+      },
+      "lineNbr": 155,
+      "author": {
+        "id": 2936
+      },
+      "writtenOn": "2015-02-21T09:17:03Z",
+      "side": 1,
+      "message": "This was originally ALOGD, is that still too noisy?",
+      "revId": "d3701c86423c1e1d464b8cb8ee5a0a4e3e374107",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "bacf61ea_bfd104fe",
+        "filename": "qcwcn/wifi_hal/wifi_hal.cpp",
+        "patchSetId": 1
+      },
+      "lineNbr": 377,
+      "author": {
+        "id": 2936
+      },
+      "writtenOn": "2015-02-21T09:17:03Z",
+      "side": 1,
+      "message": "Why not ALOGD?",
+      "revId": "d3701c86423c1e1d464b8cb8ee5a0a4e3e374107",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": false
+    }
+  ]
+}
