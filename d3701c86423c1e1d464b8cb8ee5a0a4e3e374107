@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "bacf61ea_df4678be",
+        "filename": "qcwcn/wifi_hal/wifi_hal.cpp",
+        "patchSetId": 1
+      },
+      "lineNbr": 155,
+      "author": {
+        "id": 4550
+      },
+      "writtenOn": "2015-02-21T09:53:42Z",
+      "side": 1,
+      "message": "Both this and all below logs appear together in my logs, repeating a lot of times:\n\n    I/WifiHAL (  775): Poll result \u003d 1\n    I/WifiHAL (  775): Found some events!!!\n    D/WifiHAL (  775): no_seq_check received\n    I/WifiHAL (  775): event received NL80211_CMD_TRIGGER_SCAN\n    I/WifiHAL (  775): event received NL80211_CMD_TRIGGER_SCAN, vendor_id \u003d 0x0\n    I/WifiHAL (  775): event ignored!!",
+      "parentUuid": "bacf61ea_5fec48c7",
+      "revId": "d3701c86423c1e1d464b8cb8ee5a0a4e3e374107",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "bacf61ea_bfd104fe",
         "filename": "qcwcn/wifi_hal/wifi_hal.cpp",
         "patchSetId": 1
