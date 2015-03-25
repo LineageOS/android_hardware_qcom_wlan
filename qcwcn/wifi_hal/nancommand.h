@@ -28,7 +28,6 @@ private:
     char *mNanVendorEvent;
     u32 mNanDataLen;
     NanStaParameter *mStaParam;
-    void *mUserData;
 
     //Function to check the initial few bytes of data to
     //determine whether NanResponse or NanEvent
@@ -97,8 +96,7 @@ public:
     virtual int requestEvent();
     virtual int handleResponse(WifiEvent reply);
     virtual int handleEvent(WifiEvent &event);
-    int setCallbackHandler(NanCallbackHandler nHandler,
-                           void *pUserData);
+    int setCallbackHandler(NanCallbackHandler nHandler);
 
 
     //Functions to fill the vendor data appropriately

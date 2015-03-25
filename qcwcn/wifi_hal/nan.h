@@ -1667,29 +1667,18 @@ typedef struct {
 /* Response and Event Callbacks */
 typedef struct {
     /* NotifyResponse invoked to notify the status of the Request */
-    void (*NotifyResponse)(NanResponseMsg* rsp_data,
-                           void* userdata);
+    void (*NotifyResponse)(NanResponseMsg* rsp_data);
     /* Various Events Callback */
-    void (*EventPublishReplied)(NanPublishRepliedInd* event,
-                                void* userdata);
-    void (*EventPublishTerminated)(NanPublishTerminatedInd* event,
-                                   void* userdata);
-    void (*EventMatch) (NanMatchInd* event,
-                        void* userdata);
-    void (*EventUnMatch) (NanUnmatchInd* event,
-                          void* userdata);
-    void (*EventSubscribeTerminated) (NanSubscribeTerminatedInd* event,
-                                      void* userdata);
-    void (*EventFollowup) (NanFollowupInd* event,
-                           void* userdata);
-    void (*EventDiscEngEvent) (NanDiscEngEventInd* event,
-                               void* userdata);
-    void (*EventDisabled) (NanDisabledInd* event,
-                           void* userdata);
-    void (*EventTca) (NanTCAInd* event,
-                      void* userdata);
-    void (*EventSdfPayload) (NanBeaconSdfPayloadInd* event,
-                             void* userdata);
+    void (*EventPublishReplied)(NanPublishRepliedInd* event);
+    void (*EventPublishTerminated)(NanPublishTerminatedInd* event);
+    void (*EventMatch) (NanMatchInd* event);
+    void (*EventUnMatch) (NanUnmatchInd* event);
+    void (*EventSubscribeTerminated) (NanSubscribeTerminatedInd* event);
+    void (*EventFollowup) (NanFollowupInd* event);
+    void (*EventDiscEngEvent) (NanDiscEngEventInd* event);
+    void (*EventDisabled) (NanDisabledInd* event);
+    void (*EventTca) (NanTCAInd* event);
+    void (*EventSdfPayload) (NanBeaconSdfPayloadInd* event);
 } NanCallbackHandler;
 
 
@@ -1762,8 +1751,7 @@ wifi_error nan_get_sta_parameter(wifi_request_id id,
 
 /*  Function to register NAN callback */
 wifi_error nan_register_handler(wifi_handle handle,
-                                NanCallbackHandler handlers,
-                                void* userdata);
+                                NanCallbackHandler handlers);
 
 /*  Function to get version of the NAN HAL */
 wifi_error nan_get_version(wifi_handle handle,
