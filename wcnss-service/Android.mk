@@ -48,14 +48,13 @@ ifeq ($(PRODUCT_VENDOR_MOVE_ENABLED),true)
 LOCAL_VENDOR_MODULE := true
 endif
 
-LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/qmi/inc
+LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/qmi-framework/inc
 LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/qmi/services
 LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/qmi/platform
-LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/qmi/src
-LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/qmi/core/lib/inc
+LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/qmi/inc
 
 LOCAL_SHARED_LIBRARIES := libc libcutils libutils liblog
-LOCAL_SHARED_LIBRARIES += libqmiservices libqmi libqcci_legacy libqmi_client_qmux
+LOCAL_SHARED_LIBRARIES += libqmiservices libqmi_cci libidl
 LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/libmdmdetect/inc
 LOCAL_SHARED_LIBRARIES += libmdmdetect
 
