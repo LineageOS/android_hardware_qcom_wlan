@@ -349,6 +349,7 @@ typedef struct {
     u16 last_transmit_rate;
     u16 rssi;
     u32 timestamp;
+    u8  tid;
 } rx_aggr_stats;
 
 
