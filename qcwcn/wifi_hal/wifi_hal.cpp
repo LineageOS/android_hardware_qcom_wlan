@@ -49,6 +49,7 @@
 #include "cpp_bindings.h"
 #include "ifaceeventhandler.h"
 #include "wifiloggercmd.h"
+#include "vendor_definitions.h"
 
 /*
  BUGBUG: normally, libnl allocates ports for all connections it makes; but
@@ -250,6 +251,8 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn) {
     fn->wifi_set_scanning_mac_oui =  wifi_set_scanning_mac_oui;
     fn->wifi_get_ifaces = wifi_get_ifaces;
     fn->wifi_get_iface_name = wifi_get_iface_name;
+    fn->wifi_set_iface_event_handler = wifi_set_iface_event_handler;
+    fn->wifi_reset_iface_event_handler = wifi_reset_iface_event_handler;
     fn->wifi_start_gscan = wifi_start_gscan;
     fn->wifi_stop_gscan = wifi_stop_gscan;
     fn->wifi_get_cached_gscan_results = wifi_get_cached_gscan_results;
@@ -277,6 +280,7 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn) {
     fn->wifi_set_log_handler = wifi_set_log_handler;
     fn->wifi_reset_log_handler = wifi_reset_log_handler;
     fn->wifi_set_alert_handler = wifi_set_alert_handler;
+    fn->wifi_reset_alert_handler = wifi_reset_alert_handler;
     fn->wifi_get_firmware_version = wifi_get_firmware_version;
     fn->wifi_get_ring_buffers_status = wifi_get_ring_buffers_status;
     fn->wifi_get_logger_supported_feature_set = wifi_get_logger_supported_feature_set;
@@ -289,6 +293,8 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn) {
     fn->wifi_set_bssid_preference = wifi_set_bssid_preference;
     fn->wifi_set_gscan_roam_params = wifi_set_gscan_roam_params;
     fn->wifi_set_ssid_white_list = wifi_set_ssid_white_list;
+    fn->wifi_set_lci = wifi_set_lci;
+    fn->wifi_set_lcr = wifi_set_lcr;
     fn->wifi_start_sending_offloaded_packet =
             wifi_start_sending_offloaded_packet;
     fn->wifi_stop_sending_offloaded_packet = wifi_stop_sending_offloaded_packet;
@@ -307,7 +313,6 @@ wifi_error wifi_initialize(wifi_handle *handle)
     struct nl_sock *cmd_sock = NULL;
     struct nl_sock *event_sock = NULL;
     struct nl_cb *cb = NULL;
-    srand(getpid());
 
     ALOGI("Initializing wifi");
     hal_info *info = (hal_info *)malloc(sizeof(hal_info));
@@ -711,8 +716,12 @@ static int internal_valid_message_handler(nl_msg *msg, void *arg)
     if (cmd == NL80211_CMD_VENDOR) {
         vendor_id = event.get_u32(NL80211_ATTR_VENDOR_ID);
         subcmd = event.get_u32(NL80211_ATTR_VENDOR_SUBCMD);
-        ALOGI("event received %s, vendor_id = 0x%0x, subcmd = 0x%0x",
-                event.get_cmdString(), vendor_id, subcmd);
+        /* Restrict printing GSCAN_FULL_RESULT which is causing lot
+           of logs in bug report */
+        if (subcmd != QCA_NL80211_VENDOR_SUBCMD_GSCAN_FULL_SCAN_RESULT) {
+            ALOGI("event received %s, vendor_id = 0x%0x, subcmd = 0x%0x",
+                  event.get_cmdString(), vendor_id, subcmd);
+        }
     } else {
         ALOGI("event received %s", event.get_cmdString());
     }
@@ -742,9 +751,11 @@ static int internal_valid_message_handler(nl_msg *msg, void *arg)
         }
     }
 
+#ifdef QC_HAL_DEBUG
     if (!dispatched) {
         ALOGI("event ignored!!");
     }
+#endif
 
     pthread_mutex_unlock(&info->cb_lock);
     return NL_OK;
