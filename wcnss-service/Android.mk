@@ -22,7 +22,8 @@ ifeq ($(TARGET_USES_WCNSS_MAC_ADDR_REV),true)
 LOCAL_CFLAGS += -DWCNSS_QMI_MAC_ADDR_REV
 endif
 ifneq ($(QCPATH),)
-LOCAL_CFLAGS += -DWCNSS_QMI
+LOCAL_CFLAGS += -DWCNSS_QMI -DMDM_DETECT
+LOCAL_HEADER_LIBRARIES += libmdmdetect_headers
 LOCAL_HEADER_LIBRARIES += libqmi_common_headers
 LOCAL_HEADER_LIBRARIES += vendor_common_inc
 LOCAL_SHARED_LIBRARIES += libwcnss_qmi
@@ -50,7 +51,6 @@ endif
 
 LOCAL_SHARED_LIBRARIES := libc libcutils libutils liblog
 LOCAL_SHARED_LIBRARIES += libqmiservices libqmi_cci
-LOCAL_HEADER_LIBRARIES += libmdmdetect_headers
 LOCAL_SHARED_LIBRARIES += libmdmdetect
 LOCAL_HEADER_LIBRARIES += libril-qc-qmi-services-headers
 LOCAL_CFLAGS += -DWCNSS_QMI
