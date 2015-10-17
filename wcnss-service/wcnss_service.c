@@ -41,7 +41,9 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <cutils/properties.h>
 #ifdef WCNSS_QMI
 #include "wcnss_qmi_client.h"
+#ifdef MDM_DETECT
 #include "mdm_detect.h"
+#endif
 #endif
 #ifdef WCNSS_QMI_OSS
 #include <dlfcn.h>
@@ -487,7 +489,7 @@ void setup_wlan_driver_ath_prop()
 	property_set("wlan.driver.ath", WLAN_DRIVER_ATH_DEFAULT_VAL);
 }
 
-#ifdef WCNSS_QMI
+#ifdef MDM_DETECT
 int check_modem_compatability(struct dev_info *mdm_detect_info)
 {
 	char args[MODEM_BASEBAND_PROPERTY_SIZE] = {0};
@@ -578,7 +580,9 @@ int main(int argc, char *argv[])
 	int fd_dev, ret_cal;
 #ifdef WCNSS_QMI
 	int nv_mac_addr = FAILED;
+#ifdef MDM_DETECT
 	struct dev_info mdm_detect_info;
+#endif
 	int nom = 0;
 #endif
 
@@ -610,7 +614,7 @@ int main(int argc, char *argv[])
 	/* Call ESOC API to get the number of modems.
 	   If the number of modems is not zero, only then proceed
 	   with the eap_proxy intialization.*/
-
+#ifdef MDM_DETECT
 	nom = get_system_info(&mdm_detect_info);
 
 	if (nom > 0)
@@ -628,6 +632,7 @@ int main(int argc, char *argv[])
 		ALOGE("wcnss_service: Target does not have external modem");
 		goto nomodem;
 	}
+#endif
 
 	/* initialize the DMS client and request the wlan mac address */
 
