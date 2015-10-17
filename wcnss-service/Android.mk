@@ -13,7 +13,7 @@ ifeq ($(TARGET_PROVIDES_WCNSS_QMI),true)
 LOCAL_CFLAGS += -DWCNSS_QMI_OSS
 LOCAL_SHARED_LIBRARIES += libdl
 else
-LOCAL_CFLAGS += -DWCNSS_QMI
+LOCAL_CFLAGS += -DWCNSS_QMI -DMDM_DETECT
 LOCAL_HEADER_LIBRARIES += libqmi_common_headers
 LOCAL_SRC_FILES += wcnss_qmi_client.c device_management_service_v01.c
 LOCAL_SHARED_LIBRARIES += libqmi_cci libqmi_common_so
