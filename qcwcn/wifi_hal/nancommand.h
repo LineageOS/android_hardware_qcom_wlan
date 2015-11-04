@@ -28,7 +28,7 @@ private:
     char *mNanVendorEvent;
     u32 mNanDataLen;
     NanStaParameter *mStaParam;
-    void *mUserData;
+    void *mUserContext;
 
     //Function to check the initial few bytes of data to
     //determine whether NanResponse or NanEvent
@@ -46,7 +46,6 @@ private:
     //based on the indication type
     int handleNanIndication();
     //Various Functions to get the appropriate indications
-    int getNanPublishReplied(NanPublishRepliedInd *event);
     int getNanPublishTerminated(NanPublishTerminatedInd *event);
     int getNanMatch(NanMatchInd *event);
     int getNanUnMatch(NanUnmatchInd *event);
@@ -88,6 +87,9 @@ private:
     int getNanFurtherAvailabilityMap(const u8 *pInValue,
                                      u32 length,
                                      NanFurtherAvailabilityMap *pFam);
+    void handleNanStatsResponse(NanStatsId stats_id,
+                                char* rspBuf,
+                                NanStatsResponse *pRsp);
 
 public:
     static NanCommand* instance(wifi_handle handle);
@@ -100,7 +102,7 @@ public:
     virtual int handleResponse(WifiEvent reply);
     virtual int handleEvent(WifiEvent &event);
     int setCallbackHandler(NanCallbackHandler nHandler,
-                           void *pUserData);
+                           void *pUserContext);
 
 
     //Functions to fill the vendor data appropriately
