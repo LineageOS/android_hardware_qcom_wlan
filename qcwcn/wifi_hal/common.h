@@ -45,6 +45,7 @@
 #include <utils/Log.h>
 #include "rb_wrapper.h"
 #include "pkt_stats.h"
+#include "wifihal_internal.h"
 
 #define SOCKET_BUFFER_SIZE      (32768U)
 #define RECV_BUF_SIZE           (4096)
@@ -83,6 +84,8 @@ typedef struct {
     int  id;                                        // id to use when talking to driver
 } interface_info;
 
+struct gscan_event_handlers_s;
+
 typedef struct hal_info_s {
 
     struct nl_sock *cmd_sock;                       // command socket object
@@ -119,6 +122,17 @@ typedef struct hal_info_s {
 
     /* socket pair used to exit from blocking poll*/
     int exit_sockets[2];
+    u32 rx_buf_size_allocated;
+    u32 rx_buf_size_occupied;
+    wifi_ring_buffer_entry *rx_aggr_pkts;
+    rx_aggr_stats aggr_stats;
+    u32 prev_seq_no;
+    // pointer to structure having various gscan_event_handlers
+    struct gscan_event_handlers_s *gscan_handlers;
+    /* mutex for the log_handler access*/
+    pthread_mutex_t lh_lock;
+    /* mutex for the alert_handler access*/
+    pthread_mutex_t ah_lock;
 } hal_info;
 
 wifi_error wifi_register_handler(wifi_handle handle, int cmd, nl_recvmsg_msg_cb_t func, void *arg);
@@ -138,7 +152,10 @@ hal_info *getHalInfo(wifi_handle handle);
 hal_info *getHalInfo(wifi_interface_handle handle);
 wifi_handle getWifiHandle(hal_info *info);
 wifi_interface_handle getIfaceHandle(interface_info *info);
+wifi_error initializeGscanHandlers(hal_info *info);
+wifi_error cleanupGscanHandlers(hal_info *info);
 
+lowi_cb_table_t *getLowiCallbackTable(u32 requested_lowi_capabilities);
 
 wifi_error wifi_start_sending_offloaded_packet(wifi_request_id id,
         wifi_interface_handle iface, u8 *ip_packet, u16 ip_packet_len,
@@ -152,6 +169,10 @@ wifi_error wifi_stop_rssi_monitoring(wifi_request_id id, wifi_interface_handle i
 
 #define min(x, y)       ((x) < (y) ? (x) : (y))
 #define max(x, y)       ((x) > (y) ? (x) : (y))
+
+#define REQUEST_ID_MAX 1000
+#define get_requestid() ((arc4random()%REQUEST_ID_MAX) + 1)
+#define WAIT_TIME_FOR_SET_REG_DOMAIN 50000
 
 #ifdef __cplusplus
 extern "C"

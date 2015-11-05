@@ -35,6 +35,7 @@
 #include <utils/Log.h>
 #include "wifiloggercmd.h"
 #include "rb_wrapper.h"
+#include <stdlib.h>
 
 #define LOGGER_MEMDUMP_FILENAME "/proc/debug/fwdump"
 #define LOGGER_MEMDUMP_CHUNKSIZE (4 * 1024)
@@ -77,7 +78,7 @@ wifi_error wifi_start_logging(wifi_interface_handle iface,
      * No request id from caller, so generate one and pass it on to the driver.
      * Generate one randomly.
      */
-    requestId = rand();
+    requestId = get_requestid();
 
     if (buffer_name == NULL) {
         ALOGE("%s: Invalid Ring Name. \n", __FUNCTION__);
@@ -147,7 +148,7 @@ wifi_error wifi_start_logging(wifi_interface_handle iface,
         }
 
     }
-    ALOGI("%s: Logging Started for %s.", __FUNCTION__, buffer_name);
+    ALOGV("%s: Logging Started for %s.", __FUNCTION__, buffer_name);
     rb_start_logging(&info->rb_infos[ring_id], verbose_level,
                     flags, max_interval_sec, min_data_size);
 cleanup:
@@ -198,9 +199,14 @@ void push_out_all_ring_buffers(hal_info *info)
 
 void send_alert(hal_info *info, int reason_code)
 {
-    //TODO check locking
-    if (info->on_alert) {
-        info->on_alert(0, NULL, 0, reason_code);
+    wifi_alert_handler handler;
+
+    pthread_mutex_lock(&info->ah_lock);
+    handler.on_alert = info->on_alert;
+    pthread_mutex_unlock(&info->ah_lock);
+
+    if (handler.on_alert) {
+        handler.on_alert(0, NULL, 0, reason_code);
     }
 }
 
@@ -223,7 +229,7 @@ wifi_error wifi_get_logger_supported_feature_set(wifi_interface_handle iface,
     /* No request id from caller, so generate one and pass it on to the driver.
      * Generate one randomly.
      */
-    requestId = rand();
+    requestId = get_requestid();
 
     wifiLoggerCommand = new WifiLoggerCommand(
                             wifiHandle,
@@ -292,7 +298,7 @@ wifi_error wifi_get_ring_data(wifi_interface_handle iface,
         return WIFI_ERROR_UNKNOWN;
     }
 
-    requestId = rand();
+    requestId = get_requestid();
 
     wifiLoggerCommand = new WifiLoggerCommand(
                                 wifiHandle,
@@ -328,7 +334,6 @@ wifi_error wifi_get_ring_data(wifi_interface_handle iface,
     }
     wifiLoggerCommand->attr_end(nlData);
 
-    //TBD  Is there requestResponse here
     /* Send the msg and wait for a response. */
     ret = wifiLoggerCommand->requestResponse();
     if (ret) {
@@ -359,7 +364,7 @@ wifi_error wifi_get_firmware_version(wifi_interface_handle iface,
     /* No request id from caller, so generate one and pass it on to the driver.
      * Generate one randomly.
      */
-    requestId = rand();
+    requestId = get_requestid();
 
     wifiLoggerCommand = new WifiLoggerCommand(
                                 wifiHandle,
@@ -423,7 +428,7 @@ wifi_error wifi_get_driver_version(wifi_interface_handle iface,
     /* No request id from caller, so generate one and pass it on to the driver.
      * Generate one randomly.
      */
-    requestId = rand();
+    requestId = get_requestid();
 
     wifiLoggerCommand = new WifiLoggerCommand(
                             wifiHandle,
@@ -486,7 +491,7 @@ wifi_error wifi_get_firmware_memory_dump(wifi_interface_handle iface,
     /* No request id from caller, so generate one and pass it on to the driver.
      * Generate one randomly.
      */
-    requestId = rand();
+    requestId = get_requestid();
 
     wifiLoggerCommand = new WifiLoggerCommand(
                             wifiHandle,
@@ -527,9 +532,8 @@ wifi_error wifi_get_firmware_memory_dump(wifi_interface_handle iface,
     if (ret < 0)
         goto cleanup;
 
-    /* Send the msg and wait for the memory dump event */
-    wifiLoggerCommand->waitForRsp(true);
-    ret = wifiLoggerCommand->requestEvent();
+    /* Send the msg and wait for the memory dump response */
+    ret = wifiLoggerCommand->requestResponse();
     if (ret) {
         ALOGE("%s: Error %d happened. ", __FUNCTION__, ret);
     }
@@ -546,9 +550,11 @@ wifi_error wifi_set_log_handler(wifi_request_id id,
     wifi_handle wifiHandle = getWifiHandle(iface);
     hal_info *info = getHalInfo(wifiHandle);
 
+    pthread_mutex_lock(&info->lh_lock);
     info->on_ring_buffer_data = handler.on_ring_buffer_data;
+    pthread_mutex_unlock(&info->lh_lock);
     if (handler.on_ring_buffer_data == NULL) {
-        ALOGE("Input handler is NULL");
+        ALOGE("Set log handler is NULL");
         return WIFI_ERROR_UNKNOWN;
     }
     return WIFI_SUCCESS;
@@ -560,8 +566,9 @@ wifi_error wifi_reset_log_handler(wifi_request_id id,
     wifi_handle wifiHandle = getWifiHandle(iface);
     hal_info *info = getHalInfo(wifiHandle);
 
-    /* Some locking needs to be introduced here */
+    pthread_mutex_lock(&info->lh_lock);
     info->on_ring_buffer_data = NULL;
+    pthread_mutex_unlock(&info->lh_lock);
     return WIFI_SUCCESS;
 }
 
@@ -572,12 +579,13 @@ wifi_error wifi_set_alert_handler(wifi_request_id id,
     wifi_handle wifiHandle = getWifiHandle(iface);
     hal_info *info = getHalInfo(wifiHandle);
 
-    if (handler.on_alert) {
-        ALOGE("Input handler is NULL");
+    if (handler.on_alert == NULL) {
+        ALOGE("Set alert handler is NULL");
         return WIFI_ERROR_UNKNOWN;
     }
-    //TODO check locking
+    pthread_mutex_lock(&info->ah_lock);
     info->on_alert = handler.on_alert;
+    pthread_mutex_unlock(&info->ah_lock);
     return WIFI_SUCCESS;
 }
 
@@ -587,8 +595,9 @@ wifi_error wifi_reset_alert_handler(wifi_request_id id,
     wifi_handle wifiHandle = getWifiHandle(iface);
     hal_info *info = getHalInfo(wifiHandle);
 
-    /* Some locking needs to be introduced here */
+    pthread_mutex_lock(&info->ah_lock);
     info->on_alert = NULL;
+    pthread_mutex_unlock(&info->ah_lock);
     return WIFI_SUCCESS;
 }
 
@@ -607,7 +616,7 @@ WifiLoggerCommand::WifiLoggerCommand(wifi_handle handle, int id, u32 vendor_id, 
 
 WifiLoggerCommand::~WifiLoggerCommand()
 {
-    ALOGD("WifiLoggerCommand %p destructor", this);
+    ALOGV("WifiLoggerCommand %p destructor", this);
     unregisterVendorHandler(mVendor_id, mSubcmd);
 }
 
@@ -627,7 +636,7 @@ int WifiLoggerCommand::create() {
     if (ret < 0)
         goto out;
 
-     ALOGI("%s: mVendor_id = %d, Subcmd = %d.",
+     ALOGV("%s: mVendor_id = %d, Subcmd = %d.",
         __FUNCTION__, mVendor_id, mSubcmd);
 
 out:
@@ -699,6 +708,9 @@ wifi_error wifi_logger_ring_buffers_init(hal_info *info)
         goto cleanup;
     }
 
+    pthread_mutex_init(&info->lh_lock, NULL);
+    pthread_mutex_init(&info->ah_lock, NULL);
+
     return ret;
 
 cleanup:
@@ -713,6 +725,8 @@ void wifi_logger_ring_buffers_deinit(hal_info *info)
     for (i = 0; i < NUM_RING_BUFS; i++) {
         rb_deinit(&info->rb_infos[i]);
     }
+    pthread_mutex_destroy(&info->lh_lock);
+    pthread_mutex_destroy(&info->ah_lock);
 }
 
 
@@ -735,7 +749,6 @@ static int ack_handler_wifi_logger(struct nl_msg *msg, void *arg)
     int *ret = (int *)arg;
     struct nl_msg * a;
 
-    ALOGE("%s: called", __FUNCTION__);
     a = msg;
     *ret = 0;
     return NL_STOP;
@@ -747,7 +760,6 @@ static int finish_handler_wifi_logger(struct nl_msg *msg, void *arg)
   int *ret = (int *)arg;
   struct nl_msg * a;
 
-  ALOGE("%s: called", __FUNCTION__);
   a = msg;
   *ret = 0;
   return NL_SKIP;
@@ -757,8 +769,6 @@ int WifiLoggerCommand::requestEvent()
 {
     int res = -1;
     struct nl_cb *cb;
-
-    ALOGD("%s: Entry.", __FUNCTION__);
 
     cb = nl_cb_alloc(NL_CB_DEFAULT);
     if (!cb) {
@@ -782,7 +792,7 @@ int WifiLoggerCommand::requestEvent()
          nl_recvmsgs(mInfo->cmd_sock, cb);
     }
 
-    ALOGD("%s: Msg sent, res=%d, mWaitForRsp=%d", __FUNCTION__, res, mWaitforRsp);
+    ALOGV("%s: Msg sent, res=%d, mWaitForRsp=%d", __FUNCTION__, res, mWaitforRsp);
     /* Only wait for the asynchronous event if HDD returns success, res=0 */
     if (!res && (mWaitforRsp == true)) {
         struct timespec abstime;
@@ -793,7 +803,7 @@ int WifiLoggerCommand::requestEvent()
         {
             ALOGE("%s: Time out happened.", __FUNCTION__);
         }
-        ALOGD("%s: Command invoked return value:%d, mWaitForRsp=%d",
+        ALOGV("%s: Command invoked return value:%d, mWaitForRsp=%d",
             __FUNCTION__, res, mWaitforRsp);
     }
 out:
@@ -808,14 +818,16 @@ int WifiLoggerCommand::requestResponse()
 }
 
 int WifiLoggerCommand::handleResponse(WifiEvent &reply) {
-    ALOGD("Received a WifiLogger response message from Driver");
     u32 status;
     int ret = WIFI_SUCCESS;
     int i = 0;
     int len = 0, version;
     char version_type[20];
+    char* memBuffer = NULL;
+    FILE* memDumpFilePtr = NULL;
     WifiVendorCommand::handleResponse(reply);
 
+    memset(version_type, 0, 20);
     switch(mSubcmd)
     {
         case QCA_NL80211_VENDOR_SUBCMD_GET_WIFI_INFO:
@@ -866,36 +878,7 @@ int WifiLoggerCommand::handleResponse(WifiEvent &reply) {
             }
         }
         break;
-        default :
-            ALOGE("%s: Wrong Wifi Logger subcmd response received %d",
-                __FUNCTION__, mSubcmd);
-    }
 
-    return NL_SKIP;
-}
-
-/* This function will be the main handler for incoming (from driver)
- * WIFI_LOGGER_SUBCMD.
- * Calls the appropriate callback handler after parsing the vendor data.
- */
-int WifiLoggerCommand::handleEvent(WifiEvent &event)
-{
-    unsigned i = 0;
-    u32 status;
-    int ret = WIFI_SUCCESS;
-    char* memBuffer = NULL;
-    FILE* memDumpFilePtr = NULL;
-
-    WifiVendorCommand::handleEvent(event);
-
-    struct nlattr *tbVendor[
-        QCA_WLAN_VENDOR_ATTR_LOGGER_RESULTS_MAX + 1];
-    nla_parse(tbVendor, QCA_WLAN_VENDOR_ATTR_LOGGER_RESULTS_MAX,
-            (struct nlattr *)mVendorData,
-            mDataLen, NULL);
-
-    switch(mSubcmd)
-    {
         case QCA_NL80211_VENDOR_SUBCMD_WIFI_LOGGER_MEMORY_DUMP:
         {
             int id = 0;
@@ -903,24 +886,17 @@ int WifiLoggerCommand::handleEvent(WifiEvent &event)
             int numRecordsRead = 0;
             u32 remaining = 0;
             char* buffer = NULL;
+            struct nlattr *tbVendor[
+                QCA_WLAN_VENDOR_ATTR_LOGGER_RESULTS_MAX + 1];
 
-            if (!tbVendor[
-                QCA_WLAN_VENDOR_ATTR_LOGGER_RESULTS_REQUEST_ID]) {
-                ALOGE("%s: LOGGER_RESULTS_REQUEST_ID not"
-                    "found, continuing...", __func__);
-            }
-            else {
-                id = nla_get_u32(tbVendor[
-                          QCA_WLAN_VENDOR_ATTR_LOGGER_RESULTS_REQUEST_ID]
-                      );
-                ALOGI("%s: Event has Req. ID:%d, ours:%d",
-                    __func__, id, mRequestId);
-            }
+            nla_parse(tbVendor, QCA_WLAN_VENDOR_ATTR_LOGGER_RESULTS_MAX,
+                    (struct nlattr *)mVendorData,
+                    mDataLen, NULL);
 
             if (!tbVendor[
                 QCA_WLAN_VENDOR_ATTR_LOGGER_RESULTS_MEMDUMP_SIZE]) {
                 ALOGE("%s: LOGGER_RESULTS_MEMDUMP_SIZE not"
-                    "found", __func__);
+                      "found", __FUNCTION__);
                 break;
             }
 
@@ -971,7 +947,7 @@ int WifiLoggerCommand::handleEvent(WifiEvent &event)
                     if (numRecordsRead) {
                         remaining -= readSize;
                         buffer += readSize;
-                        ALOGI("%s: Read successful for size:%u "
+                        ALOGV("%s: Read successful for size:%u "
                               "remaining:%u", __func__, readSize,
                               remaining);
                     }
@@ -992,6 +968,31 @@ int WifiLoggerCommand::handleEvent(WifiEvent &event)
         }
         break;
 
+        default :
+            ALOGE("%s: Wrong Wifi Logger subcmd response received %d",
+                __FUNCTION__, mSubcmd);
+    }
+
+    /* free the allocated memory */
+    if (memBuffer) {
+        free(memBuffer);
+    }
+    if (memDumpFilePtr) {
+        fclose(memDumpFilePtr);
+    }
+    return NL_SKIP;
+}
+
+/* This function will be the main handler for incoming (from driver)
+ * WIFI_LOGGER_SUBCMD.
+ * Calls the appropriate callback handler after parsing the vendor data.
+ */
+int WifiLoggerCommand::handleEvent(WifiEvent &event)
+{
+    WifiVendorCommand::handleEvent(event);
+
+    switch(mSubcmd)
+    {
        default:
            /* Error case should not happen print log */
            ALOGE("%s: Wrong subcmd received %d", __func__, mSubcmd);
@@ -999,10 +1000,6 @@ int WifiLoggerCommand::handleEvent(WifiEvent &event)
     }
 
 cleanup:
-    /* free the allocated memory */
-    if (memBuffer) {
-        free(memBuffer);
-    }
     return NL_SKIP;
 }
 

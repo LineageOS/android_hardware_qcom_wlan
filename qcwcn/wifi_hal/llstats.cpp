@@ -47,7 +47,6 @@ int LLStatsCommand::create() {
     if (ret < 0)
         goto out;
 
-    ALOGI("mVendor_id = %d, Subcmd = %d in  %s:%d\n", mVendor_id, mSubcmd, __func__, __LINE__);
 out:
     return ret;
 }
@@ -55,7 +54,6 @@ out:
 LLStatsCommand::LLStatsCommand(wifi_handle handle, int id, u32 vendor_id, u32 subcmd)
         : WifiVendorCommand(handle, id, vendor_id, subcmd)
 {
-    ALOGV("LLStatsCommand %p constructed", this);
     memset(&mClearRspParams, 0,sizeof(LLStatsClearRspParams));
     memset(&mResultsParams, 0,sizeof(LLStatsResultsParams));
     memset(&mHandler, 0,sizeof(mHandler));
@@ -63,7 +61,6 @@ LLStatsCommand::LLStatsCommand(wifi_handle handle, int id, u32 vendor_id, u32 su
 
 LLStatsCommand::~LLStatsCommand()
 {
-    ALOGW("LLStatsCommand %p distructor", this);
     mLLStatsCommandInstance = NULL;
 }
 
@@ -77,7 +74,6 @@ LLStatsCommand* LLStatsCommand::instance(wifi_handle handle)
         mLLStatsCommandInstance = new LLStatsCommand(handle, 0,
                 OUI_QCA,
                 QCA_NL80211_VENDOR_SUBCMD_LL_STATS_SET);
-        ALOGV("LLStatsCommand %p created", mLLStatsCommandInstance);
         return mLLStatsCommandInstance;
     }
     else
@@ -90,7 +86,6 @@ LLStatsCommand* LLStatsCommand::instance(wifi_handle handle)
             mLLStatsCommandInstance->mInfo = (hal_info *)handle;
         }
     }
-    ALOGV("LLStatsCommand %p created already", mLLStatsCommandInstance);
     return mLLStatsCommandInstance;
 }
 
@@ -193,17 +188,30 @@ static wifi_error get_wifi_interface_info(wifi_interface_link_layer_info *stats,
     memcpy(&stats->country_str[0], nla_data(tb_vendor[QCA_WLAN_VENDOR_ATTR_LL_STATS_IFACE_INFO_COUNTRY_STR]),
            len);
 
-    ALOGI("STATS IFACE: Mode %d", stats->mode);
-    ALOGI("STATS IFACE: MAC %pM", stats->mac_addr);
-    ALOGI("STATS IFACE: State %d ", stats->state);
-    ALOGI("STATS IFACE: Roaming %d ", stats->roaming);
-    ALOGI("STATS IFACE: capabilities %0x ", stats->capabilities);
-    ALOGI("STATS IFACE: SSID %s ", stats->ssid);
-    ALOGI("STATS IFACE: BSSID %pM ", stats->bssid);
-    ALOGI("STATS IFACE: AP country str %c%c%c ", stats->ap_country_str[0],
-            stats->ap_country_str[1], stats->ap_country_str[2]);
-    ALOGI("STATS IFACE:Country String for this Association %c%c%c", stats->country_str[0],
-            stats->country_str[1], stats->country_str[2]);
+    ALOGV("Mode : %d\n"
+          "Mac addr : "
+          MAC_ADDR_STR
+          "\nState : %d\n"
+          "Roaming : %d\n"
+          "capabilities : %0x\n"
+          "SSID :%s\n"
+          "BSSID : "
+          MAC_ADDR_STR
+          "\nAP country str : %c%c%c\n"
+          "Country String for this Association : %c%c%c",
+          stats->mode,
+          MAC_ADDR_ARRAY(stats->mac_addr),
+          stats->state,
+          stats->roaming,
+          stats->capabilities,
+          stats->ssid,
+          MAC_ADDR_ARRAY(stats->bssid),
+          stats->ap_country_str[0],
+          stats->ap_country_str[1],
+          stats->ap_country_str[2],
+          stats->country_str[0],
+          stats->country_str[1],
+          stats->country_str[2]);
     return WIFI_SUCCESS;
 }
 
@@ -316,27 +324,25 @@ static wifi_error get_wifi_wmm_ac_stat(wifi_wmm_ac_stat *stats,
     }
     stats->contention_num_samples = nla_get_u32(tb_vendor[QCA_WLAN_VENDOR_ATTR_LL_STATS_WMM_AC_CONTENTION_NUM_SAMPLES]);
 
-    ALOGI("STATS IFACE: ac  %u ", stats->ac);
-    ALOGI("STATS IFACE: txMpdu  %u ", stats->tx_mpdu) ;
-    ALOGI("STATS IFACE: rxMpdu  %u ", stats->rx_mpdu);
-    ALOGI("STATS IFACE: txMcast  %u ", stats->tx_mcast);
-    ALOGI("STATS IFACE: rxMcast  %u ", stats->rx_mcast);
-    ALOGI("STATS IFACE: rxAmpdu  %u ", stats->rx_ampdu);
-    ALOGI("STATS IFACE: txAmpdu  %u ", stats->tx_ampdu);
-    ALOGI("STATS IFACE: mpduLost  %u ", stats->mpdu_lost);
-    ALOGI("STATS IFACE: retries %u  ", stats->retries);
-    ALOGI("STATS IFACE: retriesShort  %u ",
-            stats->retries_short);
-    ALOGI("STATS IFACE: retriesLong  %u  ",
-            stats->retries_long);
-    ALOGI("STATS IFACE: contentionTimeMin  %u ",
-            stats->contention_time_min);
-    ALOGI("STATS IFACE: contentionTimeMax  %u ",
-            stats->contention_time_max);
-    ALOGI("STATS IFACE: contentionTimeAvg  %u ",
-            stats->contention_time_avg);
-    ALOGI("STATS IFACE: contentionNumSamples  %u ",
-            stats->contention_num_samples);
+    ALOGV("%4u | %6u | %6u | %7u | %7u | %7u |"
+          " %7u | %8u | %7u | %12u |"
+          " %11u | %17u | %17u |"
+          " %17u | %20u",
+          stats->ac,
+          stats->tx_mpdu,
+          stats->rx_mpdu,
+          stats->tx_mcast,
+          stats->rx_mcast,
+          stats->rx_ampdu,
+          stats->tx_ampdu,
+          stats->mpdu_lost,
+          stats->retries,
+          stats->retries_short,
+          stats->retries_long,
+          stats->contention_time_min,
+          stats->contention_time_max,
+          stats->contention_time_avg,
+          stats->contention_num_samples);
     return WIFI_SUCCESS;
 }
 
@@ -421,18 +427,18 @@ static wifi_error get_wifi_rate_stat(wifi_rate_stat *stats,
     }
     stats->retries_long         = nla_get_u32(tb_vendor[QCA_WLAN_VENDOR_ATTR_LL_STATS_RATE_RETRIES_LONG]);
 
-    ALOGI("STATS PEER_ALL : preamble  %u", stats->rate.preamble);
-    ALOGI("STATS PEER_ALL : nss %u", stats->rate.nss);
-    ALOGI("STATS PEER_ALL : bw %u", stats->rate.bw);
-    ALOGI("STATS PEER_ALL : rateMcsIdx  %u", stats->rate.rateMcsIdx);
-    ALOGI("STATS PEER_ALL : bitrate %u", stats->rate.bitrate);
-
-    ALOGI("STATS PEER_ALL : txMpdu %u", stats->tx_mpdu);
-    ALOGI("STATS PEER_ALL : rxMpdu %u", stats->rx_mpdu);
-    ALOGI("STATS PEER_ALL : mpduLost %u", stats->mpdu_lost);
-    ALOGI("STATS PEER_ALL : retries %u", stats->retries);
-    ALOGI("STATS PEER_ALL : retriesShort %u", stats->retries_short);
-    ALOGI("STATS PEER_ALL : retriesLong %u", stats->retries_long);
+    ALOGV("%8u | %3u | %2u | %10u | %7u | %6u | %6u | %8u | %7u | %12u | %11u",
+          stats->rate.preamble,
+          stats->rate.nss,
+          stats->rate.bw,
+          stats->rate.rateMcsIdx,
+          stats->rate.bitrate,
+          stats->tx_mpdu,
+          stats->rx_mpdu,
+          stats->mpdu_lost,
+          stats->retries,
+          stats->retries_short,
+          stats->retries_long);
     return WIFI_SUCCESS;
 }
 
@@ -476,13 +482,10 @@ static wifi_error get_wifi_peer_info(wifi_peer_info *stats,
     }
     stats->num_rate               = nla_get_u32(tb_vendor[QCA_WLAN_VENDOR_ATTR_LL_STATS_PEER_INFO_NUM_RATES]);
 
-    ALOGI("STATS PEER_ALL : numPeers %u", stats->type);
-    ALOGI("STATS PEER_ALL : peerMacAddress  %0x:%0x:%0x:%0x:%0x:%0x ",
-            stats->peer_mac_address[0], stats->peer_mac_address[1],
-            stats->peer_mac_address[2],stats->peer_mac_address[3],
-            stats->peer_mac_address[4],stats->peer_mac_address[5]);
-    ALOGI("STATS PEER_ALL : capabilities %0x", stats->capabilities);
-    ALOGI("STATS PEER_ALL :  numRate %u", stats->num_rate);
+    ALOGV("PEER STATS");
+    ALOGV("numPeers %u  Peer MAC addr :" MAC_ADDR_STR " capabilities %0x numRate %u",
+           stats->type, MAC_ADDR_ARRAY(stats->peer_mac_address),
+           stats->capabilities, stats->num_rate);
 
 
     if (!tb_vendor[QCA_WLAN_VENDOR_ATTR_LL_STATS_PEER_INFO_RATE_INFO])
@@ -490,6 +493,8 @@ static wifi_error get_wifi_peer_info(wifi_peer_info *stats,
         ALOGE("%s: QCA_WLAN_VENDOR_ATTR_LL_STATS_PEER_INFO_RATE_INFO not found", __func__);
         return WIFI_ERROR_INVALID_ARGS;
     }
+    ALOGV("%8s | %3s | %2s | %10s | %7s | %6s | %6s | %8s | %7s | %12s | %11s",
+          "preamble", "nss", "bw", "rateMcsIdx", "bitrate", "txMpdu", "rxMpdu", "mpduLost", "retries", "retriesShort", "retriesLong");
     for (rateInfo = (struct nlattr *) nla_data(tb_vendor[QCA_WLAN_VENDOR_ATTR_LL_STATS_PEER_INFO_RATE_INFO]), rem = nla_len(tb_vendor[QCA_WLAN_VENDOR_ATTR_LL_STATS_PEER_INFO_RATE_INFO]);
             nla_ok(rateInfo, rem);
             rateInfo = nla_next(rateInfo, &(rem)))
@@ -624,14 +629,21 @@ wifi_error LLStatsCommand::get_wifi_iface_stats(wifi_iface_stat *stats,
     stats->rssi_ack        = get_s32(tb_vendor[
             QCA_WLAN_VENDOR_ATTR_LL_STATS_IFACE_RSSI_ACK]);
 
-    ALOGI("STATS IFACE: beaconRx : %u ", stats->beacon_rx);
-    ALOGI("STATS IFACE: mgmtRx %u ", stats->mgmt_rx);
-    ALOGI("STATS IFACE: mgmtActionRx  %u ", stats->mgmt_action_rx);
-    ALOGI("STATS IFACE: mgmtActionTx %u ", stats->mgmt_action_tx);
-    ALOGI("STATS IFACE: rssiMgmt %d ", stats->rssi_mgmt);
-    ALOGI("STATS IFACE: rssiData %d ", stats->rssi_data);
-    ALOGI("STATS IFACE: rssiAck  %d ", stats->rssi_ack);
-
+    ALOGV("WMM STATS");
+    ALOGV("beaconRx : %u "
+          "mgmtRx : %u "
+          "mgmtActionRx  : %u "
+          "mgmtActionTx : %u "
+          "rssiMgmt : %d "
+          "rssiData : %d "
+          "rssiAck  : %d ",
+          stats->beacon_rx,
+          stats->mgmt_rx,
+          stats->mgmt_action_rx,
+          stats->mgmt_action_tx,
+          stats->rssi_mgmt,
+          stats->rssi_data,
+          stats->rssi_ack);
     if (!tb_vendor[QCA_WLAN_VENDOR_ATTR_LL_STATS_WMM_INFO])
     {
         ALOGE("%s: QCA_WLAN_VENDOR_ATTR_LL_STATS_WMM_INFO"
@@ -639,6 +651,14 @@ wifi_error LLStatsCommand::get_wifi_iface_stats(wifi_iface_stat *stats,
         return WIFI_ERROR_INVALID_ARGS;
     }
 
+    ALOGV("%4s | %6s | %6s | %7s | %7s | %7s |"
+          " %7s | %8s | %7s | %12s |"
+          " %11s | %17s | %17s |"
+          " %17s | %20s",
+          "ac","txMpdu", "rxMpdu", "txMcast", "rxMcast", "rxAmpdu",
+          "txAmpdu", "mpduLost", "retries", "retriesShort",
+          "retriesLong", "contentionTimeMin", "contentionTimeMax",
+          "contentionTimeAvg", "contentionNumSamples");
     for (wmmInfo = (struct nlattr *) nla_data(tb_vendor[
                 QCA_WLAN_VENDOR_ATTR_LL_STATS_WMM_INFO]),
             rem = nla_len(tb_vendor[
@@ -821,7 +841,6 @@ int LLStatsCommand::requestResponse()
 
 int LLStatsCommand::handleResponse(WifiEvent &reply)
 {
-    ALOGI("Got a LLStats message from Driver");
     unsigned i=0;
     int status = WIFI_ERROR_NONE;
     WifiVendorCommand::handleResponse(reply);
@@ -852,8 +871,7 @@ int LLStatsCommand::handleResponse(WifiEvent &reply)
             {
                 case QCA_NL80211_VENDOR_SUBCMD_LL_STATS_TYPE_RADIO:
                 {
-                    ALOGI("QCA_NL80211_VENDOR_SUBCMD_LL_STATS_RADIO_RESULTS"
-                          " Received");
+                    ALOGV("Radio Stats Received: ");
                     if (!tb_vendor[
                         QCA_WLAN_VENDOR_ATTR_LL_STATS_RADIO_NUM_CHANNELS
                         ])
@@ -864,10 +882,6 @@ int LLStatsCommand::handleResponse(WifiEvent &reply)
                         status = WIFI_ERROR_INVALID_ARGS;
                         goto cleanup;
                     }
-
-                    ALOGI(" NumChan is %d\n ",
-                            nla_get_u32(tb_vendor[
-                            QCA_WLAN_VENDOR_ATTR_LL_STATS_RADIO_NUM_CHANNELS]));
 
                     resultsBufSize += (nla_get_u32(tb_vendor[
                             QCA_WLAN_VENDOR_ATTR_LL_STATS_RADIO_NUM_CHANNELS])
@@ -891,24 +905,24 @@ int LLStatsCommand::handleResponse(WifiEvent &reply)
                         goto cleanup;
                     }
 
-                    ALOGI(" radio is %u ", mResultsParams.radio_stat->radio);
-                    ALOGI(" onTime is %u ", mResultsParams.radio_stat->on_time);
-                    ALOGI(" txTime is %u ", mResultsParams.radio_stat->tx_time);
-                    ALOGI(" rxTime is %u ", mResultsParams.radio_stat->rx_time);
-                    ALOGI(" onTimeScan is %u ",
-                        mResultsParams.radio_stat->on_time_scan);
-                    ALOGI(" onTimeNbd is %u ",
-                        mResultsParams.radio_stat->on_time_nbd);
-                    ALOGI(" onTimeGscan is %u ",
-                        mResultsParams.radio_stat->on_time_gscan);
-                    ALOGI(" onTimeRoamScan is %u",
-                        mResultsParams.radio_stat->on_time_roam_scan);
-                    ALOGI(" onTimePnoScan is %u ",
-                        mResultsParams.radio_stat->on_time_pno_scan);
-                    ALOGI(" onTimeHs20 is %u ",
-                        mResultsParams.radio_stat->on_time_hs20);
-                    ALOGI(" numChannels is %u ",
-                        mResultsParams.radio_stat->num_channels);
+                    ALOGV("radio :%u onTime :%u txTime :%u rxTime :%u"
+                          " onTimeScan :%u onTimeNbd :%u onTimeGscan :%u"
+                          " onTimeRoamScan :%u onTimePnoScan :%u"
+                          " onTimeHs20 :%u numChannels :%u",
+                          mResultsParams.radio_stat->radio,
+                          mResultsParams.radio_stat->on_time,
+                          mResultsParams.radio_stat->tx_time,
+                          mResultsParams.radio_stat->rx_time,
+                          mResultsParams.radio_stat->on_time_scan,
+                          mResultsParams.radio_stat->on_time_nbd,
+                          mResultsParams.radio_stat->on_time_gscan,
+                          mResultsParams.radio_stat->on_time_roam_scan,
+                          mResultsParams.radio_stat->on_time_pno_scan,
+                          mResultsParams.radio_stat->on_time_hs20,
+                          mResultsParams.radio_stat->num_channels);
+                    ALOGV("%5s | %10s | %11s | %11s | %6s | %11s", "width",
+                          "CenterFreq", "CenterFreq0", "CenterFreq1",
+                          "onTime", "ccaBusyTime");
                     for ( i=0; i < mResultsParams.radio_stat->num_channels; i++)
                     {
                         pWifiChannelStats =
@@ -916,26 +930,20 @@ int LLStatsCommand::handleResponse(WifiEvent &reply)
                                 (u8 *)mResultsParams.radio_stat->channels
                                 + (i * sizeof(wifi_channel_stat)));
 
-                        ALOGI("  width is %u ",
-                             pWifiChannelStats->channel.width);
-                        ALOGI("  CenterFreq %u ",
-                             pWifiChannelStats->channel.center_freq);
-                        ALOGI("  CenterFreq0 %u ",
-                             pWifiChannelStats->channel.center_freq0);
-                        ALOGI("  CenterFreq1 %u ",
-                             pWifiChannelStats->channel.center_freq1);
-                        ALOGI("  onTime %u ",
-                             pWifiChannelStats->on_time);
-                        ALOGI("  ccaBusyTime %u ",
-                             pWifiChannelStats->cca_busy_time);
+                        ALOGV("%5u | %10u | %11u | %11u | %6u | %11u",
+                              pWifiChannelStats->channel.width,
+                              pWifiChannelStats->channel.center_freq,
+                              pWifiChannelStats->channel.center_freq0,
+                              pWifiChannelStats->channel.center_freq1,
+                              pWifiChannelStats->on_time,
+                              pWifiChannelStats->cca_busy_time);
                     }
                 }
                 break;
 
                 case QCA_NL80211_VENDOR_SUBCMD_LL_STATS_TYPE_IFACE:
                 {
-                    ALOGI("QCA_NL80211_VENDOR_SUBCMD_LL_STATS_IFACE_RESULTS"
-                            " Received");
+                    ALOGV("Iface Stats Received");
                     resultsBufSize = sizeof(wifi_iface_stat);
                     mResultsParams.iface_stat =
                         (wifi_iface_stat *) malloc (resultsBufSize);
@@ -963,16 +971,14 @@ int LLStatsCommand::handleResponse(WifiEvent &reply)
                     {
                         ALOGE("%s:QCA_WLAN_VENDOR_ATTR_LL_STATS_IFACE_NUM_PEERS"
                                 " not found", __func__);
-                        ALOGE("Expecting Peer stats event");
                     } else {
                         mResultsParams.iface_stat->num_peers =
                             nla_get_u32(tb_vendor[
                                 QCA_WLAN_VENDOR_ATTR_LL_STATS_IFACE_NUM_PEERS]);
-                        ALOGI("%s: numPeers is %u\n", __func__,
+                        ALOGV("%s: numPeers is %u\n", __func__,
                                 mResultsParams.iface_stat->num_peers);
                         if(mResultsParams.iface_stat->num_peers == 0)
                         {
-                            ALOGE("Not Expecting Peer stats event");
                             // Number of Radios are 1 for now
                             mHandler.on_link_stats_results(mRequestId,
                                     mResultsParams.iface_stat,
@@ -995,8 +1001,7 @@ int LLStatsCommand::handleResponse(WifiEvent &reply)
                     struct nlattr *peerInfo;
                     wifi_iface_stat *pIfaceStat;
                     u32 numPeers, num_rates = 0;
-                    ALOGI("QCA_NL80211_VENDOR_SUBCMD_LL_STATS_PEERS_RESULTS"
-                          " Received");
+                    ALOGV("Peer Stats Received");
                     if (!tb_vendor[
                             QCA_WLAN_VENDOR_ATTR_LL_STATS_IFACE_NUM_PEERS])
                     {
@@ -1005,7 +1010,7 @@ int LLStatsCommand::handleResponse(WifiEvent &reply)
                         status = WIFI_ERROR_INVALID_ARGS;
                         goto cleanup;
                     }
-                    ALOGI(" numPeers is %u in %s\n",
+                    ALOGV(" numPeers is %u in %s\n",
                             nla_get_u32(tb_vendor[
                             QCA_WLAN_VENDOR_ATTR_LL_STATS_IFACE_NUM_PEERS]),
                             __func__);
@@ -1190,6 +1195,8 @@ wifi_error wifi_set_link_stats(wifi_interface_handle iface,
     interface_info *iinfo = getIfaceInfo(iface);
     wifi_handle handle = getWifiHandle(iface);
 
+    ALOGI("mpdu_size_threshold : %u, aggressive_statistics_gathering : %u",
+          params.mpdu_size_threshold, params.aggressive_statistics_gathering);
     LLCommand = LLStatsCommand::instance(handle);
     if (LLCommand == NULL) {
         ALOGE("%s: Error LLStatsCommand NULL", __func__);
@@ -1302,6 +1309,7 @@ wifi_error wifi_clear_link_stats(wifi_interface_handle iface,
     interface_info *iinfo = getIfaceInfo(iface);
     wifi_handle handle = getWifiHandle(iface);
 
+    ALOGI("clear_req : %x, stop_req : %u", stats_clear_req_mask, stop_req);
     LLCommand = LLStatsCommand::instance(handle);
     if (LLCommand == NULL) {
         ALOGE("%s: Error LLStatsCommand NULL", __func__);

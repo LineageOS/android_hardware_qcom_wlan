@@ -820,8 +820,8 @@ int WifiVendorCommand::handleEvent(WifiEvent &event)
             mDataLen = nla_len(tb[NL80211_ATTR_VENDOR_DATA]);
 #ifdef QC_HAL_DEBUG
             ALOGD("%s: Vendor data len received:%d", __FUNCTION__, mDataLen);
-#endif
             hexdump(mVendorData, mDataLen);
+#endif
         }
     }
     return NL_SKIP;
@@ -849,7 +849,6 @@ int WifiVendorCommand::create() {
 
     //insert the iface id to be "wlan0"
     ifindex = if_nametoindex("wlan0");
-    ALOGE("%s ifindex obtained:%d",__FUNCTION__,ifindex);
     mMsg.set_iface_id(ifindex);
 out:
     return ret;
@@ -971,7 +970,6 @@ void WifiVendorCommand::attr_end(struct nlattr *attribute)
 int WifiVendorCommand::set_iface_id(const char* name)
 {
     unsigned ifindex = if_nametoindex(name);
-    ALOGE("%s ifindex obtained:%d", __FUNCTION__,ifindex);
     return mMsg.set_iface_id(ifindex);
 }
 
@@ -999,6 +997,7 @@ wifi_error WifiVendorCommand::get_mac_addr(struct nlattr **tb_vendor,
 }
 
 wifi_error initialize_vendor_cmd(wifi_interface_handle iface,
+                                 wifi_request_id id,
                                  u32 subcmd,
                                  WifiVendorCommand **vCommand)
 {
@@ -1011,7 +1010,7 @@ wifi_error initialize_vendor_cmd(wifi_interface_handle iface,
         return WIFI_ERROR_INVALID_ARGS;
     }
 
-    *vCommand = new WifiVendorCommand(wifiHandle, 0,
+    *vCommand = new WifiVendorCommand(wifiHandle, id,
                                       OUI_QCA,
                                       subcmd);
     if (*vCommand == NULL) {

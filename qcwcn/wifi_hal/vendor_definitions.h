@@ -594,6 +594,8 @@ enum qca_wlan_vendor_attr_gscan_config_params
     QCA_WLAN_VENDOR_ATTR_GSCAN_SSID_THRESHOLD_PARAM_RSSI_LOW,
     /* Signed 32-bit value */
     QCA_WLAN_VENDOR_ATTR_GSCAN_SSID_THRESHOLD_PARAM_RSSI_HIGH,
+    /* Unsigned 32-bit value; a bitmask w/additional gscan config flag. */
+    QCA_WLAN_VENDOR_ATTR_GSCAN_CONFIGURATION_FLAGS,
 
     /* keep last */
     QCA_WLAN_VENDOR_ATTR_GSCAN_SUBCMD_CONFIG_PARAM_AFTER_LAST,
@@ -933,6 +935,12 @@ enum qca_wlan_vendor_attr_wifi_config {
         QCA_WLAN_VENDOR_ATTR_WIFI_CONFIG_AFTER_LAST - 1,
 };
 
+enum qca_wlan_epno_type
+{
+    QCA_WLAN_EPNO,
+    QCA_WLAN_PNO
+};
+
 enum qca_wlan_vendor_attr_pno_config_params {
     QCA_WLAN_VENDOR_ATTR_PNO_INVALID = 0,
     /* NL attributes for data used by
@@ -983,6 +991,18 @@ enum qca_wlan_vendor_attr_pno_config_params {
     QCA_WLAN_VENDOR_ATTR_PNO_SET_LIST_PARAM_EPNO_NETWORK_FLAGS = 11,
     /* Unsigned 8-bit value; auth bit field for matching WPA IE */
     QCA_WLAN_VENDOR_ATTR_PNO_SET_LIST_PARAM_EPNO_NETWORK_AUTH_BIT = 12,
+    /* Unsigned 8-bit to indicate ePNO type;
+     * It takes values from qca_wlan_epno_type
+     */
+    QCA_WLAN_VENDOR_ATTR_PNO_SET_LIST_PARAM_EPNO_TYPE = 13,
+
+    /* Nested attribute to send the channel list */
+    QCA_WLAN_VENDOR_ATTR_PNO_SET_LIST_PARAM_EPNO_CHANNEL_LIST = 14,
+
+    /* Unsigned 32-bit value; indicates the Interval between PNO scan
+     * cycles in msec
+     */
+    QCA_WLAN_VENDOR_ATTR_PNO_SET_LIST_PARAM_EPNO_SCAN_INTERVAL = 15,
 
     /* keep last */
     QCA_WLAN_VENDOR_ATTR_PNO_AFTER_LAST,

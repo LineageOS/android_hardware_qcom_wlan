@@ -50,6 +50,26 @@ void GScanCommandEventHandler::set_request_id(int request_id)
     mRequestId = request_id;
 }
 
+void GScanCommandEventHandler::enableEventHandling()
+{
+    mEventHandlingEnabled = true;
+}
+
+void GScanCommandEventHandler::disableEventHandling()
+{
+    mEventHandlingEnabled = false;
+}
+
+bool GScanCommandEventHandler::isEventHandlingEnabled()
+{
+    return mEventHandlingEnabled;
+}
+
+void GScanCommandEventHandler::setCallbackHandler(GScanCallbackHandler handler)
+{
+    mHandler = handler;
+}
+
 GScanCommandEventHandler::GScanCommandEventHandler(wifi_handle handle, int id,
                                                 u32 vendor_id,
                                                 u32 subcmd,
@@ -64,6 +84,9 @@ GScanCommandEventHandler::GScanCommandEventHandler(wifi_handle handle, int id,
     mHotlistApFoundResults = NULL;
     mHotlistApFoundNumResults = 0;
     mHotlistApFoundMoreData = false;
+    mHotlistApLostResults = NULL;
+    mHotlistApLostNumResults = 0;
+    mHotlistApLostMoreData = false;
     mSignificantChangeResults = NULL;
     mSignificantChangeNumResults = 0;
     mSignificantChangeMoreData = false;
@@ -80,6 +103,7 @@ GScanCommandEventHandler::GScanCommandEventHandler(wifi_handle handle, int id,
     mPasspointAnqp = NULL;
     mPasspointAnqpLen = 0;
     mPasspointNetId = -1;
+    mEventHandlingEnabled = false;
 
     switch(mSubCommandId)
     {
@@ -94,7 +118,7 @@ GScanCommandEventHandler::GScanCommandEventHandler(wifi_handle handle, int id,
                     QCA_NL80211_VENDOR_SUBCMD_GSCAN_FULL_SCAN_RESULT) ||
                   registerVendorHandler(mVendor_id,
                     QCA_NL80211_VENDOR_SUBCMD_GSCAN_SCAN_EVENT);
-            if (ret < 0)
+            if (ret)
                 ALOGD("%s: Error in registering handler for "
                     "GSCAN_START. \n", __FUNCTION__);
         }
@@ -104,7 +128,7 @@ GScanCommandEventHandler::GScanCommandEventHandler(wifi_handle handle, int id,
         {
             ret = registerVendorHandler(mVendor_id,
                     QCA_NL80211_VENDOR_SUBCMD_GSCAN_SIGNIFICANT_CHANGE);
-            if (ret < 0)
+            if (ret)
                 ALOGD("%s: Error in registering handler for "
                     "GSCAN_SIGNIFICANT_CHANGE. \n", __FUNCTION__);
         }
@@ -114,13 +138,13 @@ GScanCommandEventHandler::GScanCommandEventHandler(wifi_handle handle, int id,
         {
             ret = registerVendorHandler(mVendor_id,
                     QCA_NL80211_VENDOR_SUBCMD_GSCAN_HOTLIST_AP_FOUND);
-            if (ret < 0)
+            if (ret)
                 ALOGD("%s: Error in registering handler for"
                     " GSCAN_HOTLIST_AP_FOUND. \n", __FUNCTION__);
 
             ret = registerVendorHandler(mVendor_id,
                     QCA_NL80211_VENDOR_SUBCMD_GSCAN_HOTLIST_AP_LOST);
-            if (ret < 0)
+            if (ret)
                 ALOGD("%s: Error in registering handler for"
                     " GSCAN_HOTLIST_AP_LOST. \n", __FUNCTION__);
         }
@@ -130,13 +154,13 @@ GScanCommandEventHandler::GScanCommandEventHandler(wifi_handle handle, int id,
         {
             ret = registerVendorHandler(mVendor_id,
                     QCA_NL80211_VENDOR_SUBCMD_GSCAN_HOTLIST_SSID_FOUND);
-            if (ret < 0)
+            if (ret)
                 ALOGD("%s: Error in registering handler for"
                     " GSCAN_HOTLIST_SSID_FOUND. \n", __FUNCTION__);
 
             ret = registerVendorHandler(mVendor_id,
                     QCA_NL80211_VENDOR_SUBCMD_GSCAN_HOTLIST_SSID_LOST);
-            if (ret < 0)
+            if (ret)
                 ALOGD("%s: Error in registering handler for"
                     " GSCAN_HOTLIST_SSID_LOST. \n", __FUNCTION__);
         }
@@ -146,7 +170,7 @@ GScanCommandEventHandler::GScanCommandEventHandler(wifi_handle handle, int id,
         {
             ret = registerVendorHandler(mVendor_id,
                     QCA_NL80211_VENDOR_SUBCMD_PNO_NETWORK_FOUND);
-            if (ret < 0)
+            if (ret)
                 ALOGD("%s: Error in registering handler for"
                     " PNO_NETWORK_FOUND. \n", __FUNCTION__);
         }
@@ -156,7 +180,7 @@ GScanCommandEventHandler::GScanCommandEventHandler(wifi_handle handle, int id,
         {
             ret = registerVendorHandler(mVendor_id,
                 QCA_NL80211_VENDOR_SUBCMD_PNO_PASSPOINT_NETWORK_FOUND);
-            if (ret < 0)
+            if (ret)
                 ALOGD("%s: Error in registering handler for"
                     " PNO_PASSPOINT_NETWORK_FOUND. \n", __FUNCTION__);
         }
@@ -1077,13 +1101,18 @@ wifi_error GScanCommandEventHandler::gscan_parse_pno_network_results(
  */
 int GScanCommandEventHandler::handleEvent(WifiEvent &event)
 {
-    ALOGI("GScanCommandEventHandler::handleEvent: Got a GSCAN Event"
-        " message from the Driver.");
     unsigned i=0;
     int ret = WIFI_SUCCESS;
     u32 status;
     wifi_scan_result *result = NULL;
     struct nlattr *tbVendor[QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_MAX + 1];
+
+    if (mEventHandlingEnabled == false)
+    {
+        ALOGD("%s:Discarding event: %d",
+              __FUNCTION__, mSubcmd);
+        return NL_SKIP;
+    }
 
     WifiVendorCommand::handleEvent(event);
 
@@ -1100,9 +1129,10 @@ int GScanCommandEventHandler::handleEvent(WifiEvent &event)
             u32 resultsBufSize = 0;
             u32 lengthOfInfoElements = 0;
 
+#ifdef QC_HAL_DEBUG
             ALOGD("Event QCA_NL80211_VENDOR_SUBCMD_GSCAN_FULL_SCAN_RESULT "
                 "received.");
-
+#endif
             if (!tbVendor[
                 QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_REQUEST_ID])
             {
@@ -1118,8 +1148,10 @@ int GScanCommandEventHandler::handleEvent(WifiEvent &event)
              *  request_id value which we're maintaining.
              */
             if (reqId != mRequestId) {
+#ifdef QC_HAL_DEBUG
                 ALOGE("%s: Event has Req. ID:%d <> Ours:%d, continue...",
                     __FUNCTION__, reqId, mRequestId);
+#endif
                 reqId = mRequestId;
             }
 
@@ -1137,7 +1169,7 @@ int GScanCommandEventHandler::handleEvent(WifiEvent &event)
                 nla_get_u32(
                 tbVendor[
                 QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_SCAN_RESULT_IE_LENGTH]);
-            ALOGI("%s: RESULTS_SCAN_RESULT_IE_LENGTH =%d",
+            ALOGD("%s: RESULTS_SCAN_RESULT_IE_LENGTH =%d",
                 __FUNCTION__, lengthOfInfoElements);
             resultsBufSize =
                 lengthOfInfoElements + sizeof(wifi_scan_result);
