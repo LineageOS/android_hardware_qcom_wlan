@@ -15,7 +15,7 @@
  */
 
 #ifndef __WIFI_HAL_NAN_COMMAND_H__
-#define __WIFH_HAL_NAN_COMMAND_H__
+#define __WIFI_HAL_NAN_COMMAND_H__
 
 #include "common.h"
 #include "cpp_bindings.h"
@@ -100,7 +100,7 @@ public:
     // based on  the request type
     virtual int create();
     virtual int requestEvent();
-    virtual int handleResponse(WifiEvent reply);
+    virtual int handleResponse(WifiEvent &reply);
     virtual int handleEvent(WifiEvent &event);
     int setCallbackHandler(NanCallbackHandler nHandler);
 
@@ -119,5 +119,5 @@ public:
     int putNanBeaconSdfPayload(wifi_request_id id, const NanBeaconSdfPayloadRequest *pReq);
     int getNanStaParameter(wifi_interface_handle iface, NanStaParameter *pRsp);
 };
-#endif /* __WIFH_HAL_NAN_COMMAND_H__ */
+#endif /* __WIFI_HAL_NAN_COMMAND_H__ */
 
