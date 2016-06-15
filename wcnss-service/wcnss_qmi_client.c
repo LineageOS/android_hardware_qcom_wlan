@@ -34,6 +34,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "wcnss_qmi_client.h"
 #include "qmi_client.h"
 #include "device_management_service_v01.h"
+#include <qmi_cci_target_ext.h>
 #include <cutils/properties.h>
 #include <string.h>
 
