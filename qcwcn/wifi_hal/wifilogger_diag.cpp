@@ -1856,7 +1856,7 @@ wifi_error diag_message_handler(hal_info *info, nl_msg *msg)
     if (wnl->nlh.nlmsg_type == ANI_NL_MSG_PUMAC) {
         if ((wnl->nlh.nlmsg_len <= sizeof(tAniNlHdr)) ||
             (wnl->nlh.nlmsg_len < (sizeof(tAniNlHdr) + ntohs(wnl->wmsg.length)))) {
-            ALOGE("Received UMAC message with insufficent length: %d",
+            ALOGV("Received UMAC message with insufficent length: %d",
                   wnl->nlh.nlmsg_len);
             return WIFI_ERROR_UNKNOWN;
         }
