@@ -77,7 +77,6 @@ GScanCommandEventHandler::GScanCommandEventHandler(wifi_handle handle, int id,
         : WifiVendorCommand(handle, id, vendor_id, subcmd)
 {
     int ret = 0;
-    ALOGD("GScanCommandEventHandler %p constructed", this);
     mRequestId = id;
     mHandler = handler;
     mSubCommandId = subcmd;
@@ -110,8 +109,6 @@ GScanCommandEventHandler::GScanCommandEventHandler(wifi_handle handle, int id,
         case QCA_NL80211_VENDOR_SUBCMD_GSCAN_START:
         {
             /* Register handlers for northbound asychronous scan events. */
-            ALOGD("%s: wait for GSCAN_RESULTS_AVAILABLE, "
-                "FULL_SCAN_RESULT, and SCAN EVENT events. \n", __FUNCTION__);
             ret = registerVendorHandler(mVendor_id,
                     QCA_NL80211_VENDOR_SUBCMD_GSCAN_SCAN_RESULTS_AVAILABLE) ||
                   registerVendorHandler(mVendor_id,
@@ -119,7 +116,7 @@ GScanCommandEventHandler::GScanCommandEventHandler(wifi_handle handle, int id,
                   registerVendorHandler(mVendor_id,
                     QCA_NL80211_VENDOR_SUBCMD_GSCAN_SCAN_EVENT);
             if (ret)
-                ALOGD("%s: Error in registering handler for "
+                ALOGE("%s: Error in registering handler for "
                     "GSCAN_START. \n", __FUNCTION__);
         }
         break;
@@ -129,7 +126,7 @@ GScanCommandEventHandler::GScanCommandEventHandler(wifi_handle handle, int id,
             ret = registerVendorHandler(mVendor_id,
                     QCA_NL80211_VENDOR_SUBCMD_GSCAN_SIGNIFICANT_CHANGE);
             if (ret)
-                ALOGD("%s: Error in registering handler for "
+                ALOGE("%s: Error in registering handler for "
                     "GSCAN_SIGNIFICANT_CHANGE. \n", __FUNCTION__);
         }
         break;
@@ -139,30 +136,14 @@ GScanCommandEventHandler::GScanCommandEventHandler(wifi_handle handle, int id,
             ret = registerVendorHandler(mVendor_id,
                     QCA_NL80211_VENDOR_SUBCMD_GSCAN_HOTLIST_AP_FOUND);
             if (ret)
-                ALOGD("%s: Error in registering handler for"
+                ALOGE("%s: Error in registering handler for"
                     " GSCAN_HOTLIST_AP_FOUND. \n", __FUNCTION__);
 
             ret = registerVendorHandler(mVendor_id,
                     QCA_NL80211_VENDOR_SUBCMD_GSCAN_HOTLIST_AP_LOST);
             if (ret)
-                ALOGD("%s: Error in registering handler for"
+                ALOGE("%s: Error in registering handler for"
                     " GSCAN_HOTLIST_AP_LOST. \n", __FUNCTION__);
-        }
-        break;
-
-        case QCA_NL80211_VENDOR_SUBCMD_GSCAN_SET_SSID_HOTLIST:
-        {
-            ret = registerVendorHandler(mVendor_id,
-                    QCA_NL80211_VENDOR_SUBCMD_GSCAN_HOTLIST_SSID_FOUND);
-            if (ret)
-                ALOGD("%s: Error in registering handler for"
-                    " GSCAN_HOTLIST_SSID_FOUND. \n", __FUNCTION__);
-
-            ret = registerVendorHandler(mVendor_id,
-                    QCA_NL80211_VENDOR_SUBCMD_GSCAN_HOTLIST_SSID_LOST);
-            if (ret)
-                ALOGD("%s: Error in registering handler for"
-                    " GSCAN_HOTLIST_SSID_LOST. \n", __FUNCTION__);
         }
         break;
 
@@ -171,7 +152,7 @@ GScanCommandEventHandler::GScanCommandEventHandler(wifi_handle handle, int id,
             ret = registerVendorHandler(mVendor_id,
                     QCA_NL80211_VENDOR_SUBCMD_PNO_NETWORK_FOUND);
             if (ret)
-                ALOGD("%s: Error in registering handler for"
+                ALOGE("%s: Error in registering handler for"
                     " PNO_NETWORK_FOUND. \n", __FUNCTION__);
         }
         break;
@@ -181,7 +162,7 @@ GScanCommandEventHandler::GScanCommandEventHandler(wifi_handle handle, int id,
             ret = registerVendorHandler(mVendor_id,
                 QCA_NL80211_VENDOR_SUBCMD_PNO_PASSPOINT_NETWORK_FOUND);
             if (ret)
-                ALOGD("%s: Error in registering handler for"
+                ALOGE("%s: Error in registering handler for"
                     " PNO_PASSPOINT_NETWORK_FOUND. \n", __FUNCTION__);
         }
         break;
@@ -190,14 +171,11 @@ GScanCommandEventHandler::GScanCommandEventHandler(wifi_handle handle, int id,
 
 GScanCommandEventHandler::~GScanCommandEventHandler()
 {
-    ALOGD("GScanCommandEventHandler %p destructor", this);
     switch(mSubCommandId)
     {
         case QCA_NL80211_VENDOR_SUBCMD_GSCAN_START:
         {
             /* Unregister event handlers. */
-            ALOGD("%s: Unregister handlers for GSCAN_RESULTS_AVAILABLE, "
-            "FULL_SCAN_RESULT, and SCAN EVENT events. \n", __FUNCTION__);
             unregisterVendorHandler(mVendor_id,
                     QCA_NL80211_VENDOR_SUBCMD_GSCAN_SCAN_RESULTS_AVAILABLE);
             unregisterVendorHandler(mVendor_id,
@@ -220,15 +198,6 @@ GScanCommandEventHandler::~GScanCommandEventHandler()
                     QCA_NL80211_VENDOR_SUBCMD_GSCAN_HOTLIST_AP_FOUND);
             unregisterVendorHandler(mVendor_id,
                     QCA_NL80211_VENDOR_SUBCMD_GSCAN_HOTLIST_AP_LOST);
-        }
-        break;
-
-        case QCA_NL80211_VENDOR_SUBCMD_GSCAN_SET_SSID_HOTLIST:
-        {
-            unregisterVendorHandler(mVendor_id,
-                    QCA_NL80211_VENDOR_SUBCMD_GSCAN_HOTLIST_SSID_FOUND);
-            unregisterVendorHandler(mVendor_id,
-                    QCA_NL80211_VENDOR_SUBCMD_GSCAN_HOTLIST_SSID_LOST);
         }
         break;
 
@@ -258,7 +227,7 @@ wifi_error GScanCommandEventHandler::gscan_parse_hotlist_ap_results(
     struct nlattr *scanResultsInfo;
     int rem = 0;
     u32 len = 0;
-    ALOGE("gscan_parse_hotlist_ap_results: starting counter: %d", i);
+    ALOGV("gscan_parse_hotlist_ap_results: starting counter: %d", i);
 
     for (scanResultsInfo = (struct nlattr *) nla_data(tb_vendor[
             QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_LIST]),
@@ -368,19 +337,14 @@ wifi_error GScanCommandEventHandler::gscan_parse_hotlist_ap_results(
             nla_get_u32(
             tb2[QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_SCAN_RESULT_RTT_SD]);
 
-        ALOGE("gscan_parse_hotlist_ap_results: ts %" PRId64, results[i].ts);
-        ALOGE("gscan_parse_hotlist_ap_results: SSID  %s ",
-            results[i].ssid) ;
-        ALOGE("gscan_parse_hotlist_ap_results: "
-            "BSSID: %02x:%02x:%02x:%02x:%02x:%02x \n",
-            results[i].bssid[0], results[i].bssid[1], results[i].bssid[2],
-            results[i].bssid[3], results[i].bssid[4], results[i].bssid[5]);
-        ALOGE("gscan_parse_hotlist_ap_results: channel %d ",
-            results[i].channel);
-        ALOGE("gscan_parse_hotlist_ap_results: rssi %d ", results[i].rssi);
-        ALOGE("gscan_parse_hotlist_ap_results: rtt %" PRId64, results[i].rtt);
-        ALOGE("gscan_parse_hotlist_ap_results: rtt_sd %" PRId64,
-            results[i].rtt_sd);
+        ALOGV("gscan_parse_hotlist_ap_results: ts %" PRId64 " SSID  %s "
+              "BSSID: %02x:%02x:%02x:%02x:%02x:%02x channel %d rssi %d "
+              "rtt %" PRId64" rtt_sd %" PRId64,
+              results[i].ts, results[i].ssid,
+              results[i].bssid[0], results[i].bssid[1], results[i].bssid[2],
+              results[i].bssid[3], results[i].bssid[4], results[i].bssid[5],
+              results[i].channel, results[i].rssi, results[i].rtt,
+              results[i].rtt_sd);
         /* Increment loop index for next record */
         i++;
     }
@@ -396,9 +360,9 @@ static wifi_error gscan_get_significant_change_results(u32 num_results,
     int j;
     int rem = 0;
     u32 len = 0;
+    char rssi_buf[1024]; //TODO: sizeof buf
+    int rem_size;
     struct nlattr *scanResultsInfo;
-
-    ALOGI("gscan_get_significant_change_results: starting counter: %d", i);
 
     for (scanResultsInfo = (struct nlattr *) nla_data(tb_vendor[
             QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_LIST]),
@@ -431,10 +395,6 @@ static wifi_error gscan_get_significant_change_results(u32 num_results,
             tb2[
         QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_SIGNIFICANT_CHANGE_RESULT_BSSID]),
             len);
-        ALOGI("\nsignificant_change_result:%d, BSSID:"
-            "%02x:%02x:%02x:%02x:%02x:%02x \n", i, results[i]->bssid[0],
-            results[i]->bssid[1], results[i]->bssid[2], results[i]->bssid[3],
-            results[i]->bssid[4], results[i]->bssid[5]);
 
         if (!
             tb2[
@@ -449,8 +409,6 @@ static wifi_error gscan_get_significant_change_results(u32 num_results,
             nla_get_u32(
             tb2[
         QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_SIGNIFICANT_CHANGE_RESULT_CHANNEL]);
-        ALOGI("significant_change_result:%d, channel:%d.\n",
-            i, results[i]->channel);
 
         if (!
             tb2[
@@ -465,9 +423,6 @@ static wifi_error gscan_get_significant_change_results(u32 num_results,
             nla_get_u32(
             tb2[
         QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_SIGNIFICANT_CHANGE_RESULT_NUM_RSSI]);
-        ALOGI("gscan_get_significant_change_results: "
-            "significant_change_result:%d, num_rssi:%d.\n",
-            i, results[i]->num_rssi);
 
         if (!
             tb2[
@@ -478,10 +433,6 @@ static wifi_error gscan_get_significant_change_results(u32 num_results,
                 "SIGNIFICANT_CHANGE_RESULT_RSSI_LIST not found");
             return WIFI_ERROR_INVALID_ARGS;
         }
-        ALOGI("gscan_get_significant_change_results: before reading the RSSI "
-            "list: num_rssi:%d, size_of_rssi:%zu, total size:%zu, ",
-            results[i]->num_rssi,
-            sizeof(wifi_rssi), results[i]->num_rssi * sizeof(wifi_rssi));
 
         memcpy(&(results[i]->rssi[0]),
             nla_data(
@@ -489,9 +440,20 @@ static wifi_error gscan_get_significant_change_results(u32 num_results,
         QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_SIGNIFICANT_CHANGE_RESULT_RSSI_LIST]
             ), results[i]->num_rssi * sizeof(wifi_rssi));
 
-        for (j = 0; j < results[i]->num_rssi; j++)
-            ALOGI("     significant_change_result: %d, rssi[%d]:%d, ",
-            i, j, results[i]->rssi[j]);
+        ALOGV("significant_change_result:%d, BSSID:"
+            "%02x:%02x:%02x:%02x:%02x:%02x channel:%d  num_rssi:%d ",
+            i, results[i]->bssid[0], results[i]->bssid[1], results[i]->bssid[2],
+            results[i]->bssid[3], results[i]->bssid[4], results[i]->bssid[5],
+            results[i]->channel, results[i]->num_rssi);
+
+        rem_size = sizeof(rssi_buf);
+        char *dst = rssi_buf;
+        for (j = 0; j < results[i]->num_rssi && rem_size > 0; j++) {
+            len = snprintf(dst, rem_size, "rssi[%d]:%d, ", j, results[i]->rssi[j]);
+            dst += len;
+            rem_size -= len;
+        }
+        ALOGV("RSSI LIST: %s", rssi_buf);
 
         /* Increment loop index to prase next record. */
         i++;
@@ -509,7 +471,6 @@ wifi_error GScanCommandEventHandler::gscan_parse_hotlist_ssid_results(
     struct nlattr *scanResultsInfo;
     int rem = 0;
     u32 len = 0;
-    ALOGI("gscan_parse_hotlist_ssid_results: starting counter: %d", i);
 
     for (scanResultsInfo = (struct nlattr *) nla_data(tb_vendor[
             QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_LIST]),
@@ -619,19 +580,14 @@ wifi_error GScanCommandEventHandler::gscan_parse_hotlist_ssid_results(
             nla_get_u32(
             tb2[QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_SCAN_RESULT_RTT_SD]);
 
-        ALOGD("gscan_parse_hotlist_ssid_results: ts  %" PRId64, results[i].ts);
-        ALOGD("gscan_parse_hotlist_ssid_results: SSID  %s ",
-            results[i].ssid) ;
-        ALOGD("gscan_parse_hotlist_ssid_results: "
-            "BSSID: %02x:%02x:%02x:%02x:%02x:%02x \n",
-            results[i].bssid[0], results[i].bssid[1], results[i].bssid[2],
-            results[i].bssid[3], results[i].bssid[4], results[i].bssid[5]);
-        ALOGD("gscan_parse_hotlist_ssid_results: channel %d ",
-            results[i].channel);
-        ALOGD("gscan_parse_hotlist_ssid_results: rssi %d ", results[i].rssi);
-        ALOGD("gscan_parse_hotlist_ssid_results: rtt %" PRId64, results[i].rtt);
-        ALOGD("gscan_parse_hotlist_ssid_results: rtt_sd %" PRId64,
-            results[i].rtt_sd);
+        ALOGV("gscan_parse_hotlist_ssid_results: ts %" PRId64 " SSID  %s "
+              "BSSID: %02x:%02x:%02x:%02x:%02x:%02x channel %d rssi %d "
+              "rtt %" PRId64 " rtt_sd %" PRId64,
+              results[i].ts, results[i].ssid,
+              results[i].bssid[0], results[i].bssid[1], results[i].bssid[2],
+              results[i].bssid[3], results[i].bssid[4], results[i].bssid[5],
+              results[i].channel, results[i].rssi, results[i].rtt,
+              results[i].rtt_sd);
         /* Increment loop index for next record */
         i++;
     }
@@ -645,7 +601,6 @@ wifi_error GScanCommandEventHandler::gscan_parse_passpoint_network_result(
     u32 resultsBufSize = 0;
     u32 len = 0;
     int rem = 0;
-    ALOGI("%s: Entering", __FUNCTION__);
 
     for (scanResultsInfo = (struct nlattr *) nla_data(tb_vendor[
             QCA_WLAN_VENDOR_ATTR_GSCAN_PNO_RESULTS_PASSPOINT_MATCH_RESULT_LIST]),
@@ -849,29 +804,23 @@ wifi_error GScanCommandEventHandler::gscan_parse_passpoint_network_result(
                      QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_SCAN_RESULT_IE_DATA]),
                  mPasspointNetworkFoundResult->ie_length);
 
-             ALOGD("%s: ts  %" PRId64, __FUNCTION__,
-                 mPasspointNetworkFoundResult->ts);
-             ALOGD("%s: SSID  %s ", __FUNCTION__,
-                 mPasspointNetworkFoundResult->ssid);
-             ALOGD("%s: BSSID: %02x:%02x:%02x:%02x:%02x:%02x \n",
-                 __FUNCTION__,
-                 mPasspointNetworkFoundResult->bssid[0],
-                 mPasspointNetworkFoundResult->bssid[1],
-                 mPasspointNetworkFoundResult->bssid[2],
-                 mPasspointNetworkFoundResult->bssid[3],
-                 mPasspointNetworkFoundResult->bssid[4],
-                 mPasspointNetworkFoundResult->bssid[5]);
-             ALOGD("%s: channel %d ", __FUNCTION__,
-                 mPasspointNetworkFoundResult->channel);
-             ALOGD("%s: rssi  %d ", __FUNCTION__,
-                 mPasspointNetworkFoundResult->rssi);
-             ALOGD("%s: rtt  %" PRId64, __FUNCTION__,
-                 mPasspointNetworkFoundResult->rtt);
-             ALOGD("%s: rtt_sd  %" PRId64, __FUNCTION__,
-                 mPasspointNetworkFoundResult->rtt_sd);
-             ALOGD("%s: ie_length  %u ", __FUNCTION__,
-                 mPasspointNetworkFoundResult->ie_length);
-             ALOGD("%s: ie_data", __FUNCTION__);
+             ALOGV("%s: ts: %" PRId64 " SSID: %s "
+                   "BSSID: %02x:%02x:%02x:%02x:%02x:%02x  channel: %d  rssi: %d"
+                   " rtt: % " PRId64 " rtt_sd  %" PRId64 " ie_length  %u ",
+                   __FUNCTION__, mPasspointNetworkFoundResult->ts,
+                   mPasspointNetworkFoundResult->ssid,
+                   mPasspointNetworkFoundResult->bssid[0],
+                   mPasspointNetworkFoundResult->bssid[1],
+                   mPasspointNetworkFoundResult->bssid[2],
+                   mPasspointNetworkFoundResult->bssid[3],
+                   mPasspointNetworkFoundResult->bssid[4],
+                   mPasspointNetworkFoundResult->bssid[5],
+                   mPasspointNetworkFoundResult->channel,
+                   mPasspointNetworkFoundResult->rssi,
+                   mPasspointNetworkFoundResult->rtt,
+                   mPasspointNetworkFoundResult->rtt_sd,
+                   mPasspointNetworkFoundResult->ie_length);
+             ALOGV("%s: ie_data: ", __FUNCTION__);
              hexdump(mPasspointNetworkFoundResult->ie_data,
                      mPasspointNetworkFoundResult->ie_length);
         }
@@ -889,8 +838,6 @@ wifi_error GScanCommandEventHandler::gscan_parse_passpoint_network_result(
             nla_get_u32(
                 tb2[
                 QCA_WLAN_VENDOR_ATTR_GSCAN_PNO_RESULTS_PASSPOINT_MATCH_ANQP_LEN]);
-        ALOGI("%s: PNO_RESULTS_PASSPOINT_MATCH_ANQP_LEN = %d",
-              __FUNCTION__, mPasspointAnqpLen);
 
         if (!mPasspointAnqpLen)
         {
@@ -917,7 +864,7 @@ wifi_error GScanCommandEventHandler::gscan_parse_passpoint_network_result(
                  QCA_WLAN_VENDOR_ATTR_GSCAN_PNO_RESULTS_PASSPOINT_MATCH_ANQP]),
                mPasspointAnqpLen);
 
-        ALOGD("%s: ANQP LEN:%d, ANQP IE:", __FUNCTION__, mPasspointAnqpLen);
+        ALOGV("%s: ANQP LEN:%d, ANQP IE:", __FUNCTION__, mPasspointAnqpLen);
         hexdump((char*)mPasspointAnqp, mPasspointAnqpLen);
 
         /* expecting only one result break out after the first loop */
@@ -936,7 +883,6 @@ wifi_error GScanCommandEventHandler::gscan_parse_pno_network_results(
     struct nlattr *scanResultsInfo;
     int rem = 0;
     u32 len = 0;
-    ALOGD("gscan_parse_pno_network_results: starting counter: %d", i);
 
     for (scanResultsInfo = (struct nlattr *) nla_data(tb_vendor[
             QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_LIST]),
@@ -1073,19 +1019,14 @@ wifi_error GScanCommandEventHandler::gscan_parse_pno_network_results(
             tb2[
             QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_SCAN_RESULT_CAPABILITY]);
 
-        ALOGD("gscan_parse_pno_network_results: ts  %" PRId64, results[i].ts);
-        ALOGD("gscan_parse_pno_network_results: SSID  %s ",
-            results[i].ssid) ;
-        ALOGD("gscan_parse_pno_network_results: "
-            "BSSID: %02x:%02x:%02x:%02x:%02x:%02x \n",
-            results[i].bssid[0], results[i].bssid[1], results[i].bssid[2],
-            results[i].bssid[3], results[i].bssid[4], results[i].bssid[5]);
-        ALOGD("gscan_parse_pno_network_results: channel %d ",
-            results[i].channel);
-        ALOGD("gscan_parse_pno_network_results: rssi %d ", results[i].rssi);
-        ALOGD("gscan_parse_pno_network_results: rtt %" PRId64, results[i].rtt);
-        ALOGD("gscan_parse_pno_network_results: rtt_sd %" PRId64,
-            results[i].rtt_sd);
+        ALOGV("gscan_parse_pno_network_results: ts %" PRId64 " SSID  %s "
+              "BSSID: %02x:%02x:%02x:%02x:%02x:%02x channel %d rssi %d "
+              "rtt %" PRId64 " rtt_sd %" PRId64,
+              results[i].ts, results[i].ssid,
+              results[i].bssid[0], results[i].bssid[1], results[i].bssid[2],
+              results[i].bssid[3], results[i].bssid[4], results[i].bssid[5],
+              results[i].channel, results[i].rssi, results[i].rtt,
+              results[i].rtt_sd);
         /* Increment loop index for next record */
         i++;
     }
@@ -1106,7 +1047,7 @@ int GScanCommandEventHandler::handleEvent(WifiEvent &event)
 
     if (mEventHandlingEnabled == false)
     {
-        ALOGD("%s:Discarding event: %d",
+        ALOGV("%s:Discarding event: %d",
               __FUNCTION__, mSubcmd);
         return NL_SKIP;
     }
@@ -1125,11 +1066,11 @@ int GScanCommandEventHandler::handleEvent(WifiEvent &event)
             u32 len = 0;
             u32 resultsBufSize = 0;
             u32 lengthOfInfoElements = 0;
+            u32 buckets_scanned = 0;
 
-#ifdef QC_HAL_DEBUG
-            ALOGD("Event QCA_NL80211_VENDOR_SUBCMD_GSCAN_FULL_SCAN_RESULT "
+            ALOGV("Event QCA_NL80211_VENDOR_SUBCMD_GSCAN_FULL_SCAN_RESULT "
                 "received.");
-#endif
+
             if (!tbVendor[
                 QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_REQUEST_ID])
             {
@@ -1166,8 +1107,10 @@ int GScanCommandEventHandler::handleEvent(WifiEvent &event)
                 nla_get_u32(
                 tbVendor[
                 QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_SCAN_RESULT_IE_LENGTH]);
-            ALOGD("%s: RESULTS_SCAN_RESULT_IE_LENGTH =%d",
+
+            ALOGV("%s: RESULTS_SCAN_RESULT_IE_LENGTH =%d",
                 __FUNCTION__, lengthOfInfoElements);
+
             resultsBufSize =
                 lengthOfInfoElements + sizeof(wifi_scan_result);
             result = (wifi_scan_result *) malloc (resultsBufSize);
@@ -1331,6 +1274,16 @@ int GScanCommandEventHandler::handleEvent(WifiEvent &event)
                 nla_data(tbVendor[
                     QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_SCAN_RESULT_IE_DATA]),
                 lengthOfInfoElements);
+            if (!
+                tbVendor[
+                    QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_BUCKETS_SCANNED
+                    ])
+            {
+                ALOGD("%s: RESULTS_BUCKETS_SCANNED not found", __FUNCTION__);
+            } else {
+                buckets_scanned = get_u32(tbVendor[
+                           QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_BUCKETS_SCANNED]);
+            }
 #ifdef QC_HAL_DEBUG
             ALOGD("handleEvent:FULL_SCAN_RESULTS: ts  %" PRId64, result->ts);
             ALOGD("handleEvent:FULL_SCAN_RESULTS: SSID  %s ", result->ssid) ;
@@ -1354,7 +1307,7 @@ int GScanCommandEventHandler::handleEvent(WifiEvent &event)
             ALOGD("%s: Invoking the callback. \n", __FUNCTION__);
 #endif
             if (mHandler.on_full_scan_result) {
-                (*mHandler.on_full_scan_result)(reqId, result);
+                (*mHandler.on_full_scan_result)(reqId, result, buckets_scanned);
                 /* Reset flag and num counter. */
                 free(result);
                 result = NULL;
@@ -1365,45 +1318,32 @@ int GScanCommandEventHandler::handleEvent(WifiEvent &event)
         case QCA_NL80211_VENDOR_SUBCMD_GSCAN_SCAN_RESULTS_AVAILABLE:
         {
             wifi_request_id id;
-            u32 numResults = 0;
 
-            ALOGD("Event "
-                "QCA_NL80211_VENDOR_SUBCMD_GSCAN_SCAN_RESULTS_AVAILABLE "
-                "received.");
+#ifdef QC_HAL_DEBUG
+            ALOGV("Event "
+                    "QCA_NL80211_VENDOR_SUBCMD_GSCAN_SCAN_RESULTS_AVAILABLE "
+                    "received.");
+#endif
 
             if (!tbVendor[QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_REQUEST_ID]) {
                 ALOGE("%s: QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_REQUEST_ID"
-                    "not found. Exit", __FUNCTION__);
+                        "not found. Exit", __FUNCTION__);
                 ret = WIFI_ERROR_INVALID_ARGS;
                 break;
             }
             id = nla_get_u32(
                     tbVendor[QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_REQUEST_ID]
-                    );
+                             );
             /* If this is not for us, then ignore it. */
             if (id != mRequestId) {
                 ALOGE("%s: Event has Req. ID:%d <> ours:%d",
-                    __FUNCTION__, id, mRequestId);
+                        __FUNCTION__, id, mRequestId);
                 break;
             }
-            if (!tbVendor[
-                QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_NUM_RESULTS_AVAILABLE]) {
-                ALOGE("%s: GSCAN_RESULTS_NUM_RESULTS_AVAILABLE not found",
-                    __FUNCTION__);
-                ret = WIFI_ERROR_INVALID_ARGS;
-                break;
-            }
-            numResults = nla_get_u32(tbVendor[
-                QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_NUM_RESULTS_AVAILABLE]);
-            ALOGD("%s: number of results:%d", __FUNCTION__, numResults);
 
             /* Invoke the callback func to report the number of results. */
-            ALOGD("%s: Calling on_scan_results_available handler",
-                __FUNCTION__);
-            if (!mHandler.on_scan_results_available) {
-                break;
-            }
-            (*mHandler.on_scan_results_available)(id, numResults);
+            ALOGV("%s: Calling on_scan_event handler", __FUNCTION__);
+            (*mHandler.on_scan_event)(id, WIFI_SCAN_THRESHOLD_NUM_SCANS);
         }
         break;
 
@@ -1413,9 +1353,6 @@ int GScanCommandEventHandler::handleEvent(WifiEvent &event)
             u32 resultsBufSize = 0;
             u32 numResults = 0;
             u32 startingIndex, sizeOfObtainedResults;
-
-            ALOGD("Event QCA_NL80211_VENDOR_SUBCMD_GSCAN_HOTLIST_AP_FOUND "
-                "received.");
 
             id = nla_get_u32(
                     tbVendor[QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_REQUEST_ID]
@@ -1435,7 +1372,7 @@ int GScanCommandEventHandler::handleEvent(WifiEvent &event)
             }
             numResults = nla_get_u32(tbVendor[
                 QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_NUM_RESULTS_AVAILABLE]);
-            ALOGD("%s: number of results:%d", __FUNCTION__, numResults);
+            ALOGV("%s: number of results:%d", __FUNCTION__, numResults);
 
             /* Get the memory size of previous fragments, if any. */
             sizeOfObtainedResults = mHotlistApFoundNumResults *
@@ -1466,7 +1403,7 @@ int GScanCommandEventHandler::handleEvent(WifiEvent &event)
             memset((u8 *)mHotlistApFoundResults + sizeOfObtainedResults, 0,
                     resultsBufSize - sizeOfObtainedResults);
 
-            ALOGD("%s: Num of AP FOUND results = %d. \n", __FUNCTION__,
+            ALOGV("%s: Num of AP FOUND results = %d. \n", __FUNCTION__,
                                             mHotlistApFoundNumResults);
 
             /* To support fragmentation from firmware, monitor the
@@ -1488,9 +1425,9 @@ int GScanCommandEventHandler::handleEvent(WifiEvent &event)
                     __FUNCTION__, mHotlistApFoundMoreData);
             }
 
-            ALOGD("%s: Extract hotlist_ap_found results.\n", __FUNCTION__);
+            ALOGV("%s: Extract hotlist_ap_found results.\n", __FUNCTION__);
             startingIndex = mHotlistApFoundNumResults - numResults;
-            ALOGD("%s: starting_index:%d",
+            ALOGV("%s: starting_index:%d",
                 __FUNCTION__, startingIndex);
             ret = gscan_parse_hotlist_ap_results(numResults,
                                                 mHotlistApFoundResults,
@@ -1520,9 +1457,6 @@ int GScanCommandEventHandler::handleEvent(WifiEvent &event)
             u32 numResults = 0;
             u32 startingIndex, sizeOfObtainedResults;
 
-            ALOGD("Event QCA_NL80211_VENDOR_SUBCMD_GSCAN_HOTLIST_AP_LOST "
-                "received.");
-
             id = nla_get_u32(
                     tbVendor[QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_REQUEST_ID]
                     );
@@ -1541,7 +1475,7 @@ int GScanCommandEventHandler::handleEvent(WifiEvent &event)
             }
             numResults = nla_get_u32(tbVendor[
                 QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_NUM_RESULTS_AVAILABLE]);
-            ALOGD("%s: number of results:%d", __FUNCTION__, numResults);
+            ALOGV("%s: number of results:%d", __FUNCTION__, numResults);
 
             /* Get the memory size of previous fragments, if any. */
             sizeOfObtainedResults = mHotlistApLostNumResults *
@@ -1572,7 +1506,7 @@ int GScanCommandEventHandler::handleEvent(WifiEvent &event)
             memset((u8 *)mHotlistApLostResults + sizeOfObtainedResults, 0,
                     resultsBufSize - sizeOfObtainedResults);
 
-            ALOGD("%s: Num of AP Lost results = %d. \n", __FUNCTION__,
+            ALOGV("%s: Num of AP Lost results = %d. \n", __FUNCTION__,
                                             mHotlistApLostNumResults);
 
             /* To support fragmentation from firmware, monitor the
@@ -1590,13 +1524,13 @@ int GScanCommandEventHandler::handleEvent(WifiEvent &event)
                 mHotlistApLostMoreData = nla_get_u8(
                     tbVendor[
                     QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_SCAN_RESULT_MORE_DATA]);
-                ALOGE("%s: More data = %d. \n",
+                ALOGV("%s: More data = %d. \n",
                     __FUNCTION__, mHotlistApLostMoreData);
             }
 
-            ALOGD("%s: Extract hotlist_ap_Lost results.\n", __FUNCTION__);
+            ALOGV("%s: Extract hotlist_ap_Lost results.\n", __FUNCTION__);
             startingIndex = mHotlistApLostNumResults - numResults;
-            ALOGD("%s: starting_index:%d",
+            ALOGV("%s: starting_index:%d",
                 __FUNCTION__, startingIndex);
             ret = gscan_parse_hotlist_ap_results(numResults,
                                                 mHotlistApLostResults,
@@ -1626,9 +1560,6 @@ int GScanCommandEventHandler::handleEvent(WifiEvent &event)
             u32 startingIndex, index = 0;
             struct nlattr *scanResultsInfo;
             int rem = 0;
-
-            ALOGD("Event QCA_NL80211_VENDOR_SUBCMD_GSCAN_SIGNIFICANT_CHANGE "
-                "received.");
 
             if (!tbVendor[
                 QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_REQUEST_ID])
@@ -1690,7 +1621,7 @@ int GScanCommandEventHandler::handleEvent(WifiEvent &event)
             memset((u8 *)mSignificantChangeResults + sizeOfObtainedResults, 0,
                     sizeof(wifi_significant_change_result *) *
                                 numResults);
-            ALOGD("%s: mSignificantChangeMoreData = %d",
+            ALOGV("%s: mSignificantChangeMoreData = %d",
                     __FUNCTION__, mSignificantChangeMoreData);
 
             for (scanResultsInfo = (struct nlattr *) nla_data(tbVendor[
@@ -1734,12 +1665,12 @@ int GScanCommandEventHandler::handleEvent(WifiEvent &event)
                 memset((u8 *)mSignificantChangeResults[index],
                         0, resultsBufSize);
 
-                ALOGD("%s: For Significant Change results[%d], num_rssi:%d\n",
+                ALOGV("%s: For Significant Change results[%d], num_rssi:%d\n",
                     __FUNCTION__, index, num_rssi);
                 index++;
             }
 
-            ALOGD("%s: Extract significant change results.\n", __FUNCTION__);
+            ALOGV("%s: Extract significant change results.\n", __FUNCTION__);
             startingIndex =
                 mSignificantChangeNumResults - numResults;
             ret = gscan_get_significant_change_results(numResults,
@@ -1763,12 +1694,12 @@ int GScanCommandEventHandler::handleEvent(WifiEvent &event)
             mSignificantChangeMoreData = nla_get_u8(
                 tbVendor[
                 QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_SCAN_RESULT_MORE_DATA]);
-            ALOGD("%s: More data = %d. \n",
+            ALOGV("%s: More data = %d. \n",
                 __FUNCTION__, mSignificantChangeMoreData);
 
             /* Send the results if no more result fragments are expected */
             if (!mSignificantChangeMoreData) {
-                ALOGD("%s: Invoking the callback. \n", __FUNCTION__);
+                ALOGV("%s: Invoking the callback. \n", __FUNCTION__);
                 (*mHandler.on_significant_change)(reqId,
                                               mSignificantChangeNumResults,
                                               mSignificantChangeResults);
@@ -1794,9 +1725,6 @@ int GScanCommandEventHandler::handleEvent(WifiEvent &event)
             wifi_scan_event scanEvent;
             u32 scanEventStatus = 0;
             wifi_request_id reqId;
-
-            ALOGD("Event QCA_NL80211_VENDOR_SUBCMD_GSCAN_SCAN_EVENT "
-                "received.");
 
             if (!tbVendor[
                 QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_REQUEST_ID])
@@ -1825,249 +1753,9 @@ int GScanCommandEventHandler::handleEvent(WifiEvent &event)
             scanEvent = (wifi_scan_event) nla_get_u8(tbVendor[
                 QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_SCAN_EVENT_TYPE]);
 
-            if (!tbVendor[
-                QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_SCAN_EVENT_STATUS]) {
-                ALOGE("%s: GSCAN_RESULTS_SCAN_EVENT_STATUS not"
-                    " found. Stop parsing and exit.", __FUNCTION__);
-                break;
-            }
-            scanEventStatus = nla_get_u32(tbVendor[
-                QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_SCAN_EVENT_STATUS]);
-
-            ALOGI("%s: Scan event type: %d, status = %d. \n", __FUNCTION__,
-                                    scanEvent, scanEventStatus);
+            ALOGV("%s: Scan event type: %d\n", __FUNCTION__, scanEvent);
             /* Send the results if no more result fragments are expected. */
-            (*mHandler.on_scan_event)(scanEvent, scanEventStatus);
-        }
-        break;
-
-        case QCA_NL80211_VENDOR_SUBCMD_GSCAN_HOTLIST_SSID_FOUND:
-        {
-            wifi_request_id id;
-            u32 resultsBufSize = 0;
-            u32 numResults = 0;
-            u32 startingIndex, sizeOfObtainedResults;
-
-            ALOGD("Event QCA_NL80211_VENDOR_SUBCMD_GSCAN_HOTLIST_SSID_FOUND "
-                "received.");
-
-            if (!tbVendor[
-                QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_REQUEST_ID])
-            {
-                ALOGE("%s: ATTR_GSCAN_RESULTS_REQUEST_ID not found. Exit.",
-                    __FUNCTION__);
-                ret = WIFI_ERROR_INVALID_ARGS;
-                break;
-            }
-
-            id = nla_get_u32(
-                    tbVendor[QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_REQUEST_ID]
-                    );
-            /* If this is not for us, just ignore it. */
-            if (id != mRequestId) {
-                ALOGE("%s: Event has Req. ID:%d <> ours:%d",
-                    __FUNCTION__, id, mRequestId);
-                break;
-            }
-            if (!tbVendor[
-                QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_NUM_RESULTS_AVAILABLE]) {
-                ALOGE("%s: GSCAN_RESULTS_NUM_RESULTS_AVAILABLE not found",
-                    __FUNCTION__);
-                ret = WIFI_ERROR_INVALID_ARGS;
-                break;
-            }
-            numResults = nla_get_u32(tbVendor[
-                QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_NUM_RESULTS_AVAILABLE]);
-            ALOGD("%s: number of results:%d", __FUNCTION__, numResults);
-
-            /* Get the memory size of previous fragments, if any. */
-            sizeOfObtainedResults = mHotlistSsidFoundNumResults *
-                          sizeof(wifi_scan_result);
-
-            mHotlistSsidFoundNumResults += numResults;
-            resultsBufSize += mHotlistSsidFoundNumResults *
-                                            sizeof(wifi_scan_result);
-
-            /* Check if this chunck of scan results is a continuation of
-             * a previous one.
-             */
-            if (mHotlistSsidFoundMoreData) {
-                mHotlistSsidFoundResults = (wifi_scan_result *)
-                            realloc (mHotlistSsidFoundResults, resultsBufSize);
-            } else {
-                mHotlistSsidFoundResults = (wifi_scan_result *)
-                            malloc (resultsBufSize);
-            }
-
-            if (!mHotlistSsidFoundResults) {
-                ALOGE("%s: Failed to alloc memory for results array. Exit.\n",
-                    __FUNCTION__);
-                ret = WIFI_ERROR_OUT_OF_MEMORY;
-                break;
-            }
-            /* Initialize the newly allocated memory area with 0. */
-            memset((u8 *)mHotlistSsidFoundResults + sizeOfObtainedResults, 0,
-                    resultsBufSize - sizeOfObtainedResults);
-
-            ALOGD("%s: Num of SSID FOUND results = %d. \n", __FUNCTION__,
-                                            mHotlistSsidFoundNumResults);
-
-            /* To support fragmentation from firmware, monitor the
-             * MORE_DATA flag and cache results until MORE_DATA = 0.
-             * Only then we can pass on the results to framework through
-             * the callback function.
-             */
-            if (!tbVendor[
-                QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_SCAN_RESULT_MORE_DATA]) {
-                ALOGE("%s: GSCAN_RESULTS_NUM_RESULTS_MORE_DATA not"
-                    " found", __FUNCTION__);
-                ret = WIFI_ERROR_INVALID_ARGS;
-                break;
-            } else {
-                mHotlistSsidFoundMoreData = nla_get_u8(
-                    tbVendor[
-                    QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_SCAN_RESULT_MORE_DATA]);
-                ALOGE("%s: More data = %d. \n",
-                    __FUNCTION__, mHotlistSsidFoundMoreData);
-            }
-
-            ALOGD("%s: Extract hotlist_ssid_found results.\n", __FUNCTION__);
-            startingIndex = mHotlistSsidFoundNumResults - numResults;
-            ALOGD("%s: starting_index:%d",
-                __FUNCTION__, startingIndex);
-            ret = gscan_parse_hotlist_ssid_results(numResults,
-                                                mHotlistSsidFoundResults,
-                                                startingIndex,
-                                                tbVendor);
-            /* If a parsing error occurred, exit and proceed for cleanup. */
-            if (ret)
-                break;
-            /* Send the results if no more result data fragments are expected */
-            if (!mHotlistSsidFoundMoreData) {
-                (*mHandler.on_hotlist_ssid_found)(id,
-                                                mHotlistSsidFoundNumResults,
-                                                mHotlistSsidFoundResults);
-                /* Reset flag and num counter. */
-                free(mHotlistSsidFoundResults);
-                mHotlistSsidFoundResults = NULL;
-                mHotlistSsidFoundMoreData = false;
-                mHotlistSsidFoundNumResults = 0;
-            }
-        }
-        break;
-
-        case QCA_NL80211_VENDOR_SUBCMD_GSCAN_HOTLIST_SSID_LOST:
-        {
-            wifi_request_id id;
-            u32 resultsBufSize = 0;
-            u32 numResults = 0;
-            u32 startingIndex, sizeOfObtainedResults;
-
-            ALOGD("Event QCA_NL80211_VENDOR_SUBCMD_GSCAN_HOTLIST_SSID_LOST "
-                "received.");
-
-            if (!tbVendor[
-                QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_REQUEST_ID])
-            {
-                ALOGE("%s: ATTR_GSCAN_RESULTS_REQUEST_ID not found. Exit.",
-                    __FUNCTION__);
-                ret = WIFI_ERROR_INVALID_ARGS;
-                break;
-            }
-
-            id = nla_get_u32(
-                    tbVendor[QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_REQUEST_ID]
-                    );
-            /* If this is not for us, just ignore it. */
-            if (id != mRequestId) {
-                ALOGE("%s: Event has Req. ID:%d <> ours:%d",
-                    __FUNCTION__, id, mRequestId);
-                break;
-            }
-            if (!tbVendor[
-                QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_NUM_RESULTS_AVAILABLE]) {
-                ALOGE("%s: GSCAN_RESULTS_NUM_RESULTS_AVAILABLE not found",
-                    __FUNCTION__);
-                ret = WIFI_ERROR_INVALID_ARGS;
-                break;
-            }
-            numResults = nla_get_u32(tbVendor[
-                QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_NUM_RESULTS_AVAILABLE]);
-            ALOGD("%s: number of results:%d", __FUNCTION__, numResults);
-
-            /* Get the memory size of previous fragments, if any. */
-            sizeOfObtainedResults = mHotlistSsidLostNumResults *
-                          sizeof(wifi_scan_result);
-
-            mHotlistSsidLostNumResults += numResults;
-            resultsBufSize += mHotlistSsidLostNumResults *
-                                            sizeof(wifi_scan_result);
-
-            /* Check if this chunck of scan results is a continuation of
-             * a previous one.
-             */
-            if (mHotlistSsidLostMoreData) {
-                mHotlistSsidLostResults = (wifi_scan_result *)
-                            realloc (mHotlistSsidLostResults, resultsBufSize);
-            } else {
-                mHotlistSsidLostResults = (wifi_scan_result *)
-                            malloc (resultsBufSize);
-            }
-
-            if (!mHotlistSsidLostResults) {
-                ALOGE("%s: Failed to alloc memory for results array. Exit.\n",
-                    __FUNCTION__);
-                ret = WIFI_ERROR_OUT_OF_MEMORY;
-                break;
-            }
-            /* Initialize the newly allocated memory area with 0. */
-            memset((u8 *)mHotlistSsidLostResults + sizeOfObtainedResults, 0,
-                    resultsBufSize - sizeOfObtainedResults);
-
-            ALOGD("%s: Num of SSID Lost results = %d. \n", __FUNCTION__,
-                                            mHotlistSsidLostNumResults);
-
-            /* To support fragmentation from firmware, monitor the
-             * MORE_DATA flag and cache results until MORE_DATA = 0.
-             * Only then we can pass on the results to framework through
-             * the callback function.
-             */
-            if (!tbVendor[
-                QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_SCAN_RESULT_MORE_DATA]) {
-                ALOGE("%s: GSCAN_RESULTS_NUM_RESULTS_MORE_DATA not"
-                    " found", __FUNCTION__);
-                ret = WIFI_ERROR_INVALID_ARGS;
-                break;
-            } else {
-                mHotlistSsidLostMoreData = nla_get_u8(
-                    tbVendor[
-                    QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_SCAN_RESULT_MORE_DATA]);
-                ALOGE("%s: More data = %d. \n",
-                    __FUNCTION__, mHotlistSsidLostMoreData);
-            }
-
-            ALOGD("%s: Extract hotlist_ssid_Lost results.\n", __FUNCTION__);
-            startingIndex = mHotlistSsidLostNumResults - numResults;
-            ALOGD("%s: starting_index:%d",
-                __FUNCTION__, startingIndex);
-            ret = gscan_parse_hotlist_ssid_results(numResults,
-                                                mHotlistSsidLostResults,
-                                                startingIndex,
-                                                tbVendor);
-            /* If a parsing error occurred, exit and proceed for cleanup. */
-            if (ret)
-                break;
-            /* Send the results if no more result data fragments are expected */
-            if (!mHotlistSsidLostMoreData) {
-                (*mHandler.on_hotlist_ssid_lost)(id,
-                                               mHotlistSsidLostNumResults,
-                                               mHotlistSsidLostResults);
-                /* Reset flag and num counter. */
-                free(mHotlistSsidLostResults);
-                mHotlistSsidLostResults = NULL;
-                mHotlistSsidLostMoreData = false;
-                mHotlistSsidLostNumResults = 0;
-            }
+            (*mHandler.on_scan_event)(reqId, scanEvent);
         }
         break;
 
@@ -2077,9 +1765,6 @@ int GScanCommandEventHandler::handleEvent(WifiEvent &event)
             u32 resultsBufSize = 0;
             u32 numResults = 0;
             u32 startingIndex, sizeOfObtainedResults;
-
-            ALOGD("Event QCA_NL80211_VENDOR_SUBCMD_PNO_NETWORK_FOUND "
-                "received.");
 
             if (!tbVendor[
                 QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_REQUEST_ID])
@@ -2109,7 +1794,7 @@ int GScanCommandEventHandler::handleEvent(WifiEvent &event)
             }
             numResults = nla_get_u32(tbVendor[
                 QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_NUM_RESULTS_AVAILABLE]);
-            ALOGI("%s: number of results:%d", __FUNCTION__, numResults);
+            ALOGV("%s: number of results:%d", __FUNCTION__, numResults);
 
             /* Get the memory size of previous fragments, if any. */
             sizeOfObtainedResults = mPnoNetworkFoundNumResults *
@@ -2140,7 +1825,7 @@ int GScanCommandEventHandler::handleEvent(WifiEvent &event)
             memset((u8 *)mPnoNetworkFoundResults + sizeOfObtainedResults, 0,
                     resultsBufSize - sizeOfObtainedResults);
 
-            ALOGI("%s: Num of AP FOUND results = %d. \n", __FUNCTION__,
+            ALOGV("%s: Num of AP FOUND results = %d. \n", __FUNCTION__,
                                             mPnoNetworkFoundNumResults);
 
             /* To support fragmentation from firmware, monitor the
@@ -2158,13 +1843,13 @@ int GScanCommandEventHandler::handleEvent(WifiEvent &event)
                 mPnoNetworkFoundMoreData = nla_get_u8(
                     tbVendor[
                     QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_SCAN_RESULT_MORE_DATA]);
-                ALOGD("%s: More data = %d. \n",
+                ALOGV("%s: More data = %d. \n",
                     __FUNCTION__, mPnoNetworkFoundMoreData);
             }
 
-            ALOGD("%s: Extract PNO_NETWORK_FOUND results.\n", __FUNCTION__);
+            ALOGV("%s: Extract PNO_NETWORK_FOUND results.\n", __FUNCTION__);
             startingIndex = mPnoNetworkFoundNumResults - numResults;
-            ALOGD("%s: starting_index:%d",
+            ALOGV("%s: starting_index:%d",
                 __FUNCTION__, startingIndex);
             ret = gscan_parse_pno_network_results(numResults,
                                                 mPnoNetworkFoundResults,
@@ -2191,9 +1876,6 @@ int GScanCommandEventHandler::handleEvent(WifiEvent &event)
         case QCA_NL80211_VENDOR_SUBCMD_PNO_PASSPOINT_NETWORK_FOUND:
         {
             wifi_request_id id;
-
-            ALOGD("Event QCA_NL80211_VENDOR_SUBCMD_PNO_PASSPOINT_"
-                "NETWORK_FOUND received.");
 
             if (!tbVendor[
                 QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_REQUEST_ID])
@@ -2298,25 +1980,6 @@ int GScanCommandEventHandler::handleEvent(WifiEvent &event)
                 mHotlistApLostResults = NULL;
                 mHotlistApLostMoreData = false;
                 mHotlistApLostNumResults = 0;
-            }
-            break;
-
-            case QCA_NL80211_VENDOR_SUBCMD_GSCAN_HOTLIST_SSID_FOUND:
-            {
-                /* Reset flag and num counter. */
-                free(mHotlistSsidFoundResults);
-                mHotlistSsidFoundResults = NULL;
-                mHotlistSsidFoundMoreData = false;
-                mHotlistSsidFoundNumResults = 0;
-            }
-            break;
-            case QCA_NL80211_VENDOR_SUBCMD_GSCAN_HOTLIST_SSID_LOST:
-            {
-                /* Reset flag and num counter. */
-                free(mHotlistSsidLostResults);
-                mHotlistSsidLostResults = NULL;
-                mHotlistSsidLostMoreData = false;
-                mHotlistSsidLostNumResults = 0;
             }
             break;
 

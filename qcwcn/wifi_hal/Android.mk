@@ -18,11 +18,13 @@ LOCAL_PATH := $(call my-dir)
 # ============================================================
 include $(CLEAR_VARS)
 
-LOCAL_REQUIRED_MODULES :=
+LOCAL_CFLAGS := -Wno-unused-parameter
+ifeq ($(TARGET_BUILD_VARIANT),userdebug)
+LOCAL_CFLAGS += "-DLOG_NDEBUG=0"
+endif
 
-LOCAL_CFLAGS += -Wno-unused-parameter -Wno-int-to-pointer-cast
-LOCAL_CFLAGS += -Wno-maybe-uninitialized -Wno-parentheses
-LOCAL_CPPFLAGS += -Wno-conversion-null
+# gscan.cpp: address of array 'cached_results[i].results' will always evaluate to 'true'
+LOCAL_CLANG_CFLAGS := -Wno-pointer-bool-conversion
 
 LOCAL_C_INCLUDES += \
 	$(LOCAL_PATH) \
@@ -31,8 +33,6 @@ LOCAL_C_INCLUDES += \
 	external/wpa_supplicant_8/src/drivers \
 	$(TARGET_OUT_HEADERS)/libwpa_client \
 	$(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include
-
-LOCAL_ADDITIONAL_DEPENDENCIES += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr
 
 LOCAL_SRC_FILES := \
 	wifi_hal.cpp \
@@ -58,7 +58,6 @@ LOCAL_SRC_FILES := \
 LOCAL_MODULE := libwifi-hal-qcom
 LOCAL_CLANG := true
 LOCAL_SHARED_LIBRARIES += libnetutils liblog
-LOCAL_SHARED_LIBRARIES += libdl
 
 ifneq ($(wildcard external/libnl),)
 LOCAL_SHARED_LIBRARIES += libnl
@@ -74,9 +73,14 @@ include $(CLEAR_VARS)
 
 LOCAL_REQUIRED_MODULES :=
 
-LOCAL_CFLAGS += -Wno-unused-parameter -Wno-int-to-pointer-cast
-LOCAL_CFLAGS += -Wno-maybe-uninitialized -Wno-parentheses
+LOCAL_CFLAGS += -Wno-unused-parameter
 LOCAL_CPPFLAGS += -Wno-conversion-null
+ifeq ($(TARGET_BUILD_VARIANT),userdebug)
+LOCAL_CFLAGS += "-DLOG_NDEBUG=0"
+endif
+
+# gscan.cpp: address of array 'cached_results[i].results' will always evaluate to 'true'
+LOCAL_CLANG_CFLAGS := -Wno-pointer-bool-conversion
 
 LOCAL_C_INCLUDES += \
 	$(LOCAL_PATH) \
@@ -85,8 +89,6 @@ LOCAL_C_INCLUDES += \
 	external/wpa_supplicant_8/src/drivers \
 	$(TARGET_OUT_HEADERS)/libwpa_client \
 	$(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include
-
-LOCAL_ADDITIONAL_DEPENDENCIES += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr
 
 LOCAL_SRC_FILES := \
 	wifi_hal.cpp \

@@ -82,12 +82,7 @@ int wpa_driver_nl80211_driver_cmd(void *priv, char *cmd, char *buf,
 	android_wifi_priv_cmd priv_cmd;
 	int ret = 0;
 
-	if (os_strcasecmp(cmd, "STOP") == 0) {
-		dl_list_for_each(driver, &drv->global->interfaces, struct wpa_driver_nl80211_data, list) {
-				linux_set_iface_flags(drv->global->ioctl_sock, driver->first_bss->ifname, 0);
-				wpa_msg(drv->ctx, MSG_INFO, WPA_EVENT_DRIVER_STATE "STOPPED");
-		}
-	} else if (os_strcasecmp(cmd, "START") == 0) {
+	if (os_strcasecmp(cmd, "START") == 0) {
 		dl_list_for_each(driver, &drv->global->interfaces, struct wpa_driver_nl80211_data, list) {
 			linux_set_iface_flags(drv->global->ioctl_sock, driver->first_bss->ifname, 1);
 			wpa_msg(drv->ctx, MSG_INFO, WPA_EVENT_DRIVER_STATE "STARTED");
@@ -122,8 +117,7 @@ int wpa_driver_nl80211_driver_cmd(void *priv, char *cmd, char *buf,
 			ret = 0;
 			if ((os_strcasecmp(cmd, "LINKSPEED") == 0) ||
 			    (os_strcasecmp(cmd, "RSSI") == 0) ||
-			    (os_strcasecmp(cmd, "GETBAND") == 0) ||
-			    (os_strcasecmp(cmd, "GETANTENNAMODE") == 0))
+			    (os_strcasecmp(cmd, "GETBAND") == 0) )
 				ret = strlen(buf);
 			else if (os_strcasecmp(cmd, "P2P_DEV_ADDR") == 0)
 				wpa_printf(MSG_DEBUG, "%s: P2P: Device address ("MACSTR")",
@@ -132,8 +126,15 @@ int wpa_driver_nl80211_driver_cmd(void *priv, char *cmd, char *buf,
 				wpa_printf(MSG_DEBUG, "%s: P2P: %s ", __func__, buf);
 			else if (os_strcasecmp(cmd, "P2P_SET_NOA") == 0)
 				wpa_printf(MSG_DEBUG, "%s: P2P: %s ", __func__, buf);
+			else if (os_strcasecmp(cmd, "STOP") == 0) {
+				wpa_printf(MSG_DEBUG, "%s: %s ", __func__, buf);
+				dl_list_for_each(driver, &drv->global->interfaces, struct wpa_driver_nl80211_data, list) {
+					linux_set_iface_flags(drv->global->ioctl_sock, driver->first_bss->ifname, 0);
+					wpa_msg(drv->ctx, MSG_INFO, WPA_EVENT_DRIVER_STATE "STOPPED");
+				}
+			}
 			else
-				wpa_printf(MSG_DEBUG, "%s %s len = %d, %d", __func__, buf, ret, buf_len);
+				wpa_printf(MSG_DEBUG, "%s %s len = %d, %lu", __func__, buf, ret, buf_len);
 			wpa_driver_notify_country_change(drv->ctx, cmd);
 		}
 	}

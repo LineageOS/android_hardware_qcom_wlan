@@ -46,8 +46,6 @@ wifi_error wifi_get_rtt_capabilities(wifi_interface_handle iface,
     int ret = WIFI_SUCCESS;
     lowi_cb_table_t *lowiWifiHalApi = NULL;
 
-    ALOGD("wifi_get_rtt_capabilities: Entry");
-
     if (iface == NULL) {
         ALOGE("wifi_get_rtt_capabilities: NULL iface pointer provided."
             " Exit.");
@@ -97,8 +95,6 @@ wifi_error wifi_rtt_range_request(wifi_request_id id,
 {
     int ret = WIFI_SUCCESS;
     lowi_cb_table_t *lowiWifiHalApi = NULL;
-
-    ALOGD("wifi_rtt_range_request: Entry");
 
     if (iface == NULL) {
         ALOGE("wifi_rtt_range_request: NULL iface pointer provided."
@@ -165,8 +161,6 @@ wifi_error wifi_rtt_range_cancel(wifi_request_id id,
     int ret = WIFI_SUCCESS;
     lowi_cb_table_t *lowiWifiHalApi = NULL;
 
-    ALOGD("wifi_rtt_range_cancel: Entry");
-
     if (iface == NULL) {
         ALOGE("wifi_rtt_range_cancel: NULL iface pointer provided."
             " Exit.");
@@ -220,8 +214,6 @@ wifi_error wifi_set_lci(wifi_request_id id, wifi_interface_handle iface,
     int ret = WIFI_SUCCESS;
     lowi_cb_table_t *lowiWifiHalApi = NULL;
 
-    ALOGD("%s: Entry", __FUNCTION__);
-
     if (iface == NULL) {
         ALOGE("%s: NULL iface pointer provided."
             " Exit.", __FUNCTION__);
@@ -269,8 +261,6 @@ wifi_error wifi_set_lcr(wifi_request_id id, wifi_interface_handle iface,
     int ret = WIFI_SUCCESS;
     lowi_cb_table_t *lowiWifiHalApi = NULL;
 
-    ALOGD("%s: Entry", __FUNCTION__);
-
     if (iface == NULL) {
         ALOGE("%s: NULL iface pointer provided."
             " Exit.", __FUNCTION__);
@@ -311,3 +301,123 @@ cleanup:
     return (wifi_error)ret;
 }
 
+/*
+ * Get RTT responder information e.g. WiFi channel to enable responder on.
+ */
+wifi_error wifi_rtt_get_responder_info(wifi_interface_handle iface,
+                                      wifi_rtt_responder *responder_info)
+{
+    int ret = WIFI_SUCCESS;
+    lowi_cb_table_t *lowiWifiHalApi = NULL;
+
+    if (iface == NULL || responder_info == NULL) {
+        ALOGE("%s: iface : %p responder_info : %p", __FUNCTION__, iface,
+               responder_info);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+
+    /* Open LOWI dynamic library, retrieve handler to LOWI APIs */
+    lowiWifiHalApi = getLowiCallbackTable(
+                    ONE_SIDED_RANGING_SUPPORTED|DUAL_SIDED_RANGING_SUPPORED);
+    if (lowiWifiHalApi == NULL ||
+        lowiWifiHalApi->rtt_get_responder_info == NULL) {
+        ALOGE("%s: getLowiCallbackTable returned NULL or "
+            "the function pointer is NULL. Exit.", __FUNCTION__);
+        ret = WIFI_ERROR_NOT_SUPPORTED;
+        goto cleanup;
+    }
+
+    ret = lowiWifiHalApi->rtt_get_responder_info(iface, responder_info);
+    if (ret != WIFI_SUCCESS) {
+        ALOGE("%s: returned error:%d. Exit.",
+              __FUNCTION__, ret);
+        goto cleanup;
+    }
+
+cleanup:
+    return (wifi_error)ret;
+}
+
+/**
+ * Enable RTT responder mode.
+ * channel_hint - hint of the channel information where RTT responder should
+ *                be enabled on.
+ * max_duration_seconds - timeout of responder mode.
+ * responder_info - responder information e.g. channel used for RTT responder,
+ *                  NULL if responder is not enabled.
+ */
+wifi_error wifi_enable_responder(wifi_request_id id,
+                                 wifi_interface_handle iface,
+                                 wifi_channel_info channel_hint,
+                                 unsigned max_duration_seconds,
+                                 wifi_rtt_responder *responder_info)
+{
+    int ret = WIFI_SUCCESS;
+    lowi_cb_table_t *lowiWifiHalApi = NULL;
+
+    if (iface == NULL || responder_info == NULL) {
+        ALOGE("%s: iface : %p responder_info : %p", __FUNCTION__, iface, responder_info);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+
+    /* Open LOWI dynamic library, retrieve handler to LOWI APIs */
+    lowiWifiHalApi = getLowiCallbackTable(
+                    ONE_SIDED_RANGING_SUPPORTED|DUAL_SIDED_RANGING_SUPPORED);
+    if (lowiWifiHalApi == NULL ||
+        lowiWifiHalApi->enable_responder == NULL) {
+        ALOGE("%s: getLowiCallbackTable returned NULL or "
+            "the function pointer is NULL. Exit.", __FUNCTION__);
+        ret = WIFI_ERROR_NOT_SUPPORTED;
+        goto cleanup;
+    }
+
+    ret = lowiWifiHalApi->enable_responder(id, iface, channel_hint,
+                                           max_duration_seconds,
+                                           responder_info);
+    if (ret != WIFI_SUCCESS) {
+        ALOGE("%s: returned error:%d. Exit.",
+              __FUNCTION__, ret);
+        goto cleanup;
+    }
+
+cleanup:
+    return (wifi_error)ret;
+}
+
+
+/**
+ * Disable RTT responder mode.
+ */
+wifi_error wifi_disable_responder(wifi_request_id id,
+                                  wifi_interface_handle iface)
+
+{
+    int ret = WIFI_SUCCESS;
+    lowi_cb_table_t *lowiWifiHalApi = NULL;
+
+    if (iface == NULL) {
+        ALOGE("%s: iface : %p", __FUNCTION__, iface);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+
+    /* Open LOWI dynamic library, retrieve handler to LOWI APIs */
+    lowiWifiHalApi = getLowiCallbackTable(
+                    ONE_SIDED_RANGING_SUPPORTED|DUAL_SIDED_RANGING_SUPPORED);
+    if (lowiWifiHalApi == NULL ||
+        lowiWifiHalApi->disable_responder == NULL) {
+        ALOGE("%s: getLowiCallbackTable returned NULL or "
+            "the function pointer is NULL. Exit.", __FUNCTION__);
+        ret = WIFI_ERROR_NOT_SUPPORTED;
+        goto cleanup;
+    }
+
+    ret = lowiWifiHalApi->disable_responder(id, iface);
+    if (ret != WIFI_SUCCESS) {
+        ALOGE("%s: returned error:%d. Exit.",
+              __FUNCTION__, ret);
+        goto cleanup;
+    }
+
+cleanup:
+    return (wifi_error)ret;
+}

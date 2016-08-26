@@ -78,15 +78,13 @@ typedef struct {
     void (*on_significant_change)(wifi_request_id id,
                 unsigned num_results,
                 wifi_significant_change_result **results);
-    /* Reported when report_threshold is reached in scan cache */
-    void (*on_scan_results_available) (wifi_request_id id,
-                                    unsigned num_results_available);
     /* Reported when each probe response is received, if report_events
      * enabled in wifi_scan_cmd_params
      */
-    void (*on_full_scan_result) (wifi_request_id id, wifi_scan_result *result);
+    void (*on_full_scan_result) (wifi_request_id id, wifi_scan_result *result,
+                                                   unsigned buckets_scanned);
     /* Optional event - indicates progress of scanning statemachine */
-    void (*on_scan_event) (wifi_scan_event event, unsigned status);
+    void (*on_scan_event) (wifi_request_id id, wifi_scan_event event);
     void (*on_hotlist_ssid_found)(wifi_request_id id,
             unsigned num_results, wifi_scan_result *results);
     void (*on_hotlist_ssid_lost)(wifi_request_id id,
@@ -127,38 +125,16 @@ public:
     virtual void setNumChannelsPtr(int *num_channels);
     virtual int allocRspParams(eGScanRspRarams cmd);
     virtual void freeRspParams(eGScanRspRarams cmd);
-    virtual void getGetCapabilitiesRspParams(
+    virtual wifi_error getGetCapabilitiesRspParams(
                     wifi_gscan_capabilities *capabilities);
     virtual wifi_error copyCachedScanResults(int *numResults,
                                              wifi_cached_scan_results *cached_results);
     virtual int gscan_get_cached_results(wifi_cached_scan_results *results,
                                          struct nlattr **tb_vendor);
-    wifi_error validateGscanConfig(wifi_scan_cmd_params params);
-    wifi_error validateSignificantChangeParams(
-            wifi_significant_change_params params);
     virtual int allocCachedResultsTemp(int max,
                                        wifi_cached_scan_results *results);
     virtual int gscan_parse_capabilities(struct nlattr **tbVendor);
 };
-
-#define GSCAN_BASE_PERIOD_MIN 1
-#define GSCAN_MAX_AP_PER_SCAN_MIN 1
-#define GSCAN_REPORT_THRESHOLD_MIN 1
-#define GSCAN_NUM_BUCKETS_MIN 1
-#define GSCAN_BUCKET_INDEX_MIN 0
-#define GSCAN_REPORT_EVENT0 0
-#define GSCAN_REPORT_EVENT1 1
-#define GSCAN_REPORT_EVENT2 2
-#define GSCAN_MIN_CHANNELS 0
-#define GSCAN_ACTIVE_SCAN 0
-#define GSCAN_PASSIVE_SCAN 1
-
-#define BSSID_HOTLIST_NUM_AP_MIN 1
-
-#define RSSI_SAMPLE_SIZE_MIN 1
-#define LOSTAP_SAMPLE_SIZE_MIN 1
-#define MIN_BREACHING_MIN 1
-#define SIGNIFICANT_CHANGE_NUM_AP_MIN 1
 
 #ifdef __cplusplus
 }

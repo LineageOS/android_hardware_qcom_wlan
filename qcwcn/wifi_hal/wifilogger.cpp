@@ -38,7 +38,9 @@
 #include <stdlib.h>
 
 #define LOGGER_MEMDUMP_FILENAME "/proc/debug/fwdump"
+#define DRIVER_MEMDUMP_FILENAME "/proc/debugdriver/driverdump"
 #define LOGGER_MEMDUMP_CHUNKSIZE (4 * 1024)
+#define DRIVER_MEMDUMP_MAX_FILESIZE (16 * 1024)
 
 char power_events_ring_name[] = "power_events_rb";
 char connectivity_events_ring_name[] = "connectivity_events_rb";
@@ -598,10 +600,182 @@ wifi_error wifi_reset_alert_handler(wifi_request_id id,
     return WIFI_SUCCESS;
 }
 
+
+/**
+    API to start packet fate monitoring.
+    - Once stared, monitoring should remain active until HAL is unloaded.
+    - When HAL is unloaded, all packet fate buffers should be cleared.
+*/
+wifi_error wifi_start_pkt_fate_monitoring(wifi_interface_handle iface)
+{
+    wifi_handle wifiHandle = getWifiHandle(iface);
+    hal_info *info = getHalInfo(wifiHandle);
+
+    if (info->fate_monitoring_enabled == true) {
+        ALOGV("Packet monitoring is already enabled");
+        return WIFI_SUCCESS;
+    }
+
+    info->pkt_fate_stats = (packet_fate_monitor_info *) malloc (
+                                              sizeof(packet_fate_monitor_info));
+    if (info->pkt_fate_stats == NULL) {
+        ALOGE("Failed to allocate memory for : %zu bytes",
+              sizeof(packet_fate_monitor_info));
+        return WIFI_ERROR_OUT_OF_MEMORY;
+    }
+    memset(info->pkt_fate_stats, 0, sizeof(packet_fate_monitor_info));
+
+    pthread_mutex_lock(&info->pkt_fate_stats_lock);
+    info->fate_monitoring_enabled = true;
+    pthread_mutex_unlock(&info->pkt_fate_stats_lock);
+
+    return WIFI_SUCCESS;
+}
+
+
+/**
+    API to retrieve fates of outbound packets.
+    - HAL implementation should fill |tx_report_bufs| with fates of
+      _first_ min(n_requested_fates, actual packets) frames
+      transmitted for the most recent association. The fate reports
+      should follow the same order as their respective packets.
+    - Packets reported by firmware, but not recognized by driver
+      should be included.  However, the ordering of the corresponding
+      reports is at the discretion of HAL implementation.
+    - Framework may call this API multiple times for the same association.
+    - Framework will ensure |n_requested_fates <= MAX_FATE_LOG_LEN|.
+    - Framework will allocate and free the referenced storage.
+*/
+wifi_error wifi_get_tx_pkt_fates(wifi_interface_handle iface,
+                                 wifi_tx_report *tx_report_bufs,
+                                 size_t n_requested_fates,
+                                 size_t *n_provided_fates)
+{
+    wifi_handle wifiHandle = getWifiHandle(iface);
+    hal_info *info = getHalInfo(wifiHandle);
+    wifi_tx_report_i *tx_fate_stats;
+    size_t i;
+
+    if (info->fate_monitoring_enabled != true) {
+        ALOGE("Packet monitoring is not yet triggered");
+        return WIFI_ERROR_UNINITIALIZED;
+    }
+    pthread_mutex_lock(&info->pkt_fate_stats_lock);
+
+    tx_fate_stats = &info->pkt_fate_stats->tx_fate_stats[0];
+
+    *n_provided_fates = min(n_requested_fates,
+                            info->pkt_fate_stats->n_tx_stats_collected);
+
+    for (i=0; i < *n_provided_fates; i++) {
+        memcpy(tx_report_bufs[i].md5_prefix,
+                    tx_fate_stats[i].md5_prefix, MD5_PREFIX_LEN);
+        tx_report_bufs[i].fate = tx_fate_stats[i].fate;
+        tx_report_bufs[i].frame_inf.payload_type =
+            tx_fate_stats[i].frame_inf.payload_type;
+        tx_report_bufs[i].frame_inf.driver_timestamp_usec =
+            tx_fate_stats[i].frame_inf.driver_timestamp_usec;
+        tx_report_bufs[i].frame_inf.firmware_timestamp_usec =
+            tx_fate_stats[i].frame_inf.firmware_timestamp_usec;
+        tx_report_bufs[i].frame_inf.frame_len =
+            tx_fate_stats[i].frame_inf.frame_len;
+
+        if (tx_report_bufs[i].frame_inf.payload_type == FRAME_TYPE_ETHERNET_II)
+            memcpy(tx_report_bufs[i].frame_inf.frame_content.ethernet_ii_bytes,
+                   tx_fate_stats[i].frame_inf.frame_content,
+                   min(tx_fate_stats[i].frame_inf.frame_len,
+                       MAX_FRAME_LEN_ETHERNET));
+        else if (tx_report_bufs[i].frame_inf.payload_type ==
+                                                         FRAME_TYPE_80211_MGMT)
+            memcpy(
+                tx_report_bufs[i].frame_inf.frame_content.ieee_80211_mgmt_bytes,
+                tx_fate_stats[i].frame_inf.frame_content,
+                min(tx_fate_stats[i].frame_inf.frame_len,
+                    MAX_FRAME_LEN_80211_MGMT));
+        else
+            /* Currently framework is interested only two types(
+             * FRAME_TYPE_ETHERNET_II and FRAME_TYPE_80211_MGMT) of packets, so
+             * ignore the all other types of packets received from driver */
+            ALOGI("Unknown format packet");
+    }
+    pthread_mutex_unlock(&info->pkt_fate_stats_lock);
+
+    return WIFI_SUCCESS;
+}
+
+/**
+    API to retrieve fates of inbound packets.
+    - HAL implementation should fill |rx_report_bufs| with fates of
+      _first_ min(n_requested_fates, actual packets) frames
+      received for the most recent association. The fate reports
+      should follow the same order as their respective packets.
+    - Packets reported by firmware, but not recognized by driver
+      should be included.  However, the ordering of the corresponding
+      reports is at the discretion of HAL implementation.
+    - Framework may call this API multiple times for the same association.
+    - Framework will ensure |n_requested_fates <= MAX_FATE_LOG_LEN|.
+    - Framework will allocate and free the referenced storage.
+*/
+wifi_error wifi_get_rx_pkt_fates(wifi_interface_handle iface,
+                                 wifi_rx_report *rx_report_bufs,
+                                 size_t n_requested_fates,
+                                 size_t *n_provided_fates)
+{
+    wifi_handle wifiHandle = getWifiHandle(iface);
+    hal_info *info = getHalInfo(wifiHandle);
+    wifi_rx_report_i *rx_fate_stats;
+    size_t i;
+
+    if (info->fate_monitoring_enabled != true) {
+        ALOGE("Packet monitoring is not yet triggered");
+        return WIFI_ERROR_UNINITIALIZED;
+    }
+    pthread_mutex_lock(&info->pkt_fate_stats_lock);
+
+    rx_fate_stats = &info->pkt_fate_stats->rx_fate_stats[0];
+
+    *n_provided_fates = min(n_requested_fates,
+                            info->pkt_fate_stats->n_rx_stats_collected);
+
+    for (i=0; i < *n_provided_fates; i++) {
+        memcpy(rx_report_bufs[i].md5_prefix,
+                    rx_fate_stats[i].md5_prefix, MD5_PREFIX_LEN);
+        rx_report_bufs[i].fate = rx_fate_stats[i].fate;
+        rx_report_bufs[i].frame_inf.payload_type =
+            rx_fate_stats[i].frame_inf.payload_type;
+        rx_report_bufs[i].frame_inf.driver_timestamp_usec =
+            rx_fate_stats[i].frame_inf.driver_timestamp_usec;
+        rx_report_bufs[i].frame_inf.firmware_timestamp_usec =
+            rx_fate_stats[i].frame_inf.firmware_timestamp_usec;
+        rx_report_bufs[i].frame_inf.frame_len =
+            rx_fate_stats[i].frame_inf.frame_len;
+
+        if (rx_report_bufs[i].frame_inf.payload_type == FRAME_TYPE_ETHERNET_II)
+            memcpy(rx_report_bufs[i].frame_inf.frame_content.ethernet_ii_bytes,
+                   rx_fate_stats[i].frame_inf.frame_content,
+                   min(rx_fate_stats[i].frame_inf.frame_len,
+                   MAX_FRAME_LEN_ETHERNET));
+        else if (rx_report_bufs[i].frame_inf.payload_type ==
+                                                         FRAME_TYPE_80211_MGMT)
+            memcpy(
+                rx_report_bufs[i].frame_inf.frame_content.ieee_80211_mgmt_bytes,
+                rx_fate_stats[i].frame_inf.frame_content,
+                min(rx_fate_stats[i].frame_inf.frame_len,
+                    MAX_FRAME_LEN_80211_MGMT));
+        else
+            /* Currently framework is interested only two types(
+             * FRAME_TYPE_ETHERNET_II and FRAME_TYPE_80211_MGMT) of packets, so
+             * ignore the all other types of packets received from driver */
+            ALOGI("Unknown format packet");
+    }
+    pthread_mutex_unlock(&info->pkt_fate_stats_lock);
+
+    return WIFI_SUCCESS;
+}
+
 WifiLoggerCommand::WifiLoggerCommand(wifi_handle handle, int id, u32 vendor_id, u32 subcmd)
         : WifiVendorCommand(handle, id, vendor_id, subcmd)
 {
-    ALOGV("WifiLoggerCommand %p constructed", this);
     mVersion = NULL;
     mVersionLen = 0;
     mRequestId = id;
@@ -613,7 +787,6 @@ WifiLoggerCommand::WifiLoggerCommand(wifi_handle handle, int id, u32 vendor_id, 
 
 WifiLoggerCommand::~WifiLoggerCommand()
 {
-    ALOGV("WifiLoggerCommand %p destructor", this);
     unregisterVendorHandler(mVendor_id, mSubcmd);
 }
 
@@ -854,8 +1027,7 @@ int WifiLoggerCommand::handleResponse(WifiEvent &reply) {
                    string terminated with '\0' */
                 len = (len > mVersionLen)? (mVersionLen - 1) : len;
                 memcpy(mVersion, nla_data(tb_vendor[version]), len);
-                ALOGD("%s: WLAN version len : %d", __FUNCTION__, len);
-                ALOGD("%s: WLAN %s version : %s ", __FUNCTION__,
+                ALOGV("%s: WLAN %s version : %s ", __FUNCTION__,
                       version_type, mVersion);
             }
         }
@@ -870,8 +1042,10 @@ int WifiLoggerCommand::handleResponse(WifiEvent &reply) {
             if (tb_vendor[QCA_WLAN_VENDOR_ATTR_FEATURE_SET]) {
                 *mSupportedSet =
                 nla_get_u32(tb_vendor[QCA_WLAN_VENDOR_ATTR_FEATURE_SET]);
-                ALOGD("%s: Supported Feature Set : val 0x%x",
+#ifdef QC_HAL_DEBUG
+                ALOGV("%s: Supported Feature Set : val 0x%x",
                       __FUNCTION__, *mSupportedSet);
+#endif
             }
         }
         break;
@@ -964,6 +1138,165 @@ int WifiLoggerCommand::handleResponse(WifiEvent &reply) {
             }
         }
         break;
+        case QCA_NL80211_VENDOR_SUBCMD_GET_WAKE_REASON_STATS:
+        {
+            struct nlattr *tbVendor[QCA_WLAN_VENDOR_ATTR_WAKE_STATS_MAX +1];
+
+            /* parse and extract wake reason stats */
+            nla_parse(tbVendor, QCA_WLAN_VENDOR_ATTR_WAKE_STATS_MAX,
+                      (struct nlattr *)mVendorData,
+                      mDataLen, NULL);
+
+            if (!tbVendor[
+                    QCA_WLAN_VENDOR_ATTR_WAKE_STATS_TOTAL_CMD_EVENT_WAKE]) {
+                ALOGE("%s: TOTAL_CMD_EVENT_WAKE not found", __FUNCTION__);
+                break;
+            }
+            mGetWakeStats->total_cmd_event_wake = nla_get_u32(
+                tbVendor[QCA_WLAN_VENDOR_ATTR_WAKE_STATS_TOTAL_CMD_EVENT_WAKE]);
+
+            if (mGetWakeStats->total_cmd_event_wake &&
+                    mGetWakeStats->cmd_event_wake_cnt) {
+                if (!tbVendor[
+                    QCA_WLAN_VENDOR_ATTR_WAKE_STATS_CMD_EVENT_WAKE_CNT_PTR]) {
+                    ALOGE("%s: CMD_EVENT_WAKE_CNT_PTR not found", __FUNCTION__);
+                    break;
+                }
+                len = nla_len(tbVendor[
+                        QCA_WLAN_VENDOR_ATTR_WAKE_STATS_CMD_EVENT_WAKE_CNT_PTR]);
+                mGetWakeStats->cmd_event_wake_cnt_used =
+                        (len < mGetWakeStats->cmd_event_wake_cnt_sz) ? len :
+                                    mGetWakeStats->cmd_event_wake_cnt_sz;
+                memcpy(mGetWakeStats->cmd_event_wake_cnt,
+                    nla_data(tbVendor[
+                        QCA_WLAN_VENDOR_ATTR_WAKE_STATS_CMD_EVENT_WAKE_CNT_PTR]),
+                    (mGetWakeStats->cmd_event_wake_cnt_used * sizeof(int)));
+            } else
+                mGetWakeStats->cmd_event_wake_cnt_used = 0;
+
+            if (!tbVendor[
+                    QCA_WLAN_VENDOR_ATTR_WAKE_STATS_TOTAL_DRIVER_FW_LOCAL_WAKE])
+            {
+                ALOGE("%s: TOTAL_DRIVER_FW_LOCAL_WAKE not found", __FUNCTION__);
+                break;
+            }
+            mGetWakeStats->total_driver_fw_local_wake = nla_get_u32(tbVendor[
+                QCA_WLAN_VENDOR_ATTR_WAKE_STATS_TOTAL_DRIVER_FW_LOCAL_WAKE]);
+
+            if (mGetWakeStats->total_driver_fw_local_wake &&
+                    mGetWakeStats->driver_fw_local_wake_cnt) {
+                if (!tbVendor[
+                    QCA_WLAN_VENDOR_ATTR_WAKE_STATS_DRIVER_FW_LOCAL_WAKE_CNT_PTR])
+                {
+                    ALOGE("%s: DRIVER_FW_LOCAL_WAKE_CNT_PTR not found",
+                        __FUNCTION__);
+                    break;
+                }
+                len = nla_len(tbVendor[
+                    QCA_WLAN_VENDOR_ATTR_WAKE_STATS_DRIVER_FW_LOCAL_WAKE_CNT_PTR]);
+                mGetWakeStats->driver_fw_local_wake_cnt_used =
+                    (len < mGetWakeStats->driver_fw_local_wake_cnt_sz) ? len :
+                                    mGetWakeStats->driver_fw_local_wake_cnt_sz;
+
+                memcpy(mGetWakeStats->driver_fw_local_wake_cnt,
+                    nla_data(tbVendor[
+                        QCA_WLAN_VENDOR_ATTR_WAKE_STATS_DRIVER_FW_LOCAL_WAKE_CNT_PTR]),
+                    (mGetWakeStats->driver_fw_local_wake_cnt_used * sizeof(int)));
+            } else
+                mGetWakeStats->driver_fw_local_wake_cnt_used = 0;
+
+            if (!tbVendor[QCA_WLAN_VENDOR_ATTR_WAKE_STATS_TOTAL_RX_DATA_WAKE]) {
+                ALOGE("%s: TOTAL_RX_DATA_WAKE not found", __FUNCTION__);
+                break;
+            }
+            mGetWakeStats->total_rx_data_wake = nla_get_u32(tbVendor[
+                        QCA_WLAN_VENDOR_ATTR_WAKE_STATS_TOTAL_RX_DATA_WAKE]);
+
+            if (!tbVendor[QCA_WLAN_VENDOR_ATTR_WAKE_STATS_RX_UNICAST_CNT]) {
+                ALOGE("%s: RX_UNICAST_CNT not found", __FUNCTION__);
+                break;
+            }
+            mGetWakeStats->rx_wake_details.rx_unicast_cnt = nla_get_u32(
+                    tbVendor[QCA_WLAN_VENDOR_ATTR_WAKE_STATS_RX_UNICAST_CNT]);
+
+            if (!tbVendor[QCA_WLAN_VENDOR_ATTR_WAKE_STATS_RX_MULTICAST_CNT]) {
+                ALOGE("%s: RX_MULTICAST_CNT not found", __FUNCTION__);
+                break;
+            }
+            mGetWakeStats->rx_wake_details.rx_multicast_cnt = nla_get_u32(
+                    tbVendor[QCA_WLAN_VENDOR_ATTR_WAKE_STATS_RX_MULTICAST_CNT]);
+
+            if (!tbVendor[QCA_WLAN_VENDOR_ATTR_WAKE_STATS_RX_BROADCAST_CNT]) {
+                ALOGE("%s: RX_BROADCAST_CNT not found", __FUNCTION__);
+                break;
+            }
+            mGetWakeStats->rx_wake_details.rx_broadcast_cnt = nla_get_u32(
+                    tbVendor[QCA_WLAN_VENDOR_ATTR_WAKE_STATS_RX_BROADCAST_CNT]);
+
+            if (!tbVendor[QCA_WLAN_VENDOR_ATTR_WAKE_STATS_ICMP_PKT]) {
+                ALOGE("%s: ICMP_PKT not found", __FUNCTION__);
+                break;
+            }
+            mGetWakeStats->rx_wake_pkt_classification_info.icmp_pkt =
+                nla_get_u32(tbVendor[QCA_WLAN_VENDOR_ATTR_WAKE_STATS_ICMP_PKT]);
+
+            if (!tbVendor[QCA_WLAN_VENDOR_ATTR_WAKE_STATS_ICMP6_PKT]) {
+                ALOGE("%s: ICMP6_PKT not found", __FUNCTION__);
+                break;
+            }
+            mGetWakeStats->rx_wake_pkt_classification_info.icmp6_pkt =
+                nla_get_u32(tbVendor[QCA_WLAN_VENDOR_ATTR_WAKE_STATS_ICMP6_PKT]);
+
+            if (!tbVendor[QCA_WLAN_VENDOR_ATTR_WAKE_STATS_ICMP6_RA]) {
+                ALOGE("%s: ICMP6_RA not found", __FUNCTION__);
+                break;
+            }
+            mGetWakeStats->rx_wake_pkt_classification_info.icmp6_ra =
+                nla_get_u32(tbVendor[QCA_WLAN_VENDOR_ATTR_WAKE_STATS_ICMP6_RA]);
+
+            if (!tbVendor[QCA_WLAN_VENDOR_ATTR_WAKE_STATS_ICMP6_NA]) {
+                ALOGE("%s: ICMP6_NA not found", __FUNCTION__);
+                break;
+            }
+            mGetWakeStats->rx_wake_pkt_classification_info.icmp6_na =
+                nla_get_u32(tbVendor[QCA_WLAN_VENDOR_ATTR_WAKE_STATS_ICMP6_NA]);
+
+            if (!tbVendor[QCA_WLAN_VENDOR_ATTR_WAKE_STATS_ICMP6_NS]) {
+                ALOGE("%s: ICMP6_NS not found", __FUNCTION__);
+                break;
+            }
+            mGetWakeStats->rx_wake_pkt_classification_info.icmp6_ns =
+                nla_get_u32(tbVendor[QCA_WLAN_VENDOR_ATTR_WAKE_STATS_ICMP6_NS]);
+
+            if (!tbVendor[
+                    QCA_WLAN_VENDOR_ATTR_WAKE_STATS_ICMP4_RX_MULTICAST_CNT]) {
+                ALOGE("%s: ICMP4_RX_MULTICAST_CNT not found", __FUNCTION__);
+                break;
+            }
+            mGetWakeStats->rx_multicast_wake_pkt_info.ipv4_rx_multicast_addr_cnt =
+                nla_get_u32(tbVendor[
+                    QCA_WLAN_VENDOR_ATTR_WAKE_STATS_ICMP4_RX_MULTICAST_CNT]);
+
+            if (!tbVendor[
+                    QCA_WLAN_VENDOR_ATTR_WAKE_STATS_ICMP6_RX_MULTICAST_CNT]) {
+                ALOGE("%s: ICMP6_RX_MULTICAST_CNT not found", __FUNCTION__);
+                break;
+            }
+            mGetWakeStats->rx_multicast_wake_pkt_info.ipv6_rx_multicast_addr_cnt =
+                nla_get_u32(tbVendor[
+                    QCA_WLAN_VENDOR_ATTR_WAKE_STATS_ICMP6_RX_MULTICAST_CNT]);
+
+            if (!tbVendor[
+                    QCA_WLAN_VENDOR_ATTR_WAKE_STATS_OTHER_RX_MULTICAST_CNT]) {
+                ALOGE("%s: OTHER_RX_MULTICAST_CNT not found", __FUNCTION__);
+                break;
+            }
+            mGetWakeStats->rx_multicast_wake_pkt_info.other_rx_multicast_addr_cnt =
+                nla_get_u32(tbVendor[
+                    QCA_WLAN_VENDOR_ATTR_WAKE_STATS_OTHER_RX_MULTICAST_CNT]);
+
+        }
+        break;
 
         default :
             ALOGE("%s: Wrong Wifi Logger subcmd response received %d",
@@ -1031,3 +1364,159 @@ void WifiLoggerCommand::waitForRsp(bool wait)
     mWaitforRsp = wait;
 }
 
+/* Function to get Driver memory dump */
+wifi_error wifi_get_driver_memory_dump(wifi_interface_handle iface,
+                                    wifi_driver_memory_dump_callbacks callback)
+{
+    FILE *fp;
+    size_t fileSize, remaining, readSize;
+    size_t numRecordsRead;
+    char *memBuffer = NULL, *buffer = NULL;
+
+    /* Open File */
+    fp = fopen(DRIVER_MEMDUMP_FILENAME, "r");
+    if (fp == NULL) {
+        ALOGE("Failed to open %s file", DRIVER_MEMDUMP_FILENAME);
+        return WIFI_ERROR_UNKNOWN;
+    }
+
+    memBuffer = (char *) malloc(DRIVER_MEMDUMP_MAX_FILESIZE);
+    if (memBuffer == NULL) {
+        ALOGE("%s: malloc failed for size %d", __FUNCTION__,
+                    DRIVER_MEMDUMP_MAX_FILESIZE);
+        fclose(fp);
+        return WIFI_ERROR_OUT_OF_MEMORY;
+    }
+
+    /* Read the DRIVER_MEMDUMP_MAX_FILESIZE value at once */
+    numRecordsRead = fread(memBuffer, 1, DRIVER_MEMDUMP_MAX_FILESIZE, fp);
+    if (feof(fp))
+        fileSize = numRecordsRead;
+    else if (numRecordsRead == DRIVER_MEMDUMP_MAX_FILESIZE) {
+        ALOGE("%s: Reading only first %zu bytes from file", __FUNCTION__,
+                numRecordsRead);
+        fileSize = numRecordsRead;
+    } else {
+        ALOGE("%s: Read failed for reading at once, ret: %zu. Trying to read in"
+                "chunks", __FUNCTION__, numRecordsRead);
+        /* Lets try to read in chunks */
+        rewind(fp);
+        remaining = DRIVER_MEMDUMP_MAX_FILESIZE;
+        buffer = memBuffer;
+        fileSize = 0;
+        while (remaining) {
+            readSize = 0;
+            if (remaining >= LOGGER_MEMDUMP_CHUNKSIZE)
+                readSize = LOGGER_MEMDUMP_CHUNKSIZE;
+            else
+                readSize = remaining;
+
+            numRecordsRead = fread(buffer, 1, readSize, fp);
+            fileSize += numRecordsRead;
+            if (feof(fp))
+                break;
+            else if (numRecordsRead == readSize) {
+                remaining -= readSize;
+                buffer += readSize;
+                ALOGV("%s: Read successful for size:%zu remaining:%zu",
+                         __FUNCTION__, readSize, remaining);
+            } else {
+                ALOGE("%s: Chunk read failed for size:%zu", __FUNCTION__,
+                        readSize);
+                free(memBuffer);
+                memBuffer = NULL;
+                fclose(fp);
+                return WIFI_ERROR_UNKNOWN;
+            }
+        }
+    }
+    ALOGV("%s filename: %s fileSize: %zu", __FUNCTION__, DRIVER_MEMDUMP_FILENAME,
+            fileSize);
+    /* After successful read, call the callback function*/
+    callback.on_driver_memory_dump(memBuffer, fileSize);
+
+    /* free the allocated memory */
+    free(memBuffer);
+    fclose(fp);
+    return WIFI_SUCCESS;
+}
+
+/* Function to get wake lock stats */
+wifi_error wifi_get_wake_reason_stats(wifi_interface_handle iface,
+                             WLAN_DRIVER_WAKE_REASON_CNT *wifi_wake_reason_cnt)
+{
+    int requestId, ret = WIFI_SUCCESS;
+    WifiLoggerCommand *wifiLoggerCommand;
+    struct nlattr *nlData;
+    interface_info *ifaceInfo = getIfaceInfo(iface);
+    wifi_handle wifiHandle = getWifiHandle(iface);
+
+    /* No request id from caller, so generate one and pass it on to the driver.
+     * Generate it randomly.
+     */
+    requestId = get_requestid();
+
+    if (!wifi_wake_reason_cnt) {
+        ALOGE("%s: Invalid buffer provided. Exit.",
+            __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+
+    wifiLoggerCommand = new WifiLoggerCommand(
+                                wifiHandle,
+                                requestId,
+                                OUI_QCA,
+                                QCA_NL80211_VENDOR_SUBCMD_GET_WAKE_REASON_STATS);
+    if (wifiLoggerCommand == NULL) {
+        ALOGE("%s: Error WifiLoggerCommand NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
+
+    /* Create the NL message. */
+    ret = wifiLoggerCommand->create();
+    if (ret < 0)
+        goto cleanup;
+
+    /* Set the interface Id of the message. */
+    ret = wifiLoggerCommand->set_iface_id(ifaceInfo->name);
+    if (ret < 0)
+        goto cleanup;
+
+    wifiLoggerCommand->getWakeStatsRspParams(wifi_wake_reason_cnt);
+
+    /* Add the vendor specific attributes for the NL command. */
+    nlData = wifiLoggerCommand->attr_start(NL80211_ATTR_VENDOR_DATA);
+    if (!nlData)
+        goto cleanup;
+
+    if (wifiLoggerCommand->put_u32(
+                QCA_WLAN_VENDOR_ATTR_WAKE_STATS_CMD_EVENT_WAKE_CNT_SZ,
+                wifi_wake_reason_cnt->cmd_event_wake_cnt_sz))
+    {
+        goto cleanup;
+    }
+
+    if (wifiLoggerCommand->put_u32(
+                QCA_WLAN_VENDOR_ATTR_WAKE_STATS_DRIVER_FW_LOCAL_WAKE_CNT_SZ,
+                wifi_wake_reason_cnt->driver_fw_local_wake_cnt_sz))
+    {
+        goto cleanup;
+    }
+    wifiLoggerCommand->attr_end(nlData);
+
+    /* Send the msg and wait for a response. */
+    ret = wifiLoggerCommand->requestResponse();
+    if (ret) {
+        ALOGE("%s: Error %d happened. ", __FUNCTION__, ret);
+    }
+
+cleanup:
+    delete wifiLoggerCommand;
+    return (wifi_error)ret;
+}
+
+void WifiLoggerCommand::getWakeStatsRspParams(
+                            WLAN_DRIVER_WAKE_REASON_CNT *wifi_wake_reason_cnt)
+{
+    mGetWakeStats = wifi_wake_reason_cnt;
+}

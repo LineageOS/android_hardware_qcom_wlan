@@ -39,7 +39,7 @@
 #include "wifilogger_vendor_tag_defs.h"
 #include "pkt_stats.h"
 
-#define MAX_CONNECTIVITY_EVENTS 16 // should match the value in wifi_logger.h
+#define MAX_CONNECTIVITY_EVENTS 18 // should match the value in wifi_logger.h
 static event_remap_t events[MAX_CONNECTIVITY_EVENTS] = {
     {WLAN_PE_DIAG_ASSOC_REQ_EVENT, WIFI_EVENT_ASSOCIATION_REQUESTED},
     {WLAN_PE_DIAG_AUTH_COMP_EVENT, WIFI_EVENT_AUTH_COMPLETE},
@@ -57,6 +57,8 @@ static event_remap_t events[MAX_CONNECTIVITY_EVENTS] = {
     {WLAN_PE_DIAG_ROAM_ASSOC_START_EVENT, WIFI_EVENT_ROAM_ASSOC_STARTED},
     {WLAN_PE_DIAG_ROAM_ASSOC_COMP_EVENT, WIFI_EVENT_ROAM_ASSOC_COMPLETE},
     {WLAN_PE_DIAG_SWITCH_CHL_REQ_EVENT, WIFI_EVENT_CHANNEL_SWITCH_ANOUNCEMENT},
+    {WLAN_PE_DIAG_ASSOC_TIMEOUT, WIFI_EVENT_ASSOC_TIMEOUT},
+    {WLAN_PE_DIAG_AUTH_TIMEOUT, WIFI_EVENT_AUTH_TIMEOUT},
 };
 
 tlv_log* addLoggerTlv(u16 type, u16 length, u8* value, tlv_log *pOutTlv)
@@ -1170,6 +1172,50 @@ static void process_wlan_log_complete_event(hal_info *info,
     }
 }
 
+
+static void process_wlan_low_resource_failure(hal_info *info,
+                                              u8* buf,
+                                              u16 length)
+{
+    wifi_ring_buffer_driver_connectivity_event *pConnectEvent;
+    wlan_low_resource_failure_event_t *pWlanResourceEvent;
+    resource_failure_vendor_data_t cap_vendor_data;
+    wifi_ring_buffer_entry *pRingBufferEntry;
+    u8 out_buf[RING_BUF_ENTRY_SIZE];
+    int tot_len = sizeof(wifi_ring_buffer_driver_connectivity_event);
+    tlv_log *pTlv;
+    wifi_error status;
+
+    pWlanResourceEvent = (wlan_low_resource_failure_event_t *)buf;
+    pRingBufferEntry = (wifi_ring_buffer_entry *)&out_buf[0];
+    memset(pRingBufferEntry, 0, RING_BUF_ENTRY_SIZE);
+    pConnectEvent = (wifi_ring_buffer_driver_connectivity_event *)
+                     (pRingBufferEntry + 1);
+
+    pConnectEvent->event = WIFI_EVENT_MEM_ALLOC_FAILURE;
+    memset(&cap_vendor_data, 0, sizeof(resource_failure_vendor_data_t));
+
+    if (length > sizeof(resource_failure_vendor_data_t)) {
+        ALOGE("Received resource failure event of size : %d, whereas expected"
+              " size is <= %zu bytes", length,
+              sizeof(resource_failure_vendor_data_t));
+        return;
+    }
+    memcpy(&cap_vendor_data, pWlanResourceEvent, length);
+
+    pTlv = &pConnectEvent->tlvs[0];
+    pTlv = addLoggerTlv(WIFI_TAG_VENDOR_SPECIFIC,
+                        sizeof(resource_failure_vendor_data_t),
+                        (u8 *)&cap_vendor_data, pTlv);
+    tot_len += sizeof(tlv_log) + sizeof(resource_failure_vendor_data_t);
+
+    status = update_connectivity_ring_buf(info, pRingBufferEntry, tot_len);
+    if (status != WIFI_SUCCESS) {
+        ALOGE("Failed to write resource failure event into ring buffer");
+    }
+}
+
+
 static wifi_error update_stats_to_ring_buf(hal_info *info,
                       u8 *rb_entry, u32 size)
 {
@@ -1754,6 +1800,143 @@ wifi_error write_per_packet_stats_to_rb(hal_info *info, u8 *buf, u16 length)
     return WIFI_SUCCESS;
 }
 
+static wifi_error parse_tx_pkt_fate_stats(hal_info *info, u8 *buf, u16 size)
+{
+    pktdump_hdr *log = (pktdump_hdr *)buf;
+    wifi_tx_report_i *pkt_fate_stats;
+
+    if (info->pkt_fate_stats->n_tx_stats_collected >= MAX_FATE_LOG_LEN) {
+        ALOGD("Only %u events are expected, don't process this event",
+              MAX_FATE_LOG_LEN);
+        return WIFI_SUCCESS;
+    }
+
+    pkt_fate_stats = &info->pkt_fate_stats->tx_fate_stats[
+                                   info->pkt_fate_stats->n_tx_stats_collected];
+
+    pkt_fate_stats->fate = (wifi_tx_packet_fate)log->status;
+    if (log->type == TX_MGMT_PKT)
+        pkt_fate_stats->frame_inf.payload_type = FRAME_TYPE_80211_MGMT;
+    else
+        pkt_fate_stats->frame_inf.payload_type = FRAME_TYPE_ETHERNET_II;
+
+    pkt_fate_stats->frame_inf.driver_timestamp_usec = log->driver_ts;
+    pkt_fate_stats->frame_inf.firmware_timestamp_usec = log->fw_ts;
+    pkt_fate_stats->frame_inf.frame_len = size - sizeof(pktdump_hdr);
+    pkt_fate_stats->frame_inf.frame_content =
+             (char *)malloc(pkt_fate_stats->frame_inf.frame_len * sizeof(char));
+    if (pkt_fate_stats->frame_inf.frame_content) {
+        memcpy(pkt_fate_stats->frame_inf.frame_content,
+               buf + sizeof(pktdump_hdr), pkt_fate_stats->frame_inf.frame_len);
+    } else {
+        ALOGE("Failed to allocate mem for Tx frame_content for packet: %zu",
+              info->pkt_fate_stats->n_tx_stats_collected);
+        pkt_fate_stats->frame_inf.frame_len = 0;
+    }
+
+    info->pkt_fate_stats->n_tx_stats_collected++;
+
+    return WIFI_SUCCESS;
+}
+
+
+static wifi_error parse_rx_pkt_fate_stats(hal_info *info, u8 *buf, u16 size)
+{
+    pktdump_hdr *log = (pktdump_hdr *)buf;
+    wifi_rx_report_i *pkt_fate_stats;
+
+    if (info->pkt_fate_stats->n_rx_stats_collected >= MAX_FATE_LOG_LEN) {
+        ALOGD("Only %u events are expected, don't process this event",
+              MAX_FATE_LOG_LEN);
+        return WIFI_SUCCESS;
+    }
+
+    pkt_fate_stats = &info->pkt_fate_stats->rx_fate_stats[
+                                   info->pkt_fate_stats->n_rx_stats_collected];
+
+    pkt_fate_stats->fate = (wifi_rx_packet_fate)log->status;
+    if (log->type == RX_MGMT_PKT)
+        pkt_fate_stats->frame_inf.payload_type = FRAME_TYPE_80211_MGMT;
+    else
+        pkt_fate_stats->frame_inf.payload_type = FRAME_TYPE_ETHERNET_II;
+
+    pkt_fate_stats->frame_inf.driver_timestamp_usec = log->driver_ts;
+    pkt_fate_stats->frame_inf.firmware_timestamp_usec = log->fw_ts;
+    pkt_fate_stats->frame_inf.frame_len = size - sizeof(pktdump_hdr);
+    pkt_fate_stats->frame_inf.frame_content =
+             (char *)malloc(pkt_fate_stats->frame_inf.frame_len * sizeof(char));
+    if (pkt_fate_stats->frame_inf.frame_content) {
+        memcpy(pkt_fate_stats->frame_inf.frame_content,
+               buf + sizeof(pktdump_hdr), pkt_fate_stats->frame_inf.frame_len);
+    } else {
+        ALOGE("Failed to allocate mem for Rx frame_content for packet: %zu",
+              info->pkt_fate_stats->n_rx_stats_collected);
+        pkt_fate_stats->frame_inf.frame_len = 0;
+    }
+
+    info->pkt_fate_stats->n_rx_stats_collected++;
+
+    return WIFI_SUCCESS;
+}
+
+
+static wifi_error trigger_fate_stats(hal_info *info, u8 *buf, u16 size)
+{
+    int i;
+    packet_fate_monitor_info *pkt_fate_stats = info->pkt_fate_stats;
+
+    for (i=0; i<MAX_FATE_LOG_LEN; i++) {
+        if (pkt_fate_stats->tx_fate_stats[i].frame_inf.frame_content) {
+            free (pkt_fate_stats->tx_fate_stats[i].frame_inf.frame_content);
+            pkt_fate_stats->tx_fate_stats[i].frame_inf.frame_content = NULL;
+        }
+
+        if (pkt_fate_stats->rx_fate_stats[i].frame_inf.frame_content) {
+            free (pkt_fate_stats->rx_fate_stats[i].frame_inf.frame_content);
+            pkt_fate_stats->rx_fate_stats[i].frame_inf.frame_content = NULL;
+        }
+    }
+    memset(pkt_fate_stats, 0, sizeof(packet_fate_monitor_info));
+
+    return WIFI_SUCCESS;
+}
+
+
+static wifi_error report_fate_stats(hal_info *info, u8 *buf, u16 size)
+{
+    ALOGI("Fate Tx-Rx: Packet fate stats stop received");
+    return WIFI_SUCCESS;
+}
+
+
+static wifi_error parse_pkt_fate_stats(hal_info *info, u8 *buf, u16 size)
+{
+    pktdump_hdr *hdr = (pktdump_hdr *)buf;
+
+    switch (hdr->type)
+    {
+        case START_MONITOR:
+            trigger_fate_stats(info, buf, size);
+        break;
+        case STOP_MONITOR:
+            report_fate_stats(info, buf, size);
+        break;
+        case TX_MGMT_PKT:
+        case TX_DATA_PKT:
+            parse_tx_pkt_fate_stats(info, buf, size);
+        break;
+        case RX_MGMT_PKT:
+        case RX_DATA_PKT:
+            parse_rx_pkt_fate_stats(info, buf, size);
+        break;
+        default:
+            ALOGE("Unsupported type : %d", hdr->type);
+            return WIFI_ERROR_INVALID_ARGS;
+    }
+    return WIFI_SUCCESS;
+}
+
+
 static wifi_error parse_stats_record(hal_info *info,
                                      wh_pktlog_hdr_t *pkt_stats_header)
 {
@@ -1770,6 +1953,15 @@ static wifi_error parse_stats_record(hal_info *info,
                                     pkt_stats_header->size);
         else
             status = WIFI_SUCCESS;
+    } else if (pkt_stats_header->log_type == PKTLOG_TYPE_PKT_DUMP) {
+        pthread_mutex_lock(&info->pkt_fate_stats_lock);
+        if (info->fate_monitoring_enabled)
+            status = parse_pkt_fate_stats(info,
+                                          (u8 *)(pkt_stats_header + 1),
+                                          pkt_stats_header->size);
+        else
+            status = WIFI_SUCCESS;
+        pthread_mutex_unlock(&info->pkt_fate_stats_lock);
     } else {
         status = parse_tx_stats(info,
                                 (u8 *)(pkt_stats_header + 1),
@@ -1856,7 +2048,7 @@ wifi_error diag_message_handler(hal_info *info, nl_msg *msg)
     if (wnl->nlh.nlmsg_type == ANI_NL_MSG_PUMAC) {
         if ((wnl->nlh.nlmsg_len <= sizeof(tAniNlHdr)) ||
             (wnl->nlh.nlmsg_len < (sizeof(tAniNlHdr) + ntohs(wnl->wmsg.length)))) {
-            ALOGV("Received UMAC message with insufficent length: %d",
+            ALOGE("Received UMAC message with insufficent length: %d",
                   wnl->nlh.nlmsg_len);
             return WIFI_ERROR_UNKNOWN;
         }
@@ -1865,14 +2057,17 @@ wifi_error diag_message_handler(hal_info *info, nl_msg *msg)
 
             buf = (uint8_t *)(wnl + 1);
             diag_host_type = *(uint32_t *)(buf);
+#ifdef QC_HAL_DEBUG
             ALOGV("diag type = %d", diag_host_type);
-
+#endif
             buf +=  sizeof(uint32_t); //diag_type
             if (diag_host_type == DIAG_TYPE_HOST_EVENTS) {
                 host_event_hdr_t *event_hdr =
                               (host_event_hdr_t *)(buf);
+#ifdef QC_HAL_DEBUG
                 ALOGV("diag event_id = %x length %d",
                       event_hdr->event_id, event_hdr->length);
+#endif
                 buf += sizeof(host_event_hdr_t);
                 switch (event_hdr->event_id) {
                     case EVENT_WLAN_WAKE_LOCK:
@@ -1887,13 +2082,18 @@ wifi_error diag_message_handler(hal_info *info, nl_msg *msg)
                     case EVENT_WLAN_LOG_COMPLETE:
                         process_wlan_log_complete_event(info, buf, event_hdr->length);
                         break;
+                    case EVENT_WLAN_LOW_RESOURCE_FAILURE:
+                        process_wlan_low_resource_failure(info, buf, event_hdr->length);
+                        break;
                     default:
                         return WIFI_SUCCESS;
                 }
             } else if (diag_host_type == DIAG_TYPE_HOST_LOG_MSGS) {
                 drv_msg_t *drv_msg = (drv_msg_t *) (buf);
+#ifdef QC_HAL_DEBUG
                 ALOGV("diag event_type = %0x length = %d",
                       drv_msg->event_type, drv_msg->length);
+#endif
                 if (drv_msg->event_type == WLAN_PKT_LOG_STATS) {
                     if ((info->prev_seq_no + 1) !=
                             drv_msg->u.pkt_stats_event.msg_seq_no) {

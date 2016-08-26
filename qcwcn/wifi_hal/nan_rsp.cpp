@@ -16,7 +16,6 @@
 
 #include "sync.h"
 #include <utils/Log.h>
-#include "nan.h"
 #include "wifi_hal.h"
 #include "nan_i.h"
 #include "nancommand.h"
@@ -44,6 +43,7 @@ int NanCommand::isNanResponse()
     case NAN_MSG_ID_DISABLE_RSP:
     case NAN_MSG_ID_TCA_RSP:
     case NAN_MSG_ID_BEACON_SDF_RSP:
+    case NAN_MSG_ID_CAPABILITIES_RSP:
         return 1;
     default:
         return 0;
@@ -51,7 +51,7 @@ int NanCommand::isNanResponse()
 }
 
 
-int NanCommand::getNanResponse(wifi_request_id *id, NanResponseMsg *pRsp)
+int NanCommand::getNanResponse(transaction_id *id, NanResponseMsg *pRsp)
 {
     if (mNanVendorEvent == NULL || pRsp == NULL) {
         ALOGE("NULL check failed");
@@ -65,7 +65,7 @@ int NanCommand::getNanResponse(wifi_request_id *id, NanResponseMsg *pRsp)
         {
             pNanErrorRspMsg pFwRsp = \
                 (pNanErrorRspMsg)mNanVendorEvent;
-            *id = (wifi_request_id)pFwRsp->fwHeader.transactionId;
+            *id = (transaction_id)pFwRsp->fwHeader.transactionId;
             pRsp->status = (NanStatusType)pFwRsp->status;
             pRsp->value = pFwRsp->value;
             pRsp->response_type = NAN_RESPONSE_ERROR;
@@ -75,7 +75,7 @@ int NanCommand::getNanResponse(wifi_request_id *id, NanResponseMsg *pRsp)
         {
             pNanConfigurationRspMsg pFwRsp = \
                 (pNanConfigurationRspMsg)mNanVendorEvent;
-            *id = (wifi_request_id)pFwRsp->fwHeader.transactionId;
+            *id = (transaction_id)pFwRsp->fwHeader.transactionId;
             pRsp->status = (NanStatusType)pFwRsp->status;
             pRsp->value = pFwRsp->value;
             pRsp->response_type = NAN_RESPONSE_CONFIG;
@@ -85,7 +85,7 @@ int NanCommand::getNanResponse(wifi_request_id *id, NanResponseMsg *pRsp)
         {
             pNanPublishServiceCancelRspMsg pFwRsp = \
                 (pNanPublishServiceCancelRspMsg)mNanVendorEvent;
-            *id = (wifi_request_id)pFwRsp->fwHeader.transactionId;
+            *id = (transaction_id)pFwRsp->fwHeader.transactionId;
             pRsp->status = (NanStatusType)pFwRsp->status;
             pRsp->value = pFwRsp->value;
             pRsp->response_type = NAN_RESPONSE_PUBLISH_CANCEL;
@@ -97,7 +97,7 @@ int NanCommand::getNanResponse(wifi_request_id *id, NanResponseMsg *pRsp)
         {
             pNanPublishServiceRspMsg pFwRsp = \
                 (pNanPublishServiceRspMsg)mNanVendorEvent;
-            *id = (wifi_request_id)pFwRsp->fwHeader.transactionId;
+            *id = (transaction_id)pFwRsp->fwHeader.transactionId;
             pRsp->status = (NanStatusType)pFwRsp->status;
             pRsp->value = pFwRsp->value;
             pRsp->response_type = NAN_RESPONSE_PUBLISH;
@@ -109,7 +109,7 @@ int NanCommand::getNanResponse(wifi_request_id *id, NanResponseMsg *pRsp)
         {
             pNanSubscribeServiceRspMsg pFwRsp = \
                 (pNanSubscribeServiceRspMsg)mNanVendorEvent;
-            *id = (wifi_request_id)pFwRsp->fwHeader.transactionId;
+            *id = (transaction_id)pFwRsp->fwHeader.transactionId;
             pRsp->status = (NanStatusType)pFwRsp->status;
             pRsp->value = pFwRsp->value;
             pRsp->response_type = NAN_RESPONSE_SUBSCRIBE;
@@ -121,7 +121,7 @@ int NanCommand::getNanResponse(wifi_request_id *id, NanResponseMsg *pRsp)
         {
             pNanSubscribeServiceCancelRspMsg pFwRsp = \
                 (pNanSubscribeServiceCancelRspMsg)mNanVendorEvent;
-            *id = (wifi_request_id)pFwRsp->fwHeader.transactionId;
+            *id = (transaction_id)pFwRsp->fwHeader.transactionId;
             pRsp->status = (NanStatusType)pFwRsp->status;
             pRsp->value = pFwRsp->value;
             pRsp->response_type = NAN_RESPONSE_SUBSCRIBE_CANCEL;
@@ -133,7 +133,7 @@ int NanCommand::getNanResponse(wifi_request_id *id, NanResponseMsg *pRsp)
         {
             pNanTransmitFollowupRspMsg pFwRsp = \
                 (pNanTransmitFollowupRspMsg)mNanVendorEvent;
-            *id = (wifi_request_id)pFwRsp->fwHeader.transactionId;
+            *id = (transaction_id)pFwRsp->fwHeader.transactionId;
             pRsp->status = (NanStatusType)pFwRsp->status;
             pRsp->value = pFwRsp->value;
             pRsp->response_type = NAN_RESPONSE_TRANSMIT_FOLLOWUP;
@@ -143,13 +143,13 @@ int NanCommand::getNanResponse(wifi_request_id *id, NanResponseMsg *pRsp)
         {
             pNanStatsRspMsg pFwRsp = \
                 (pNanStatsRspMsg)mNanVendorEvent;
-            *id = (wifi_request_id)pFwRsp->fwHeader.transactionId;
+            *id = (transaction_id)pFwRsp->fwHeader.transactionId;
             pRsp->status = (NanStatusType)pFwRsp->statsRspParams.status;
             pRsp->value = pFwRsp->statsRspParams.value;
             pRsp->response_type = NAN_RESPONSE_STATS;
             pRsp->body.stats_response.stats_type = \
                 (NanStatsType)pFwRsp->statsRspParams.statsType;
-            ALOGI("%s: stats_type:%d",__func__,
+            ALOGV("%s: stats_type:%d",__func__,
                   pRsp->body.stats_response.stats_type);
             u8 *pInputTlv = pFwRsp->ptlv;
             NanTlv outputTlv;
@@ -159,7 +159,7 @@ int NanCommand::getNanResponse(wifi_request_id *id, NanResponseMsg *pRsp)
                 (sizeof(NanMsgHeader) + sizeof(NanStatsRspParams)));
             if (remainingLen > 0) {
                 readLen = NANTLV_ReadTlv(pInputTlv, &outputTlv);
-                ALOGI("%s: Remaining Len:%d readLen:%d type:%d length:%d",
+                ALOGV("%s: Remaining Len:%d readLen:%d type:%d length:%d",
                       __func__, remainingLen, readLen, outputTlv.type,
                       outputTlv.length);
                 if (outputTlv.length <= \
@@ -170,14 +170,14 @@ int NanCommand::getNanResponse(wifi_request_id *id, NanResponseMsg *pRsp)
                 }
             }
             else
-                ALOGI("%s: No TLV's present",__func__);
+                ALOGV("%s: No TLV's present",__func__);
             break;
         }
         case NAN_MSG_ID_ENABLE_RSP:
         {
             pNanEnableRspMsg pFwRsp = \
                 (pNanEnableRspMsg)mNanVendorEvent;
-            *id = (wifi_request_id)pFwRsp->fwHeader.transactionId;
+            *id = (transaction_id)pFwRsp->fwHeader.transactionId;
             pRsp->status = (NanStatusType)pFwRsp->status;
             pRsp->value = pFwRsp->value;
             pRsp->response_type = NAN_RESPONSE_ENABLED;
@@ -187,7 +187,7 @@ int NanCommand::getNanResponse(wifi_request_id *id, NanResponseMsg *pRsp)
         {
             pNanDisableRspMsg pFwRsp = \
                 (pNanDisableRspMsg)mNanVendorEvent;
-            *id = (wifi_request_id)pFwRsp->fwHeader.transactionId;
+            *id = (transaction_id)pFwRsp->fwHeader.transactionId;
             pRsp->status = (NanStatusType)pFwRsp->status;
             pRsp->value = 0;
             pRsp->response_type = NAN_RESPONSE_DISABLED;
@@ -197,7 +197,7 @@ int NanCommand::getNanResponse(wifi_request_id *id, NanResponseMsg *pRsp)
         {
             pNanTcaRspMsg pFwRsp = \
                 (pNanTcaRspMsg)mNanVendorEvent;
-            *id = (wifi_request_id)pFwRsp->fwHeader.transactionId;
+            *id = (transaction_id)pFwRsp->fwHeader.transactionId;
             pRsp->status = (NanStatusType)pFwRsp->status;
             pRsp->value = pFwRsp->value;
             pRsp->response_type = NAN_RESPONSE_TCA;
@@ -207,10 +207,44 @@ int NanCommand::getNanResponse(wifi_request_id *id, NanResponseMsg *pRsp)
         {
             pNanBeaconSdfPayloadRspMsg pFwRsp = \
                 (pNanBeaconSdfPayloadRspMsg)mNanVendorEvent;
-            *id = (wifi_request_id)pFwRsp->fwHeader.transactionId;
+            *id = (transaction_id)pFwRsp->fwHeader.transactionId;
             pRsp->status = (NanStatusType)pFwRsp->status;
             pRsp->value = 0;
             pRsp->response_type = NAN_RESPONSE_BEACON_SDF_PAYLOAD;
+            break;
+        }
+        case NAN_MSG_ID_CAPABILITIES_RSP:
+        {
+            pNanCapabilitiesRspMsg pFwRsp = \
+                (pNanCapabilitiesRspMsg)mNanVendorEvent;
+            *id = (transaction_id)pFwRsp->fwHeader.transactionId;
+            pRsp->status = (NanStatusType)pFwRsp->status;
+            pRsp->value = pFwRsp->value;
+            pRsp->response_type = NAN_GET_CAPABILITIES;
+            pRsp->body.nan_capabilities.max_concurrent_nan_clusters = \
+                        pFwRsp->max_concurrent_nan_clusters;
+            pRsp->body.nan_capabilities.max_publishes = \
+                        pFwRsp->max_publishes;
+            pRsp->body.nan_capabilities.max_subscribes = \
+                        pFwRsp->max_subscribes;
+            pRsp->body.nan_capabilities.max_service_name_len = \
+                        pFwRsp->max_service_name_len;
+            pRsp->body.nan_capabilities.max_match_filter_len = \
+                        pFwRsp->max_match_filter_len;
+            pRsp->body.nan_capabilities.max_total_match_filter_len = \
+                        pFwRsp->max_total_match_filter_len;
+            pRsp->body.nan_capabilities.max_service_specific_info_len = \
+                        pFwRsp->max_service_specific_info_len;
+            pRsp->body.nan_capabilities.max_vsa_data_len = \
+                        pFwRsp->max_vsa_data_len;
+            pRsp->body.nan_capabilities.max_mesh_data_len = \
+                        pFwRsp->max_mesh_data_len;
+            pRsp->body.nan_capabilities.max_ndi_interfaces = \
+                       pFwRsp->max_ndi_interfaces;
+            pRsp->body.nan_capabilities.max_ndp_sessions = \
+                       pFwRsp->max_ndp_sessions;
+            pRsp->body.nan_capabilities.max_app_info_len = \
+                       pFwRsp->max_app_info_len;
             break;
         }
         default:
@@ -226,7 +260,7 @@ int NanCommand::handleNanResponse()
     //NanResponseMsg
     NanResponseMsg  rsp_data;
     int ret;
-    wifi_request_id id;
+    transaction_id id;
 
     ALOGV("handleNanResponse called %p", this);
     memset(&rsp_data, 0, sizeof(rsp_data));
@@ -291,6 +325,9 @@ void NanCommand::handleNanStatsResponse(NanStatsType stats_type,
         publish_stats.invalidMatches = pPubStats->invalidMatches;
         publish_stats.invalidFollowups = pPubStats->invalidFollowups;
         publish_stats.publishCount = pPubStats->publishCount;
+        publish_stats.publishNewMatchCount = pPubStats->publishNewMatchCount;
+        publish_stats.pubsubGlobalNewMatchCount =
+                               pPubStats->pubsubGlobalNewMatchCount;
         memcpy(&pRsp->data, &publish_stats, sizeof(NanPublishStats));
     } else if (stats_type == NAN_STATS_ID_DE_SUBSCRIBE) {
         NanSubscribeStats sub_stats;
@@ -326,6 +363,9 @@ void NanCommand::handleNanStatsResponse(NanStatsType stats_type,
         sub_stats.invalidFollowups = pSubStats->invalidFollowups;
         sub_stats.subscribeCount = pSubStats->subscribeCount;
         sub_stats.bloomFilterIndex = pSubStats->bloomFilterIndex;
+        sub_stats.subscribeNewMatchCount = pSubStats->subscribeNewMatchCount;
+        sub_stats.pubsubGlobalNewMatchCount =
+                                      pSubStats->pubsubGlobalNewMatchCount;
         memcpy(&pRsp->data, &sub_stats, sizeof(NanSubscribeStats));
     } else if (stats_type == NAN_STATS_ID_DE_DW) {
         NanDWStats dw_stats;

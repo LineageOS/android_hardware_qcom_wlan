@@ -17,10 +17,10 @@
 #include "sync.h"
 #include <utils/Log.h>
 #include <errno.h>
-#include "nan.h"
 #include "wifi_hal.h"
 #include "nan_i.h"
 #include "nancommand.h"
+#include "qca-vendor.h"
 #include <errno.h>
 
 //Function which calls the necessaryIndication callback
@@ -32,10 +32,9 @@ int NanCommand::handleNanIndication()
     u16 msg_id;
     int res = 0;
 
-    ALOGI("handleNanIndication called %p", this);
     msg_id = getIndicationType();
 
-    ALOGI("handleNanIndication msg_id:%u", msg_id);
+    ALOGV("handleNanIndication msg_id:%u", msg_id);
     switch (msg_id) {
     case NAN_INDICATION_PUBLISH_TERMINATED:
         NanPublishTerminatedInd publishTerminatedInd;
@@ -55,12 +54,12 @@ int NanCommand::handleNanIndication()
         }
         break;
 
-    case NAN_INDICATION_UNMATCH:
-        NanUnmatchInd unMatchInd;
-        memset(&unMatchInd, 0, sizeof(unMatchInd));
-        res = getNanUnMatch(&unMatchInd);
-        if (!res && mHandler.EventUnMatch) {
-            (*mHandler.EventUnMatch)(&unMatchInd);
+    case NAN_INDICATION_MATCH_EXPIRED:
+        NanMatchExpiredInd matchExpiredInd;
+        memset(&matchExpiredInd, 0, sizeof(matchExpiredInd));
+        res = getNanMatchExpired(&matchExpiredInd);
+        if (!res && mHandler.EventMatchExpired) {
+            (*mHandler.EventMatchExpired)(&matchExpiredInd);
         }
         break;
 
@@ -145,8 +144,8 @@ NanIndicationType NanCommand::getIndicationType()
         return NAN_INDICATION_PUBLISH_TERMINATED;
     case NAN_MSG_ID_MATCH_IND:
         return NAN_INDICATION_MATCH;
-    case NAN_MSG_ID_UNMATCH_IND:
-        return NAN_INDICATION_UNMATCH;
+    case NAN_MSG_ID_MATCH_EXPIRED_IND:
+        return NAN_INDICATION_MATCH_EXPIRED;
     case NAN_MSG_ID_FOLLOWUP_IND:
         return NAN_INDICATION_FOLLOWUP;
     case NAN_MSG_ID_SUBSCRIBE_TERMINATED_IND:
@@ -201,13 +200,13 @@ int NanCommand::getNanMatch(NanMatchInd *event)
 
     //Has SDF match filter and service specific info TLV
     if (remainingLen <= 0) {
-        ALOGI("%s: No TLV's present",__func__);
+        ALOGV("%s: No TLV's present",__func__);
         return WIFI_SUCCESS;
     }
-    ALOGI("%s: TLV remaining Len:%d",__func__, remainingLen);
+    ALOGV("%s: TLV remaining Len:%d",__func__, remainingLen);
     while ((remainingLen > 0) &&
            (0 != (readLen = NANTLV_ReadTlv(pInputTlv, &outputTlv)))) {
-        ALOGI("%s: Remaining Len:%d readLen:%d type:%d length:%d",
+        ALOGV("%s: Remaining Len:%d readLen:%d type:%d length:%d",
               __func__, remainingLen, readLen, outputTlv.type,
               outputTlv.length);
         switch (outputTlv.type) {
@@ -287,7 +286,7 @@ int NanCommand::getNanMatch(NanMatchInd *event)
             event->cluster_attribute_len = outputTlv.length;
             break;
         default:
-            ALOGI("Unknown TLV type skipped");
+            ALOGV("Unknown TLV type skipped");
             break;
         }
         remainingLen -= readLen;
@@ -297,7 +296,7 @@ int NanCommand::getNanMatch(NanMatchInd *event)
     return WIFI_SUCCESS;
 }
 
-int NanCommand::getNanUnMatch(NanUnmatchInd *event)
+int NanCommand::getNanMatchExpired(NanMatchExpiredInd *event)
 {
     if (event == NULL || mNanVendorEvent == NULL) {
         ALOGE("%s: Invalid input argument event:%p mNanVendorEvent:%p",
@@ -305,9 +304,9 @@ int NanCommand::getNanUnMatch(NanUnmatchInd *event)
         return WIFI_ERROR_INVALID_ARGS;
     }
 
-    pNanUnmatchIndMsg pRsp = (pNanUnmatchIndMsg)mNanVendorEvent;
+    pNanMatchExpiredIndMsg pRsp = (pNanMatchExpiredIndMsg)mNanVendorEvent;
     event->publish_subscribe_id = pRsp->fwHeader.handle;
-    event->requestor_instance_id = pRsp->unmatchIndParams.matchHandle;
+    event->requestor_instance_id = pRsp->matchExpiredIndParams.matchHandle;
     return WIFI_SUCCESS;
 }
 
@@ -346,13 +345,13 @@ int NanCommand::getNanFollowup(NanFollowupInd *event)
 
     //Has service specific info and extended service specific info TLV
     if (remainingLen <= 0) {
-        ALOGI("%s: No TLV's present",__func__);
+        ALOGV("%s: No TLV's present",__func__);
         return WIFI_SUCCESS;
     }
-    ALOGI("%s: TLV remaining Len:%d",__func__, remainingLen);
+    ALOGV("%s: TLV remaining Len:%d",__func__, remainingLen);
     while ((remainingLen > 0) &&
            (0 != (readLen = NANTLV_ReadTlv(pInputTlv, &outputTlv)))) {
-        ALOGI("%s: Remaining Len:%d readLen:%d type:%d length:%d",
+        ALOGV("%s: Remaining Len:%d readLen:%d type:%d length:%d",
               __func__, remainingLen, readLen, outputTlv.type,
               outputTlv.length);
         switch (outputTlv.type) {
@@ -372,7 +371,7 @@ int NanCommand::getNanFollowup(NanFollowupInd *event)
             memcpy(event->addr, outputTlv.value, outputTlv.length);
             break;
         default:
-            ALOGI("Unknown TLV type skipped");
+            ALOGV("Unknown TLV type skipped");
             break;
         }
         remainingLen -= readLen;
@@ -401,20 +400,20 @@ int NanCommand::getNanDiscEngEvent(NanDiscEngEventInd *event)
 
     //Has Self-STA Mac TLV
     if (remainingLen <= 0) {
-        ALOGI("%s: No TLV's present",__func__);
+        ALOGE("%s: No TLV's present",__func__);
         return WIFI_SUCCESS;
     }
 
-    ALOGI("%s: TLV remaining Len:%d",__func__, remainingLen);
+    ALOGV("%s: TLV remaining Len:%d",__func__, remainingLen);
     while ((remainingLen > 0) &&
            (0 != (readLen = NANTLV_ReadTlv(pInputTlv, &outputTlv)))) {
-        ALOGI("%s: Remaining Len:%d readLen:%d type:%d length:%d",
+        ALOGV("%s: Remaining Len:%d readLen:%d type:%d length:%d",
               __func__, remainingLen, readLen, outputTlv.type,
               outputTlv.length);
         switch (outputTlv.type) {
         case NAN_TLV_TYPE_EVENT_SELF_STATION_MAC_ADDRESS:
             if (outputTlv.length > NAN_MAC_ADDR_LEN) {
-                ALOGI("%s: Reading only first %d bytes of TLV",
+                ALOGV("%s: Reading only first %d bytes of TLV",
                       __func__, NAN_MAC_ADDR_LEN);
                 outputTlv.length = NAN_MAC_ADDR_LEN;
             }
@@ -424,7 +423,7 @@ int NanCommand::getNanDiscEngEvent(NanDiscEngEventInd *event)
             break;
         case NAN_TLV_TYPE_EVENT_STARTED_CLUSTER:
             if (outputTlv.length > NAN_MAC_ADDR_LEN) {
-                ALOGI("%s: Reading only first %d bytes of TLV",
+                ALOGV("%s: Reading only first %d bytes of TLV",
                       __func__, NAN_MAC_ADDR_LEN);
                 outputTlv.length = NAN_MAC_ADDR_LEN;
             }
@@ -434,7 +433,7 @@ int NanCommand::getNanDiscEngEvent(NanDiscEngEventInd *event)
             break;
         case NAN_TLV_TYPE_EVENT_JOINED_CLUSTER:
             if (outputTlv.length > NAN_MAC_ADDR_LEN) {
-                ALOGI("%s: Reading only first %d bytes of TLV",
+                ALOGV("%s: Reading only first %d bytes of TLV",
                       __func__, NAN_MAC_ADDR_LEN);
                 outputTlv.length = NAN_MAC_ADDR_LEN;
             }
@@ -443,7 +442,7 @@ int NanCommand::getNanDiscEngEvent(NanDiscEngEventInd *event)
             event->event_type = NAN_EVENT_ID_JOINED_CLUSTER;
             break;
         default:
-            ALOGI("Unhandled TLV type:%d", outputTlv.type);
+            ALOGV("Unhandled TLV type:%d", outputTlv.type);
             break;
         }
         remainingLen -= readLen;
@@ -487,18 +486,18 @@ int NanCommand::getNanTca(NanTCAInd *event)
 
     //Has NAN_TCA_ID_CLUSTER_SIZE
     if (remainingLen <= 0) {
-        ALOGI("%s: No TLV's present",__func__);
+        ALOGE("%s: No TLV's present",__func__);
         return WIFI_SUCCESS;
     }
 
-    ALOGI("%s: TLV remaining Len:%d",__func__, remainingLen);
+    ALOGV("%s: TLV remaining Len:%d",__func__, remainingLen);
     while ((remainingLen > 0) &&
            (0 != (readLen = NANTLV_ReadTlv(pInputTlv, &outputTlv)))) {
-        ALOGI("%s: Remaining Len:%d readLen:%d type:%d length:%d",
+        ALOGV("%s: Remaining Len:%d readLen:%d type:%d length:%d",
               __func__, remainingLen, readLen, outputTlv.type,
               outputTlv.length);
         switch (outputTlv.type) {
-        case NAN_TLV_TYPE_TCA_CLUSTER_SIZE_RSP:
+        case NAN_TLV_TYPE_CLUSTER_SIZE_RSP:
             if (outputTlv.length != 2 * sizeof(u32)) {
                 ALOGE("%s: Wrong length %d in Tca Indication expecting %zu bytes",
                       __func__, outputTlv.length, 2 * sizeof(u32));
@@ -511,7 +510,7 @@ int NanCommand::getNanTca(NanTCAInd *event)
             event->tca_type = NAN_TCA_ID_CLUSTER_SIZE;
             break;
         default:
-            ALOGI("Unhandled TLV type:%d", outputTlv.type);
+            ALOGV("Unhandled TLV type:%d", outputTlv.type);
             break;
         }
         remainingLen -= readLen;
@@ -540,14 +539,14 @@ int NanCommand::getNanBeaconSdfPayload(NanBeaconSdfPayloadInd *event)
 
     //Has Mac address
     if (remainingLen <= 0) {
-        ALOGI("%s: No TLV's present",__func__);
+        ALOGV("%s: No TLV's present",__func__);
         return WIFI_SUCCESS;
     }
 
-    ALOGI("%s: TLV remaining Len:%d",__func__, remainingLen);
+    ALOGV("%s: TLV remaining Len:%d",__func__, remainingLen);
     while ((remainingLen > 0) &&
            (0 != (readLen = NANTLV_ReadTlv(pInputTlv, &outputTlv)))) {
-        ALOGI("%s: Remaining Len:%d readLen:%d type:%d length:%d",
+        ALOGV("%s: Remaining Len:%d readLen:%d type:%d length:%d",
               __func__, remainingLen, readLen, outputTlv.type,
               outputTlv.length);
         switch (outputTlv.type) {
@@ -593,7 +592,7 @@ int NanCommand::getNanBeaconSdfPayload(NanBeaconSdfPayloadInd *event)
             break;
 
         default:
-            ALOGI("Unhandled TLV Type:%d", outputTlv.type);
+            ALOGV("Unhandled TLV Type:%d", outputTlv.type);
             break;
         }
         remainingLen -= readLen;
@@ -648,10 +647,10 @@ int NanCommand::getNanReceivePostDiscoveryVal(const u8 *pInValue,
         return -1;
     }
 
-    ALOGI("%s: TLV remaining Len:%d",__func__, remainingLen);
+    ALOGV("%s: TLV remaining Len:%d",__func__, remainingLen);
     while ((remainingLen > 0) &&
            (0 != (readLen = NANTLV_ReadTlv(pInputTlv, &outputTlv)))) {
-        ALOGI("%s: Remaining Len:%d readLen:%d type:%d length:%d",
+        ALOGV("%s: Remaining Len:%d readLen:%d type:%d length:%d",
               __func__, remainingLen, readLen, outputTlv.type,
               outputTlv.length);
         switch (outputTlv.type) {
@@ -668,7 +667,7 @@ int NanCommand::getNanReceivePostDiscoveryVal(const u8 *pInValue,
             memcpy(pRxDisc->mesh_id, outputTlv.value, outputTlv.length);
             pRxDisc->mesh_id_len = outputTlv.length;
             break;
-        case NAN_TLV_TYPE_WLAN_INFRASTRUCTURE_SSID:
+        case NAN_TLV_TYPE_WLAN_INFRA_SSID:
             if (outputTlv.length > sizeof(pRxDisc->infrastructure_ssid_val)) {
                 outputTlv.length = sizeof(pRxDisc->infrastructure_ssid_val);
             }
@@ -676,7 +675,7 @@ int NanCommand::getNanReceivePostDiscoveryVal(const u8 *pInValue,
                    outputTlv.length);
             pRxDisc->infrastructure_ssid_len = outputTlv.length;
         default:
-            ALOGI("Unhandled TLV Type:%d", outputTlv.type);
+            ALOGV("Unhandled TLV Type:%d", outputTlv.type);
             break;
         }
         remainingLen -= readLen;
@@ -736,22 +735,22 @@ int NanCommand::getNanStaParameter(wifi_interface_handle iface,
     int ret = WIFI_ERROR_NONE;
     int res = -1;
     int id = 1;
-    NanCommand *nCommand;
+    NanCommand *nanCommand = NULL;
     interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
 
-    nCommand = NanCommand::instance(wifiHandle);
-    if (nCommand == NULL) {
+    nanCommand = NanCommand::instance(wifiHandle);
+    if (nanCommand == NULL) {
         ALOGE("%s: Error NanCommand NULL", __func__);
         return WIFI_ERROR_UNKNOWN;
     }
 
-    ret = nCommand->create();
+    ret = nanCommand->create();
     if (ret < 0)
         goto cleanup;
 
     /* Set the interface Id of the message. */
-    ret = nCommand->set_iface_id(ifaceInfo->name);
+    ret = nanCommand->set_iface_id(ifaceInfo->name);
     if (ret < 0)
         goto cleanup;
 
@@ -786,7 +785,7 @@ int NanCommand::getNanStaParameter(wifi_interface_handle iface,
         ret = WIFI_ERROR_TIMED_OUT;
         goto cleanup;
     }
-    ALOGI("%s: NanStaparameter Master_pref:%x," \
+    ALOGV("%s: NanStaparameter Master_pref:%x," \
           " Random_factor:%x, hop_count:%x " \
           " beacon_transmit_time:%d", __func__,
           pRsp->master_pref, pRsp->random_factor,
