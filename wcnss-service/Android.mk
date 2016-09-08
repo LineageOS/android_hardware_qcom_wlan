@@ -33,7 +33,7 @@ endif #TARGET_PROVIDES_WCNSS_QMI
 endif #TARGET_USES_QCOM_WCNSS_QMI
 
 LOCAL_MODULE_TAGS := optional
-LOCAL_CFLAGS += -Wall
+LOCAL_CFLAGS += -Wall -Werror
 
 include $(BUILD_EXECUTABLE)
 
@@ -61,7 +61,7 @@ LOCAL_SRC_FILES += wcnss_qmi_client.c
 
 LOCAL_MODULE := libwcnss_qmi
 LOCAL_MODULE_TAGS := optional
-LOCAL_CFLAGS += -Wall
+LOCAL_CFLAGS += -Wall -Werror
 
 include $(BUILD_SHARED_LIBRARY)
 
