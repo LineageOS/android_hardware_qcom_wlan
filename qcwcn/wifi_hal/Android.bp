@@ -124,7 +124,7 @@ cc_library {
         "-DCONFIG_NAN_VENDOR_AIDL",
     ],
     product_variables: {
-        debuggable: {
+        eng: {
             cflags: ["-DLOG_NDEBUG=0"],
         },
     },
