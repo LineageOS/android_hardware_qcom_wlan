@@ -951,7 +951,7 @@ int LLStatsCommand::handleResponse(WifiEvent &reply)
                 {
                     if (!tb_vendor[QCA_WLAN_VENDOR_ATTR_LL_STATS_NUM_RADIOS])
                     {
-                        ALOGE("%s: QCA_WLAN_VENDOR_ATTR_LL_STATS_NUM_RADIOS"
+                        ALOGD("%s: QCA_WLAN_VENDOR_ATTR_LL_STATS_NUM_RADIOS"
                               " not found", __FUNCTION__);
                         return WIFI_ERROR_INVALID_ARGS;
                     }
@@ -962,7 +962,7 @@ int LLStatsCommand::handleResponse(WifiEvent &reply)
                         QCA_WLAN_VENDOR_ATTR_LL_STATS_RADIO_NUM_CHANNELS
                         ])
                     {
-                        ALOGE("%s:"
+                        ALOGD("%s:"
                             "QCA_WLAN_VENDOR_ATTR_LL_STATS_RADIO_NUM_CHANNELS"
                             " not found", __FUNCTION__);
                         status = WIFI_ERROR_INVALID_ARGS;
