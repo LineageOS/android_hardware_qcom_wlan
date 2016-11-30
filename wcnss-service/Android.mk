@@ -19,6 +19,7 @@ LOCAL_SHARED_LIBRARIES += libqmiservices libqmi libqcci_legacy libqmi_client_qmu
 LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/libmdmdetect/inc
 LOCAL_SHARED_LIBRARIES += libmdmdetect
 endif #TARGET_USES_QCOM_WCNSS_QMI
+LOCAL_CFLAGS += -DDYNAMIC_NV
 LOCAL_MODULE_TAGS := optional
 LOCAL_CFLAGS += -Wall -Werror
 include $(BUILD_EXECUTABLE)
