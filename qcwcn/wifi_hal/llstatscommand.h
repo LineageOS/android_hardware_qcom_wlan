@@ -103,6 +103,8 @@ public:
 
     virtual int requestResponse();
 
+    virtual wifi_error notifyResponse();
+
     virtual int handleResponse(WifiEvent &reply);
 
     virtual void getClearRspParams(u32 *stats_clear_rsp_mask, u8 *stop_rsp);
