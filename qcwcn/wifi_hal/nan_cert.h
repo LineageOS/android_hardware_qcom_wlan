@@ -56,6 +56,7 @@ typedef struct {
 
 /* NAN Data Path Supported Band */
 typedef enum {
+    NAN_DATA_PATH_SUPPORTED_BAND_2G = 1,
     NAN_DATA_PATH_SUPPORTED_BAND_5G = 2,
     NAN_DATA_PATH_SUPPORT_DUAL_BAND = 3
 } NdpSupportedBand;
