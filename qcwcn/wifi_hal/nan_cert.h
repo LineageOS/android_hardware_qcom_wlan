@@ -36,7 +36,7 @@ extern "C"
 {
 #endif /* __cplusplus */
 
-#define NAN_CERT_VERSION                        2
+#define NAN_CERT_VERSION                        4
 #define NAN_MAX_DEBUG_MESSAGE_DATA_LEN          100
 
 typedef struct {
@@ -55,7 +55,6 @@ typedef struct {
 
 /* NAN Data Path Supported Band */
 typedef enum {
-    NAN_DATA_PATH_SUPPORTED_BAND_2G = 1,
     NAN_DATA_PATH_SUPPORTED_BAND_5G = 2,
     NAN_DATA_PATH_SUPPORT_DUAL_BAND = 3
 } NdpSupportedBand;
