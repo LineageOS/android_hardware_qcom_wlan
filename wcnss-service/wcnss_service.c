@@ -406,34 +406,13 @@ void setup_wcnss_parameters(int *cal)
 #endif
 {
 	char msg[WCNSS_MAX_CMD_LEN];
-	char serial[PROPERTY_VALUE_MAX];
 	int fd, rc, pos = 0;
 	struct stat st;
-	unsigned int serial_num = 0;
 
 	fd = open(WCNSS_CTRL, O_WRONLY);
 	if (fd < 0) {
 		ALOGE("Failed to open %s : %s", WCNSS_CTRL, strerror(errno));
 		return;
-	}
-
-	rc = property_get("ro.serialno", serial, "");
-	if (rc) {
-		serial_num = convert_string_to_hex(serial);
-		ALOGE("Serial Number is  %x", serial_num);
-
-		msg[pos++] = WCNSS_USR_SERIAL_NUM >> BYTE_1;
-		msg[pos++] = WCNSS_USR_SERIAL_NUM >> BYTE_0;
-		msg[pos++] = serial_num >> BYTE_3;
-		msg[pos++] = serial_num >> BYTE_2;
-		msg[pos++] = serial_num >> BYTE_1;
-		msg[pos++] = serial_num >> BYTE_0;
-
-		if (write(fd, msg, pos) < 0) {
-			ALOGE("Failed to write to %s : %s", WCNSS_CTRL,
-					strerror(errno));
-			goto fail;
-		}
 	}
 
 #if defined(WCNSS_QMI) || defined (WCNSS_QMI_OSS)
