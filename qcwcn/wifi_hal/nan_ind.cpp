@@ -828,21 +828,20 @@ int NanCommand::getNanFurtherAvailabilityMap(const u8 *pInValue,
     return 0;
 }
 
-int NanCommand::getNanStaParameter(wifi_interface_handle iface,
+wifi_error NanCommand::getNanStaParameter(wifi_interface_handle iface,
                                    NanStaParameter *pRsp)
 {
-    int ret = WIFI_ERROR_NONE;
-    int res = -1;
+    wifi_error ret = WIFI_ERROR_NONE;
     transaction_id id = 1;
     interface_info *ifaceInfo = getIfaceInfo(iface);
 
     ret = create();
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
 
     /* Set the interface Id of the message. */
     ret = set_iface_id(ifaceInfo->name);
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
 
     /*
@@ -856,7 +855,7 @@ int NanCommand::getNanStaParameter(wifi_interface_handle iface,
 
     mStaParam = pRsp;
     ret = putNanStats(id, &syncStats);
-    if (ret != 0) {
+    if (ret != WIFI_SUCCESS) {
         ALOGE("%s: putNanStats Error:%d",__func__, ret);
         goto cleanup;
     }
@@ -869,11 +868,10 @@ int NanCommand::getNanStaParameter(wifi_interface_handle iface,
     struct timespec abstime;
     abstime.tv_sec = 4;
     abstime.tv_nsec = 0;
-    res = mCondition.wait(abstime);
-    if (res == ETIMEDOUT)
+    ret = mCondition.wait(abstime);
+    if (ret == WIFI_ERROR_TIMED_OUT)
     {
         ALOGE("%s: Time out happened.", __func__);
-        ret = WIFI_ERROR_TIMED_OUT;
         goto cleanup;
     }
     ALOGV("%s: NanStaparameter Master_pref:%x," \
@@ -884,7 +882,7 @@ int NanCommand::getNanStaParameter(wifi_interface_handle iface,
           pRsp->hop_count, pRsp->beacon_transmit_time, pRsp->ndp_channel_freq);
 cleanup:
     mStaParam = NULL;
-    return (int)ret;
+    return ret;
 }
 
 int NanCommand::getNanTransmitFollowupInd(NanTransmitFollowupInd *event)

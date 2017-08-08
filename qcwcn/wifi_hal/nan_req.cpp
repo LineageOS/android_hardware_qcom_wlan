@@ -20,8 +20,9 @@
 #include "nan_i.h"
 #include "nancommand.h"
 
-int NanCommand::putNanEnable(transaction_id id, const NanEnableRequest *pReq)
+wifi_error NanCommand::putNanEnable(transaction_id id, const NanEnableRequest *pReq)
 {
+    wifi_error ret;
     ALOGV("NAN_ENABLE");
     size_t message_len = NAN_MAX_ENABLE_REQ_SIZE;
 
@@ -305,8 +306,8 @@ int NanCommand::putNanEnable(transaction_id id, const NanEnableRequest *pReq)
     mDataLen = message_len;
 
     //Insert the vendor specific data
-    int ret = mMsg.put_bytes(NL80211_ATTR_VENDOR_DATA, mVendorData, mDataLen);
-    if (ret < 0) {
+    ret = mMsg.put_bytes(NL80211_ATTR_VENDOR_DATA, mVendorData, mDataLen);
+    if (ret != WIFI_SUCCESS) {
         ALOGE("%s: put_bytes Error:%d",__func__, ret);
         cleanup();
         return ret;
@@ -315,8 +316,9 @@ int NanCommand::putNanEnable(transaction_id id, const NanEnableRequest *pReq)
     return ret;
 }
 
-int NanCommand::putNanDisable(transaction_id id)
+wifi_error NanCommand::putNanDisable(transaction_id id)
 {
+    wifi_error ret;
     ALOGV("NAN_DISABLE");
     size_t message_len = sizeof(NanDisableReqMsg);
 
@@ -336,8 +338,8 @@ int NanCommand::putNanDisable(transaction_id id)
     mVendorData = (char*)pFwReq;
     mDataLen = message_len;
 
-    int ret = mMsg.put_bytes(NL80211_ATTR_VENDOR_DATA, mVendorData, mDataLen);
-    if (ret < 0) {
+    ret = mMsg.put_bytes(NL80211_ATTR_VENDOR_DATA, mVendorData, mDataLen);
+    if (ret != WIFI_SUCCESS) {
         ALOGE("%s: put_bytes Error:%d",__func__, ret);
         cleanup();
         return ret;
@@ -346,8 +348,9 @@ int NanCommand::putNanDisable(transaction_id id)
     return ret;
 }
 
-int NanCommand::putNanConfig(transaction_id id, const NanConfigRequest *pReq)
+wifi_error NanCommand::putNanConfig(transaction_id id, const NanConfigRequest *pReq)
 {
+    wifi_error ret;
     ALOGV("NAN_CONFIG");
     size_t message_len = NAN_MAX_CONFIGURATION_REQ_SIZE;
     int idx = 0;
@@ -542,8 +545,8 @@ int NanCommand::putNanConfig(transaction_id id, const NanConfigRequest *pReq)
     mVendorData = (char*)pFwReq;
     mDataLen = message_len;
 
-    int ret = mMsg.put_bytes(NL80211_ATTR_VENDOR_DATA, mVendorData, mDataLen);
-    if (ret < 0) {
+    ret = mMsg.put_bytes(NL80211_ATTR_VENDOR_DATA, mVendorData, mDataLen);
+    if (ret != WIFI_SUCCESS) {
         ALOGE("%s: put_bytes Error:%d",__func__, ret);
         cleanup();
         return ret;
@@ -552,8 +555,9 @@ int NanCommand::putNanConfig(transaction_id id, const NanConfigRequest *pReq)
     return ret;
 }
 
-int NanCommand::putNanPublish(transaction_id id, const NanPublishRequest *pReq)
+wifi_error NanCommand::putNanPublish(transaction_id id, const NanPublishRequest *pReq)
 {
+    wifi_error ret;
     ALOGV("NAN_PUBLISH");
     if (pReq == NULL) {
         cleanup();
@@ -753,8 +757,8 @@ int NanCommand::putNanPublish(transaction_id id, const NanPublishRequest *pReq)
     mVendorData = (char *)pFwReq;
     mDataLen = message_len;
 
-    int ret = mMsg.put_bytes(NL80211_ATTR_VENDOR_DATA, mVendorData, mDataLen);
-    if (ret < 0) {
+    ret = mMsg.put_bytes(NL80211_ATTR_VENDOR_DATA, mVendorData, mDataLen);
+    if (ret != WIFI_SUCCESS) {
         ALOGE("%s: put_bytes Error:%d",__func__, ret);
         cleanup();
         return ret;
@@ -763,8 +767,9 @@ int NanCommand::putNanPublish(transaction_id id, const NanPublishRequest *pReq)
     return ret;
 }
 
-int NanCommand::putNanPublishCancel(transaction_id id, const NanPublishCancelRequest *pReq)
+wifi_error NanCommand::putNanPublishCancel(transaction_id id, const NanPublishCancelRequest *pReq)
 {
+    wifi_error ret;
     ALOGV("NAN_PUBLISH_CANCEL");
     if (pReq == NULL) {
         cleanup();
@@ -790,8 +795,8 @@ int NanCommand::putNanPublishCancel(transaction_id id, const NanPublishCancelReq
     mVendorData = (char *)pFwReq;
     mDataLen = message_len;
 
-    int ret = mMsg.put_bytes(NL80211_ATTR_VENDOR_DATA, mVendorData, mDataLen);
-    if (ret < 0) {
+    ret = mMsg.put_bytes(NL80211_ATTR_VENDOR_DATA, mVendorData, mDataLen);
+    if (ret != WIFI_SUCCESS) {
         ALOGE("%s: put_bytes Error:%d",__func__, ret);
         cleanup();
         return ret;
@@ -800,9 +805,10 @@ int NanCommand::putNanPublishCancel(transaction_id id, const NanPublishCancelReq
     return ret;
 }
 
-int NanCommand::putNanSubscribe(transaction_id id,
+wifi_error NanCommand::putNanSubscribe(transaction_id id,
                                 const NanSubscribeRequest *pReq)
 {
+    wifi_error ret;
 
     ALOGV("NAN_SUBSCRIBE");
     if (pReq == NULL) {
@@ -1008,8 +1014,8 @@ int NanCommand::putNanSubscribe(transaction_id id,
 
     mVendorData = (char *)pFwReq;
     mDataLen = message_len;
-    int ret = mMsg.put_bytes(NL80211_ATTR_VENDOR_DATA, mVendorData, mDataLen);
-    if (ret < 0) {
+    ret = mMsg.put_bytes(NL80211_ATTR_VENDOR_DATA, mVendorData, mDataLen);
+    if (ret != WIFI_SUCCESS) {
         ALOGE("%s: put_bytes Error:%d",__func__, ret);
         cleanup();
         return ret;
@@ -1018,9 +1024,10 @@ int NanCommand::putNanSubscribe(transaction_id id,
     return ret;
 }
 
-int NanCommand::putNanSubscribeCancel(transaction_id id,
+wifi_error NanCommand::putNanSubscribeCancel(transaction_id id,
                                       const NanSubscribeCancelRequest *pReq)
 {
+    wifi_error ret;
     ALOGV("NAN_SUBSCRIBE_CANCEL");
     if (pReq == NULL) {
         cleanup();
@@ -1045,8 +1052,8 @@ int NanCommand::putNanSubscribeCancel(transaction_id id,
 
     mVendorData = (char *)pFwReq;
     mDataLen = message_len;
-    int ret = mMsg.put_bytes(NL80211_ATTR_VENDOR_DATA, mVendorData, mDataLen);
-    if (ret < 0) {
+    ret = mMsg.put_bytes(NL80211_ATTR_VENDOR_DATA, mVendorData, mDataLen);
+    if (ret != WIFI_SUCCESS) {
         ALOGE("%s: put_bytes Error:%d",__func__, ret);
         cleanup();
         return ret;
@@ -1055,9 +1062,10 @@ int NanCommand::putNanSubscribeCancel(transaction_id id,
     return ret;
 }
 
-int NanCommand::putNanTransmitFollowup(transaction_id id,
+wifi_error NanCommand::putNanTransmitFollowup(transaction_id id,
                                        const NanTransmitFollowupRequest *pReq)
 {
+    wifi_error ret;
     ALOGV("TRANSMIT_FOLLOWUP");
     if (pReq == NULL) {
         cleanup();
@@ -1118,8 +1126,8 @@ int NanCommand::putNanTransmitFollowup(transaction_id id,
     mVendorData = (char *)pFwReq;
     mDataLen = message_len;
 
-    int ret = mMsg.put_bytes(NL80211_ATTR_VENDOR_DATA, mVendorData, mDataLen);
-    if (ret < 0) {
+    ret = mMsg.put_bytes(NL80211_ATTR_VENDOR_DATA, mVendorData, mDataLen);
+    if (ret != WIFI_SUCCESS) {
         ALOGE("%s: put_bytes Error:%d",__func__, ret);
         cleanup();
         return ret;
@@ -1128,8 +1136,9 @@ int NanCommand::putNanTransmitFollowup(transaction_id id,
     return ret;
 }
 
-int NanCommand::putNanStats(transaction_id id, const NanStatsRequest *pReq)
+wifi_error NanCommand::putNanStats(transaction_id id, const NanStatsRequest *pReq)
 {
+    wifi_error ret;
     ALOGV("NAN_STATS");
     if (pReq == NULL) {
         cleanup();
@@ -1158,8 +1167,8 @@ int NanCommand::putNanStats(transaction_id id, const NanStatsRequest *pReq)
     mVendorData = (char *)pFwReq;
     mDataLen = message_len;
 
-    int ret = mMsg.put_bytes(NL80211_ATTR_VENDOR_DATA, mVendorData, mDataLen);
-    if (ret < 0) {
+    ret = mMsg.put_bytes(NL80211_ATTR_VENDOR_DATA, mVendorData, mDataLen);
+    if (ret != WIFI_SUCCESS) {
         ALOGE("%s: put_bytes Error:%d",__func__, ret);
         cleanup();
         return ret;
@@ -1168,8 +1177,9 @@ int NanCommand::putNanStats(transaction_id id, const NanStatsRequest *pReq)
     return ret;
 }
 
-int NanCommand::putNanTCA(transaction_id id, const NanTCARequest *pReq)
+wifi_error NanCommand::putNanTCA(transaction_id id, const NanTCARequest *pReq)
 {
+    wifi_error ret;
     ALOGV("NAN_TCA");
     if (pReq == NULL) {
         cleanup();
@@ -1213,8 +1223,8 @@ int NanCommand::putNanTCA(transaction_id id, const NanTCARequest *pReq)
     mVendorData = (char *)pFwReq;
     mDataLen = message_len;
 
-    int ret = mMsg.put_bytes(NL80211_ATTR_VENDOR_DATA, mVendorData, mDataLen);
-    if (ret < 0) {
+    ret = mMsg.put_bytes(NL80211_ATTR_VENDOR_DATA, mVendorData, mDataLen);
+    if (ret != WIFI_SUCCESS) {
         ALOGE("%s: put_bytes Error:%d",__func__, ret);
         cleanup();
         return ret;
@@ -1223,9 +1233,10 @@ int NanCommand::putNanTCA(transaction_id id, const NanTCARequest *pReq)
     return ret;
 }
 
-int NanCommand::putNanBeaconSdfPayload(transaction_id id,
+wifi_error NanCommand::putNanBeaconSdfPayload(transaction_id id,
                                        const NanBeaconSdfPayloadRequest *pReq)
 {
+    wifi_error ret;
     ALOGV("NAN_BEACON_SDF_PAYLAOD");
     if (pReq == NULL) {
         cleanup();
@@ -1279,8 +1290,8 @@ int NanCommand::putNanBeaconSdfPayload(transaction_id id,
     mVendorData = (char *)pFwReq;
     mDataLen = message_len;
 
-    int ret = mMsg.put_bytes(NL80211_ATTR_VENDOR_DATA, mVendorData, mDataLen);
-    if (ret < 0) {
+    ret = mMsg.put_bytes(NL80211_ATTR_VENDOR_DATA, mVendorData, mDataLen);
+    if (ret != WIFI_SUCCESS) {
         ALOGE("%s: put_bytes Error:%d",__func__, ret);
         cleanup();
         return ret;
@@ -1330,33 +1341,38 @@ static int finish_handler_nan(struct nl_msg *msg, void *arg)
 //This will send the request message
 //We dont wait for any response back in case of Nan as it is asynchronous
 //thus no wait for condition.
-int NanCommand::requestEvent()
+wifi_error NanCommand::requestEvent()
 {
-    int res;
+    wifi_error res;
+    int status;
     struct nl_cb * cb;
 
     cb = nl_cb_alloc(NL_CB_DEFAULT);
     if (!cb) {
         ALOGE("%s: Callback allocation failed",__func__);
-        res = -1;
+        res = WIFI_ERROR_OUT_OF_MEMORY;
         goto out;
     }
 
     /* send message */
     ALOGV("%s:Handle:%p Socket Value:%p", __func__, mInfo, mInfo->cmd_sock);
-    res = nl_send_auto_complete(mInfo->cmd_sock, mMsg.getMessage());
-    if (res < 0)
+    status = nl_send_auto_complete(mInfo->cmd_sock, mMsg.getMessage());
+    if (status < 0) {
+        res = mapKernelErrortoWifiHalError(status);
         goto out;
-    res = 1;
+    }
 
-    nl_cb_err(cb, NL_CB_CUSTOM, error_handler_nan, &res);
-    nl_cb_set(cb, NL_CB_FINISH, NL_CB_CUSTOM, finish_handler_nan, &res);
-    nl_cb_set(cb, NL_CB_ACK, NL_CB_CUSTOM, ack_handler_nan, &res);
+    status = 1;
+
+    nl_cb_err(cb, NL_CB_CUSTOM, error_handler_nan, &status);
+    nl_cb_set(cb, NL_CB_FINISH, NL_CB_CUSTOM, finish_handler_nan, &status);
+    nl_cb_set(cb, NL_CB_ACK, NL_CB_CUSTOM, ack_handler_nan, &status);
 
     // err is populated as part of finish_handler
-    while (res > 0)
+    while (status > 0)
         nl_recvmsgs(mInfo->cmd_sock, cb);
 
+    res = mapKernelErrortoWifiHalError(status);
 out:
     //free the VendorData
     if (mVendorData) {
@@ -1516,8 +1532,9 @@ int NanCommand::calcNanFurtherAvailabilityMapSize(
     return ret;
 }
 
-int NanCommand::putNanCapabilities(transaction_id id)
+wifi_error NanCommand::putNanCapabilities(transaction_id id)
 {
+    wifi_error ret;
     ALOGV("NAN_CAPABILITIES");
     size_t message_len = sizeof(NanCapabilitiesReqMsg);
 
@@ -1536,8 +1553,8 @@ int NanCommand::putNanCapabilities(transaction_id id)
     mVendorData = (char*)pFwReq;
     mDataLen = message_len;
 
-    int ret = mMsg.put_bytes(NL80211_ATTR_VENDOR_DATA, mVendorData, mDataLen);
-    if (ret < 0) {
+    ret = mMsg.put_bytes(NL80211_ATTR_VENDOR_DATA, mVendorData, mDataLen);
+    if (ret != WIFI_SUCCESS) {
         ALOGE("%s: put_bytes Error:%d",__func__, ret);
         cleanup();
         return ret;
@@ -1546,9 +1563,10 @@ int NanCommand::putNanCapabilities(transaction_id id)
     return ret;
 }
 
-int NanCommand::putNanDebugCommand(NanDebugParams debug,
+wifi_error NanCommand::putNanDebugCommand(NanDebugParams debug,
                                    int debug_msg_length)
 {
+    wifi_error ret;
     ALOGV("NAN_AVAILABILITY_DEBUG");
     size_t message_len = sizeof(NanTestModeReqMsg);
 
@@ -1579,8 +1597,8 @@ int NanCommand::putNanDebugCommand(NanDebugParams debug,
     mDataLen = message_len;
 
     /* Write the TLVs to the message. */
-    int ret = mMsg.put_bytes(NL80211_ATTR_VENDOR_DATA, mVendorData, mDataLen);
-    if (ret < 0) {
+    ret = mMsg.put_bytes(NL80211_ATTR_VENDOR_DATA, mVendorData, mDataLen);
+    if (ret != WIFI_SUCCESS) {
         ALOGE("%s: put_bytes Error:%d",__func__, ret);
         cleanup();
         return ret;
