@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "6ace3616_32a6771e",
+        "filename": "wcnss-service/wcnss_service.c",
+        "patchSetId": 2
+      },
+      "lineNbr": 737,
+      "author": {
+        "id": 4550
+      },
+      "writtenOn": "2017-09-02T16:50:40Z",
+      "side": 1,
+      "message": "This shouldn\u0027t be here",
+      "range": {
+        "startLine": 737,
+        "startChar": 0,
+        "endLine": 737,
+        "endChar": 6
+      },
+      "revId": "38fd938fa57482d6d35152555ce4c551f0c63ba3",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": false
+    }
+  ]
+}
