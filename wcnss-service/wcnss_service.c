@@ -416,7 +416,7 @@ void setup_wcnss_parameters(int *cal)
 		return;
 	}
 
-	rc = property_get("ro.serialno", serial, "");
+	rc = property_get("ro.wcnss.serialno", serial, "");
 	if (rc) {
 		serial_num = convert_string_to_hex(serial);
 		ALOGE("Serial Number is  %x", serial_num);
