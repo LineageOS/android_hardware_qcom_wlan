@@ -347,6 +347,7 @@ void NanCommand::NanErrorTranslation(NanInternalStatusType firmwareErrorRecvd,
     NanPublishTerminatedInd* pRspInd;
     NanDisabledInd* pRspdInd;
     char tlvInfo[NAN_ERROR_STR_LEN];
+    tlvInfo[0] = '\0';
 
     if (isNanResponse()) {
         pRsp = (NanResponseMsg*)pResponse;
@@ -701,7 +702,7 @@ void NanCommand::handleNanStatsResponse(NanStatsType stats_type,
         publish_stats.publishNewMatchCount = pPubStats->publishNewMatchCount;
         publish_stats.pubsubGlobalNewMatchCount =
                                pPubStats->pubsubGlobalNewMatchCount;
-        memcpy(&pRsp->data, &publish_stats, sizeof(NanPublishStats));
+        memcpy(&pRsp->data.publish_stats, &publish_stats, sizeof(NanPublishStats));
     } else if (stats_type == NAN_STATS_ID_DE_SUBSCRIBE) {
         NanSubscribeStats sub_stats;
         if (message_len != sizeof(NanSubscribeStats)) {
@@ -744,7 +745,7 @@ void NanCommand::handleNanStatsResponse(NanStatsType stats_type,
         sub_stats.subscribeNewMatchCount = pSubStats->subscribeNewMatchCount;
         sub_stats.pubsubGlobalNewMatchCount =
                                       pSubStats->pubsubGlobalNewMatchCount;
-        memcpy(&pRsp->data, &sub_stats, sizeof(NanSubscribeStats));
+        memcpy(&pRsp->data.subscribe_stats, &sub_stats, sizeof(NanSubscribeStats));
     } else if (stats_type == NAN_STATS_ID_DE_DW) {
         NanDWStats dw_stats;
         if (message_len != sizeof(NanDWStats)) {
@@ -758,6 +759,7 @@ void NanCommand::handleNanStatsResponse(NanStatsType stats_type,
         dw_stats.validActionFrames = pMacStats->validActionFrames;
         dw_stats.validBeaconFrames = pMacStats->validBeaconFrames;
         dw_stats.ignoredActionFrames = pMacStats->ignoredActionFrames;
+        dw_stats.ignoredBeaconFrames = pMacStats->ignoredBeaconFrames;
         dw_stats.invalidFrames = pMacStats->invalidFrames;
         dw_stats.invalidActionFrames = pMacStats->invalidActionFrames;
         dw_stats.invalidBeaconFrames = pMacStats->invalidBeaconFrames;
@@ -773,7 +775,7 @@ void NanCommand::handleNanStatsResponse(NanStatsType stats_type,
         dw_stats.completeByTp75DW = pMacStats->completeByTp75DW;
         dw_stats.completeByTendDW = pMacStats->completeByTendDW;
         dw_stats.lateActionFramesTx = pMacStats->lateActionFramesTx;
-        memcpy(&pRsp->data, &dw_stats, sizeof(NanDWStats));
+        memcpy(&pRsp->data.dw_stats, &dw_stats, sizeof(NanDWStats));
     } else if (stats_type == NAN_STATS_ID_DE_MAC) {
         NanMacStats mac_stats;
         if (message_len != sizeof(NanMacStats)) {
@@ -787,6 +789,7 @@ void NanCommand::handleNanStatsResponse(NanStatsType stats_type,
         mac_stats.validActionFrames = pMacStats->validActionFrames;
         mac_stats.validBeaconFrames = pMacStats->validBeaconFrames;
         mac_stats.ignoredActionFrames = pMacStats->ignoredActionFrames;
+        mac_stats.ignoredBeaconFrames = pMacStats->ignoredBeaconFrames;
         mac_stats.invalidFrames = pMacStats->invalidFrames;
         mac_stats.invalidActionFrames = pMacStats->invalidActionFrames;
         mac_stats.invalidBeaconFrames = pMacStats->invalidBeaconFrames;
@@ -807,7 +810,7 @@ void NanCommand::handleNanStatsResponse(NanStatsType stats_type,
         mac_stats.twChanges = pMacStats->twChanges;
         mac_stats.twHighwater = pMacStats->twHighwater;
         mac_stats.bloomFilterIndex = pMacStats->bloomFilterIndex;
-        memcpy(&pRsp->data, &mac_stats, sizeof(NanMacStats));
+        memcpy(&pRsp->data.mac_stats, &mac_stats, sizeof(NanMacStats));
     } else if (stats_type == NAN_STATS_ID_DE_TIMING_SYNC) {
         NanSyncStats sync_stats;
         if (message_len != sizeof(NanSyncStats)) {
@@ -867,7 +870,9 @@ void NanCommand::handleNanStatsResponse(NanStatsType stats_type,
         sync_stats.discBeaconTxFailures = pSyncStats->discBeaconTxFailures;
         sync_stats.amHopCountExpireCount = pSyncStats->amHopCountExpireCount;
         sync_stats.ndpChannelFreq = pSyncStats->ndpChannelFreq;
-        memcpy(&pRsp->data, &sync_stats, sizeof(NanSyncStats));
+        sync_stats.ndpChannelFreq2 = pSyncStats->ndpChannelFreq2;
+        sync_stats.schedUpdateChannelFreq = pSyncStats->schedUpdateChannelFreq;
+        memcpy(&pRsp->data.sync_stats, &sync_stats, sizeof(NanSyncStats));
     } else if (stats_type == NAN_STATS_ID_DE) {
         NanDeStats de_stats;
         if (message_len != sizeof(NanDeStats)) {
@@ -907,7 +912,7 @@ void NanCommand::handleNanStatsResponse(NanStatsType stats_type,
         de_stats.invalidEnableReqMsgs = pDeStats->invalidEnableReqMsgs;
         de_stats.invalidDisableReqMsgs = pDeStats->invalidDisableReqMsgs;
         de_stats.invalidTcaReqMsgs = pDeStats->invalidTcaReqMsgs;
-        memcpy(&pRsp->data, &de_stats, sizeof(NanDeStats));
+        memcpy(&pRsp->data.de_stats, &de_stats, sizeof(NanDeStats));
     } else {
         ALOGE("Unknown stats_type:%d\n", stats_type);
     }

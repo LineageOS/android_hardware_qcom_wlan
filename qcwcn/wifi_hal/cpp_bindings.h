@@ -230,6 +230,15 @@ public:
     wifi_error put_s64(int attribute, s64 value) {
         return wifi_nla_put(mMsg, attribute, sizeof(int64_t), &value);
     }
+    wifi_error put_flag(int attribute) {
+        int status;
+
+        status =  nla_put_flag(mMsg, attribute);
+        if(status < 0)
+           ALOGE("Failed to put flag attr of type = %d, error = %d",
+                  attribute, status);
+        return mapKernelErrortoWifiHalError(status);
+    }
 
     u8 get_u8(const struct nlattr *nla)
     {
@@ -437,6 +446,8 @@ public:
     virtual wifi_error put_s32(int attribute, s32 value);
 
     virtual wifi_error put_s64(int attribute, s64 value);
+
+    wifi_error put_flag(int attribute);
 
     virtual u8 get_u8(const struct nlattr *nla);
     virtual u16 get_u16(const struct nlattr *nla);
