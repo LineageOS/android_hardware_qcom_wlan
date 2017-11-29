@@ -41,7 +41,6 @@ wifi_error wifi_set_iface_event_handler(wifi_request_id id,
                                         wifi_interface_handle iface,
                                         wifi_event_handler eh)
 {
-    int ret = 0;
     wifi_handle wifiHandle = getWifiHandle(iface);
 
     /* Check if a similar request to set iface event handler was made earlier.
@@ -72,15 +71,13 @@ wifi_error wifi_set_iface_event_handler(wifi_request_id id,
     }
     mwifiEventHandler->setCallbackHandler(eh);
 
-    return mapErrorKernelToWifiHAL(ret);
+    return WIFI_SUCCESS;
 }
 
 /* Reset monitoring for the NL event*/
 wifi_error wifi_reset_iface_event_handler(wifi_request_id id,
                                           wifi_interface_handle iface)
 {
-    int ret = 0;
-
     if (mwifiEventHandler)
     {
         if (id == mwifiEventHandler->get_request_id()) {
@@ -96,7 +93,7 @@ wifi_error wifi_reset_iface_event_handler(wifi_request_id id,
         ALOGV("Object mwifiEventHandler for id = %d already Deleted", id);
     }
 
-    return mapErrorKernelToWifiHAL(ret);
+    return WIFI_SUCCESS;
 }
 
 /* This function will be the main handler for the registered incoming
@@ -212,7 +209,7 @@ WifihalGeneric::~WifihalGeneric()
     mCapa = NULL;
 }
 
-int WifihalGeneric::requestResponse()
+wifi_error WifihalGeneric::requestResponse()
 {
     return WifiCommand::requestResponse(mMsg);
 }
@@ -531,42 +528,40 @@ int WifihalGeneric::getBusSize() {
 
 wifi_error WifihalGeneric::wifiGetCapabilities(wifi_interface_handle handle)
 {
-    int ret;
+    wifi_error ret;
     struct nlattr *nlData;
     interface_info *ifaceInfo = getIfaceInfo(handle);
 
     /* Create the NL message. */
     ret = create();
-    if (ret < 0) {
+    if (ret != WIFI_SUCCESS) {
         ALOGE("%s: Failed to create NL message,  Error:%d", __FUNCTION__, ret);
-        return WIFI_ERROR_UNKNOWN;
+        return ret;
     }
 
     /* Set the interface Id of the message. */
     ret = set_iface_id(ifaceInfo->name);
-    if (ret < 0) {
+    if (ret != WIFI_SUCCESS) {
         ALOGE("%s: Failed to set interface Id of message, Error:%d", __FUNCTION__, ret);
-        return WIFI_ERROR_UNKNOWN;
+        return ret;
     }
 
     /* Add the vendor specific attributes for the NL command. */
     nlData = attr_start(NL80211_ATTR_VENDOR_DATA);
     if (!nlData)
-        return WIFI_ERROR_UNKNOWN;
+        return WIFI_ERROR_OUT_OF_MEMORY;
 
     ret = put_u32(QCA_WLAN_VENDOR_ATTR_GSCAN_SUBCMD_CONFIG_PARAM_REQUEST_ID, mId);
-    if (ret < 0) {
+    if (ret != WIFI_SUCCESS) {
         ALOGE("%s: Failed to add request_ID to NL command, Error:%d", __FUNCTION__, ret);
-        return WIFI_ERROR_UNKNOWN;
+        return ret;
     }
 
     attr_end(nlData);
 
     ret = requestResponse();
-    if (ret != 0) {
+    if (ret != WIFI_SUCCESS)
         ALOGE("%s: Failed to send request, Error:%d", __FUNCTION__, ret);
-        return WIFI_ERROR_UNKNOWN;
-    }
 
-    return WIFI_SUCCESS;
+    return ret;
 }

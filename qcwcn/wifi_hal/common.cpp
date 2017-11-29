@@ -449,12 +449,12 @@ cleanup:
     return LowiWifiHalApi;
 }
 
-wifi_error mapErrorKernelToWifiHAL(int error)
+wifi_error mapKernelErrortoWifiHalError(int kern_err)
 {
-    if (error >= 0)
-        return WIFI_ERROR_NONE;
+    if (kern_err >= 0)
+        return WIFI_SUCCESS;
 
-    switch (error) {
+    switch (kern_err) {
         case -EOPNOTSUPP:
             return WIFI_ERROR_NOT_SUPPORTED;
         case -EAGAIN:
@@ -467,8 +467,6 @@ wifi_error mapErrorKernelToWifiHAL(int error)
             return WIFI_ERROR_OUT_OF_MEMORY;
         case -EBUSY:
             return WIFI_ERROR_BUSY;
-        default:
-            return WIFI_ERROR_UNKNOWN;
     }
     return WIFI_ERROR_UNKNOWN;
 }
