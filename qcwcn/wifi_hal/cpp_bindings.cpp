@@ -879,6 +879,11 @@ wifi_error WifiVendorCommand::put_s64(int attribute, s64 value)
     return mMsg.put_s64(attribute, value);
 }
 
+wifi_error WifiVendorCommand::put_flag(int attribute)
+{
+    return mMsg.put_flag(attribute);
+}
+
 u8 WifiVendorCommand::get_u8(const struct nlattr *nla)
 {
     return mMsg.get_u8(nla);

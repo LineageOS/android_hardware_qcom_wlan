@@ -105,8 +105,8 @@ wifi_error NanCommand::putNanEnable(transaction_id id, const NanEnableRequest *p
           sizeof(pReq->config_cluster_attribute_val)) : 0 \
         ) + \
         (
-          pReq->config_scan_params ? (SIZEOF_TLV_HDR + \
-          NAN_MAX_SOCIAL_CHANNELS * sizeof(u32)) : 0 \
+          pReq->config_scan_params ? NAN_MAX_SOCIAL_CHANNELS *
+          (SIZEOF_TLV_HDR + sizeof(u32)) : 0 \
         ) + \
         (
           pReq->config_random_factor_force ? (SIZEOF_TLV_HDR + \
@@ -137,7 +137,15 @@ wifi_error NanCommand::putNanEnable(transaction_id id, const NanEnableRequest *p
            sizeof(u32)) : 0 \
         ) + \
         (
-           pReq->discovery_indication_cfg ? (SIZEOF_TLV_HDR + \
+           /* Always include cfg discovery indication TLV */
+           SIZEOF_TLV_HDR + sizeof(u32) \
+        ) + \
+        (
+          pReq->config_subscribe_sid_beacon ? (SIZEOF_TLV_HDR + \
+          sizeof(pReq->subscribe_sid_beacon_val)) : 0 \
+        ) + \
+        (
+           pReq->config_discovery_beacon_int ? (SIZEOF_TLV_HDR + \
            sizeof(u32)) : 0 \
         );
     pNanEnableReqMsg pFwReq = (pNanEnableReqMsg)malloc(message_len);
@@ -288,18 +296,21 @@ wifi_error NanCommand::putNanEnable(transaction_id id, const NanEnableRequest *p
                       sizeof(u32),
                       (const u8*)&pReq->disc_mac_addr_rand_interval_sec, tlvs);
     }
-    if (pReq->discovery_indication_cfg) {
-        NanConfigDiscoveryIndications discovery_indications;
-        discovery_indications.disableDiscoveryMacAddressEvent =
-                               (pReq->discovery_indication_cfg & BIT_0) ? 1 : 0;
-        discovery_indications.disableDiscoveryStartedClusterEvent =
-                               (pReq->discovery_indication_cfg & BIT_1) ? 1 : 0;
-        discovery_indications.disableDiscoveryJoinedClusterEvent =
-                               (pReq->discovery_indication_cfg & BIT_2) ? 1 : 0;
 
-        tlvs = addTlv(NAN_TLV_TYPE_CONFIG_DISCOVERY_INDICATIONS,
-                      sizeof(u32),
-                      (const u8*)&discovery_indications, tlvs);
+    u32 config_discovery_indications;
+    config_discovery_indications = (u32)pReq->discovery_indication_cfg;
+    tlvs = addTlv(NAN_TLV_TYPE_CONFIG_DISCOVERY_INDICATIONS,
+                  sizeof(u32),
+                  (const u8*)&config_discovery_indications, tlvs);
+
+    if (pReq->config_subscribe_sid_beacon) {
+        tlvs = addTlv(NAN_TLV_TYPE_SUBSCRIBE_SID_BEACON,
+                      sizeof(pReq->subscribe_sid_beacon_val),
+                      (const u8*)&pReq->subscribe_sid_beacon_val, tlvs);
+    }
+    if (pReq->config_discovery_beacon_int) {
+        tlvs = addTlv(NAN_TLV_TYPE_DB_INTERVAL, sizeof(u32),
+                      (const u8*)&pReq->discovery_beacon_interval, tlvs);
     }
 
     mVendorData = (char*)pFwReq;
@@ -352,7 +363,7 @@ wifi_error NanCommand::putNanConfig(transaction_id id, const NanConfigRequest *p
 {
     wifi_error ret;
     ALOGV("NAN_CONFIG");
-    size_t message_len = NAN_MAX_CONFIGURATION_REQ_SIZE;
+    size_t message_len = 0;
     int idx = 0;
 
     if (pReq == NULL ||
@@ -389,8 +400,8 @@ wifi_error NanCommand::putNanConfig(transaction_id id, const NanConfigRequest *p
            sizeof(pReq->config_cluster_attribute_val)) : 0 \
         ) + \
         (
-           pReq->config_scan_params ? (SIZEOF_TLV_HDR + \
-           NAN_MAX_SOCIAL_CHANNELS * sizeof(u32)) : 0 \
+           pReq->config_scan_params ? NAN_MAX_SOCIAL_CHANNELS *
+           (SIZEOF_TLV_HDR + sizeof(u32)) : 0 \
         ) + \
         (
            pReq->config_random_factor_force ? (SIZEOF_TLV_HDR + \
@@ -417,7 +428,15 @@ wifi_error NanCommand::putNanConfig(transaction_id id, const NanConfigRequest *p
            sizeof(u32)) : 0 \
         ) + \
         (
-           pReq->discovery_indication_cfg ? (SIZEOF_TLV_HDR + \
+          pReq->config_subscribe_sid_beacon ? (SIZEOF_TLV_HDR + \
+          sizeof(pReq->subscribe_sid_beacon_val)) : 0 \
+        ) + \
+        (
+           /* Always include cfg discovery indication TLV */
+           SIZEOF_TLV_HDR + sizeof(u32) \
+        ) + \
+        (
+           pReq->config_discovery_beacon_int ? (SIZEOF_TLV_HDR + \
            sizeof(u32)) : 0 \
         );
 
@@ -456,7 +475,6 @@ wifi_error NanCommand::putNanConfig(transaction_id id, const NanConfigRequest *p
         tlvs = addTlv(NAN_TLV_TYPE_MASTER_PREFERENCE, sizeof(pReq->master_pref),
                       (const u8*)&pReq->master_pref, tlvs);
     }
-
     if (pReq->config_rssi_window_size) {
         tlvs = addTlv(NAN_TLV_TYPE_RSSI_AVERAGING_WINDOW_SIZE, sizeof(pReq->rssi_window_size_val),
                       (const u8*)&pReq->rssi_window_size_val, tlvs);
@@ -464,6 +482,15 @@ wifi_error NanCommand::putNanConfig(transaction_id id, const NanConfigRequest *p
     if (pReq->config_rssi_proximity) {
         tlvs = addTlv(NAN_TLV_TYPE_24G_RSSI_CLOSE_PROXIMITY, sizeof(pReq->rssi_proximity),
                       (const u8*)&pReq->rssi_proximity, tlvs);
+    }
+    if (pReq->config_5g_rssi_close_proximity) {
+        tlvs = addTlv(NAN_TLV_TYPE_5G_RSSI_CLOSE_PROXIMITY,
+                      sizeof(pReq->rssi_close_proximity_5g_val),
+                      (const u8*)&pReq->rssi_close_proximity_5g_val, tlvs);
+    }
+    if (pReq->config_cluster_attribute_val) {
+        tlvs = addTlv(NAN_TLV_TYPE_CLUSTER_ATTRIBUTE_IN_SDF, sizeof(pReq->config_cluster_attribute_val),
+                      (const u8*)&pReq->config_cluster_attribute_val, tlvs);
     }
     if (pReq->config_scan_params) {
         u32 socialChannelParamVal[NAN_MAX_SOCIAL_CHANNELS];
@@ -511,7 +538,6 @@ wifi_error NanCommand::putNanConfig(transaction_id id, const NanConfigRequest *p
                       calcNanFurtherAvailabilityMapSize(&pReq->fam_val),
                       (const u8*)(tlvs + SIZEOF_TLV_HDR), tlvs);
     }
-
     if (pReq->config_dw.config_2dot4g_dw_band) {
         tlvs = addTlv(NAN_TLV_TYPE_2G_COMMITTED_DW,
                       sizeof(pReq->config_dw.dw_2dot4g_interval_val),
@@ -527,20 +553,22 @@ wifi_error NanCommand::putNanConfig(transaction_id id, const NanConfigRequest *p
                       sizeof(u32),
                       (const u8*)&pReq->disc_mac_addr_rand_interval_sec, tlvs);
     }
-
-    if (pReq->discovery_indication_cfg) {
-        NanConfigDiscoveryIndications discovery_indications;
-        discovery_indications.disableDiscoveryMacAddressEvent =
-                               (pReq->discovery_indication_cfg & BIT_0) ? 1 : 0;
-        discovery_indications.disableDiscoveryStartedClusterEvent =
-                               (pReq->discovery_indication_cfg & BIT_1) ? 1 : 0;
-        discovery_indications.disableDiscoveryJoinedClusterEvent =
-                               (pReq->discovery_indication_cfg & BIT_2) ? 1 : 0;
-
-        tlvs = addTlv(NAN_TLV_TYPE_CONFIG_DISCOVERY_INDICATIONS,
-                      sizeof(u32),
-                      (const u8*)&discovery_indications, tlvs);
+    if (pReq->config_subscribe_sid_beacon) {
+        tlvs = addTlv(NAN_TLV_TYPE_SUBSCRIBE_SID_BEACON,
+                      sizeof(pReq->subscribe_sid_beacon_val),
+                      (const u8*)&pReq->subscribe_sid_beacon_val, tlvs);
     }
+    if (pReq->config_discovery_beacon_int) {
+        tlvs = addTlv(NAN_TLV_TYPE_DB_INTERVAL, sizeof(u32),
+                      (const u8*)&pReq->discovery_beacon_interval, tlvs);
+    }
+
+    u32 config_discovery_indications;
+    config_discovery_indications = (u32)(pReq->discovery_indication_cfg);
+    /* Always include the discovery cfg TLV as there is no cfg flag */
+    tlvs = addTlv(NAN_TLV_TYPE_CONFIG_DISCOVERY_INDICATIONS,
+                  sizeof(u32),
+                  (const u8*)&config_discovery_indications, tlvs);
 
     mVendorData = (char*)pFwReq;
     mDataLen = message_len;
@@ -573,7 +601,8 @@ wifi_error NanCommand::putNanPublish(transaction_id id, const NanPublishRequest 
         (SIZEOF_TLV_HDR + sizeof(NanServiceAcceptPolicy)) +
         (pReq->cipher_type ? SIZEOF_TLV_HDR + sizeof(NanCsidType) : 0) +
         ((pReq->sdea_params.config_nan_data_path || pReq->sdea_params.security_cfg ||
-          pReq->sdea_params.ranging_state || pReq->sdea_params.range_report) ?
+          pReq->sdea_params.ranging_state || pReq->sdea_params.range_report ||
+          pReq->sdea_params.qos_cfg) ?
           SIZEOF_TLV_HDR + sizeof(NanFWSdeaCtrlParams) : 0) +
         ((pReq->ranging_cfg.ranging_interval_msec || pReq->ranging_cfg.config_ranging_indications ||
           pReq->ranging_cfg.distance_ingress_cm || pReq->ranging_cfg.distance_egress_cm) ?
@@ -614,7 +643,8 @@ wifi_error NanCommand::putNanPublish(transaction_id id, const NanPublishRequest 
 
     pFwReq->publishServiceReqParams.ttl = pReq->ttl;
     pFwReq->publishServiceReqParams.period = pReq->period;
-    pFwReq->publishServiceReqParams.reserved = 0;
+    pFwReq->publishServiceReqParams.replyIndFlag =
+                                   (pReq->recv_indication_cfg & BIT_3) ? 0 : 1;
     pFwReq->publishServiceReqParams.publishType = pReq->publish_type;
     pFwReq->publishServiceReqParams.txType = pReq->tx_type;
 
@@ -679,7 +709,8 @@ wifi_error NanCommand::putNanPublish(transaction_id id, const NanPublishRequest 
     if (pReq->sdea_params.config_nan_data_path ||
         pReq->sdea_params.security_cfg ||
         pReq->sdea_params.ranging_state ||
-        pReq->sdea_params.range_report) {
+        pReq->sdea_params.range_report ||
+        pReq->sdea_params.qos_cfg) {
         NanFWSdeaCtrlParams pNanFWSdeaCtrlParams;
         memset(&pNanFWSdeaCtrlParams, 0, sizeof(NanFWSdeaCtrlParams));
 
@@ -702,6 +733,9 @@ wifi_error NanCommand::putNanPublish(transaction_id id, const NanPublishRequest 
         if (pReq->sdea_params.range_report) {
             pNanFWSdeaCtrlParams.range_report =
                 (((pReq->sdea_params.range_report & NAN_ENABLE_RANGE_REPORT) >> 1) ? 1 : 0);
+        }
+        if (pReq->sdea_params.qos_cfg) {
+            pNanFWSdeaCtrlParams.qos_required = pReq->sdea_params.qos_cfg;
         }
         tlvs = addTlv(NAN_TLV_TYPE_SDEA_CTRL_PARAMS, sizeof(NanFWSdeaCtrlParams),
                         (const u8*)&pNanFWSdeaCtrlParams, tlvs);
@@ -824,7 +858,8 @@ wifi_error NanCommand::putNanSubscribe(transaction_id id,
         (pReq->tx_match_filter_len ? SIZEOF_TLV_HDR + pReq->tx_match_filter_len : 0) +
         (pReq->cipher_type ? SIZEOF_TLV_HDR + sizeof(NanCsidType) : 0) +
         ((pReq->sdea_params.config_nan_data_path || pReq->sdea_params.security_cfg ||
-          pReq->sdea_params.ranging_state || pReq->sdea_params.range_report) ?
+          pReq->sdea_params.ranging_state || pReq->sdea_params.range_report ||
+          pReq->sdea_params.qos_cfg) ?
           SIZEOF_TLV_HDR + sizeof(NanFWSdeaCtrlParams) : 0) +
         ((pReq->ranging_cfg.ranging_interval_msec || pReq->ranging_cfg.config_ranging_indications ||
           pReq->ranging_cfg.distance_ingress_cm || pReq->ranging_cfg.distance_egress_cm) ?
@@ -939,7 +974,8 @@ wifi_error NanCommand::putNanSubscribe(transaction_id id,
     if (pReq->sdea_params.config_nan_data_path ||
         pReq->sdea_params.security_cfg ||
         pReq->sdea_params.ranging_state ||
-        pReq->sdea_params.range_report) {
+        pReq->sdea_params.range_report ||
+        pReq->sdea_params.qos_cfg) {
         NanFWSdeaCtrlParams pNanFWSdeaCtrlParams;
         memset(&pNanFWSdeaCtrlParams, 0, sizeof(NanFWSdeaCtrlParams));
 
@@ -962,6 +998,9 @@ wifi_error NanCommand::putNanSubscribe(transaction_id id,
         if (pReq->sdea_params.range_report) {
             pNanFWSdeaCtrlParams.range_report =
                 ((pReq->sdea_params.range_report & NAN_ENABLE_RANGE_REPORT >> 1) ? 1 : 0);
+        }
+        if (pReq->sdea_params.qos_cfg) {
+            pNanFWSdeaCtrlParams.qos_required = pReq->sdea_params.qos_cfg;
         }
         tlvs = addTlv(NAN_TLV_TYPE_SDEA_CTRL_PARAMS, sizeof(NanFWSdeaCtrlParams),
                         (const u8*)&pNanFWSdeaCtrlParams, tlvs);
@@ -1350,6 +1389,12 @@ wifi_error NanCommand::requestEvent()
     cb = nl_cb_alloc(NL_CB_DEFAULT);
     if (!cb) {
         ALOGE("%s: Callback allocation failed",__func__);
+        res = WIFI_ERROR_OUT_OF_MEMORY;
+        goto out;
+    }
+
+    if (!mInfo->cmd_sock) {
+        ALOGE("%s: Command socket is null",__func__);
         res = WIFI_ERROR_OUT_OF_MEMORY;
         goto out;
     }
