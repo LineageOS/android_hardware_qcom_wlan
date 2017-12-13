@@ -1238,6 +1238,7 @@ int NanCommand::handleEvent(WifiEvent &event)
                 case QCA_WLAN_VENDOR_ATTR_NDP_DATA_REQUEST_IND:
                 case QCA_WLAN_VENDOR_ATTR_NDP_CONFIRM_IND:
                 case QCA_WLAN_VENDOR_ATTR_NDP_END_IND:
+                case QCA_WLAN_VENDOR_ATTR_NDP_SCHEDULE_UPDATE_IND:
                     handleNdpIndication(ndpCmdType, tb_vendor);
                     break;
                 default:
