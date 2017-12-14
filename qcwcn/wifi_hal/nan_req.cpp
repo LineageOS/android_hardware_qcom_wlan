@@ -790,7 +790,7 @@ int NanCommand::putNanPublish(transaction_id id, const NanPublishRequest *pReq)
     if (pReq->ranging_cfg.ranging_interval_msec ||
         pReq->ranging_cfg.config_ranging_indications ||
         pReq->ranging_cfg.distance_ingress_mm ||
-        pReq->ranging_cfg.distance_ingress_mm) {
+        pReq->ranging_cfg.distance_egress_mm) {
         NanFWRangeConfigParams pNanFWRangingCfg;
 
         memset(&pNanFWRangingCfg, 0, sizeof(NanFWRangeConfigParams));
@@ -1052,7 +1052,7 @@ int NanCommand::putNanSubscribe(transaction_id id,
     }
 
     if (pReq->ranging_cfg.ranging_interval_msec || pReq->ranging_cfg.config_ranging_indications || pReq->ranging_cfg.distance_ingress_mm
-        || pReq->ranging_cfg.distance_ingress_mm) {
+        || pReq->ranging_cfg.distance_egress_mm) {
         NanFWRangeConfigParams pNanFWRangingCfg;
         memset(&pNanFWRangingCfg, 0, sizeof(NanFWRangeConfigParams));
         pNanFWRangingCfg.range_interval =
