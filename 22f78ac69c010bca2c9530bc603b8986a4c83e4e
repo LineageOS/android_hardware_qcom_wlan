@@ -1,0 +1,106 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "9fb7a8d9_dfb23aab",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 6,
+      "author": {
+        "id": 3671
+      },
+      "writtenOn": "2017-12-21T01:08:00Z",
+      "side": 1,
+      "message": "Add LOCAL_ADDITIONAL_DEPENDENCIES to sanitized kernel headers.",
+      "revId": "22f78ac69c010bca2c9530bc603b8986a4c83e4e",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "0a399a08_1fe7016d",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 7,
+      "author": {
+        "id": 3671
+      },
+      "writtenOn": "2017-12-21T01:08:00Z",
+      "side": 1,
+      "message": "Add LOCAL_ADDITIONAL_DEPENDENCIES to sanitized kernel headers.",
+      "revId": "22f78ac69c010bca2c9530bc603b8986a4c83e4e",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "cc331d66_652fc495",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 8,
+      "author": {
+        "id": 3671
+      },
+      "writtenOn": "2017-12-21T01:08:00Z",
+      "side": 1,
+      "message": "Add LOCAL_ADDITIONAL_DEPENDENCIES to sanitized kernel headers.",
+      "revId": "22f78ac69c010bca2c9530bc603b8986a4c83e4e",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "55eb68e3_667864ad",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 9,
+      "author": {
+        "id": 3671
+      },
+      "writtenOn": "2017-12-21T01:08:00Z",
+      "side": 1,
+      "message": "Add LOCAL_ADDITIONAL_DEPENDENCIES to sanitized kernel headers.",
+      "revId": "22f78ac69c010bca2c9530bc603b8986a4c83e4e",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "2085c431_67c532c2",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 10,
+      "author": {
+        "id": 3671
+      },
+      "writtenOn": "2017-12-21T01:08:00Z",
+      "side": 1,
+      "message": "Add LOCAL_ADDITIONAL_DEPENDENCIES to sanitized kernel headers.",
+      "revId": "22f78ac69c010bca2c9530bc603b8986a4c83e4e",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "5f577da0_1a03003c",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 12,
+      "author": {
+        "id": 3671
+      },
+      "writtenOn": "2017-12-21T01:08:00Z",
+      "side": 1,
+      "message": "Add LOCAL_ADDITIONAL_DEPENDENCIES to sanitized kernel headers.",
+      "revId": "22f78ac69c010bca2c9530bc603b8986a4c83e4e",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": false
+    }
+  ]
+}
