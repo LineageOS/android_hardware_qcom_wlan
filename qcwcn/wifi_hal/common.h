@@ -119,6 +119,7 @@ typedef struct hal_info_s {
     int num_interfaces;                             // number of interfaces
 
     feature_set supported_feature_set;
+    u32 supported_logger_feature_set;
     // add other details
     int user_sock_arg;
     struct rb_info rb_infos[NUM_RING_BUFS];
@@ -182,6 +183,7 @@ wifi_error wifi_stop_sending_offloaded_packet(wifi_request_id id,
 wifi_error wifi_start_rssi_monitoring(wifi_request_id id, wifi_interface_handle
         iface, s8 max_rssi, s8 min_rssi, wifi_rssi_event_handler eh);
 wifi_error wifi_stop_rssi_monitoring(wifi_request_id id, wifi_interface_handle iface);
+wifi_error mapKernelErrortoWifiHalError(int kern_err);
 // some common macros
 
 #define min(x, y)       ((x) < (y) ? (x) : (y))

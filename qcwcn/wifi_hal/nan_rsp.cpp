@@ -759,6 +759,7 @@ void NanCommand::handleNanStatsResponse(NanStatsType stats_type,
         dw_stats.validActionFrames = pMacStats->validActionFrames;
         dw_stats.validBeaconFrames = pMacStats->validBeaconFrames;
         dw_stats.ignoredActionFrames = pMacStats->ignoredActionFrames;
+        dw_stats.ignoredBeaconFrames = pMacStats->ignoredBeaconFrames;
         dw_stats.invalidFrames = pMacStats->invalidFrames;
         dw_stats.invalidActionFrames = pMacStats->invalidActionFrames;
         dw_stats.invalidBeaconFrames = pMacStats->invalidBeaconFrames;
@@ -788,6 +789,7 @@ void NanCommand::handleNanStatsResponse(NanStatsType stats_type,
         mac_stats.validActionFrames = pMacStats->validActionFrames;
         mac_stats.validBeaconFrames = pMacStats->validBeaconFrames;
         mac_stats.ignoredActionFrames = pMacStats->ignoredActionFrames;
+        mac_stats.ignoredBeaconFrames = pMacStats->ignoredBeaconFrames;
         mac_stats.invalidFrames = pMacStats->invalidFrames;
         mac_stats.invalidActionFrames = pMacStats->invalidActionFrames;
         mac_stats.invalidBeaconFrames = pMacStats->invalidBeaconFrames;
@@ -869,6 +871,7 @@ void NanCommand::handleNanStatsResponse(NanStatsType stats_type,
         sync_stats.amHopCountExpireCount = pSyncStats->amHopCountExpireCount;
         sync_stats.ndpChannelFreq = pSyncStats->ndpChannelFreq;
         sync_stats.ndpChannelFreq2 = pSyncStats->ndpChannelFreq2;
+        sync_stats.schedUpdateChannelFreq = pSyncStats->schedUpdateChannelFreq;
         memcpy(&pRsp->data.sync_stats, &sync_stats, sizeof(NanSyncStats));
     } else if (stats_type == NAN_STATS_ID_DE) {
         NanDeStats de_stats;
