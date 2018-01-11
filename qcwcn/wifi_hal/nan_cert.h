@@ -38,6 +38,7 @@ extern "C"
 
 #define NAN_CERT_VERSION                        4
 #define NAN_MAX_DEBUG_MESSAGE_DATA_LEN          100
+#define NAN_MAX_ALLOWED_DW_AWAKE_INTERVAL       16
 
 typedef struct {
     /* NAN master rank being advertised by DE */
@@ -55,6 +56,7 @@ typedef struct {
 
 /* NAN Data Path Supported Band */
 typedef enum {
+    NAN_DATA_PATH_SUPPORTED_BAND_2G = 1,
     NAN_DATA_PATH_SUPPORTED_BAND_5G = 2,
     NAN_DATA_PATH_SUPPORT_DUAL_BAND = 3
 } NdpSupportedBand;
@@ -89,6 +91,12 @@ typedef enum {
     NAN_SCHED_INVALID_BAD_IMMU = 3
 } NanSchedType;
 
+/* NAN device type */
+typedef enum {
+    NAN_DEVICE_TYPE_TEST_BED = 1,
+    NAN_DEVICE_TYPE_DUT = 2
+} NanDeviceType;
+
  /*
   * Definitions of debug subcommand type for the
   * generic debug command.
@@ -105,7 +113,9 @@ typedef enum {
     NAN_TEST_MODE_CMD_NAN_SCHED_UPDATE_ULW_NOTIFY = 9,
     NAN_TEST_MODE_CMD_NAN_SCHED_UPDATE_NDL_NEGOTIATE = 10,
     NAN_TEST_MODE_CMD_NAN_SCHED_UPDATE_NDL_NOTIFY = 11,
-    NAN_TEST_MODE_CMD_NAN_AVAILABILITY_MAP_ORDER = 12
+    NAN_TEST_MODE_CMD_NAN_AVAILABILITY_MAP_ORDER = 12,
+    NAN_TEST_MODE_CMD_CONFIG_QOS = 13,
+    NAN_TEST_MODE_CMD_DEVICE_TYPE = 14
 } NanDebugModeCmd;
 
 /*
