@@ -1350,10 +1350,9 @@ wifi_error wifi_get_link_stats(wifi_request_id id,
     if (ret != WIFI_SUCCESS) {
         LLCommand->clearStats();
         goto cleanup;
-    }
-
-    if (ret != WIFI_SUCCESS)
+    } else {
         ret = LLCommand->notifyResponse();
+    }
 
 cleanup:
     return ret;
