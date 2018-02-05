@@ -1,6 +1,10 @@
 /*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ */
+
+/*
  * Qualcomm Atheros OUI and vendor specific assignments
- * Copyright (c) 2014-2015, 2018 Qualcomm Atheros, Inc.
+ * Copyright (c) 2014-2015, Qualcomm Atheros, Inc.
  *
  * This software may be distributed under the terms of the BSD license.
  * See README for more details.
