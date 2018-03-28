@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -44,6 +44,7 @@
 #include <netlink/netlink.h>
 #include <netlink/socket.h>
 #include "wifi_hal.h"
+#include <arpa/inet.h>
 
 typedef struct {
     uint16_t arp_req_count_from_netdev;
@@ -58,8 +59,36 @@ typedef struct {
     uint8_t is_duplicate_addr_detection;
 } nud_stats;
 
+typedef struct {
+    uint16_t pkt_req_count_from_netdev;
+    uint16_t pkt_req_count_to_lower_mac;
+    uint16_t pkt_req_rx_count_by_lower_mac;
+    uint16_t pkt_req_count_tx_success;
+    uint16_t pkt_rsp_rx_count_by_lower_mac;
+    uint16_t pkt_rsp_rx_count_by_upper_mac;
+    uint16_t pkt_rsp_count_to_netdev;
+    uint16_t pkt_rsp_count_out_of_order_drop;
+} pkt_stats;
 
-wifi_error wifi_set_nud_stats(wifi_interface_handle iface, u32 gw_addr);
+typedef struct{
+    u32 pkt_Type;
+    char* domain_name;
+    u32 src_port;
+    u32 dst_port;
+    struct in_addr ipv4_addr;
+    u8 ipv6_addr[16];
+    pkt_stats stats;
+} cmdData;
+
+/* callback for get NUD stats */
+typedef struct {
+  void (*on_pkt_stats_results) (nud_stats *stats,
+         int mnumStats,  cmdData *pkt_stats);
+} pkt_stats_result_handler;
+
+wifi_error wifi_set_nud_stats(wifi_interface_handle iface, u32 gw_addr,
+                              cmdData set_data);
 wifi_error wifi_get_nud_stats(wifi_interface_handle iface,
-                              nud_stats *stats);
-wifi_error wifi_clear_nud_stats(wifi_interface_handle iface);
+                              pkt_stats_result_handler handler);
+wifi_error wifi_clear_nud_stats(wifi_interface_handle iface,
+                                cmdData set_data);
