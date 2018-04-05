@@ -613,6 +613,11 @@ wifi_error wifi_initialize(wifi_handle *handle)
         ret = WIFI_SUCCESS;
     }
 
+    ret =  wifi_get_logger_supported_feature_set(iface_handle,
+                         &info->supported_logger_feature_set);
+    if (ret != WIFI_SUCCESS)
+        ALOGE("Failed to get supported logger featur set: %d", ret);
+
     ret = get_firmware_bus_max_size_supported(iface_handle);
     if (ret != WIFI_SUCCESS) {
         ALOGE("Failed to get supported bus size, error : %d", ret);
