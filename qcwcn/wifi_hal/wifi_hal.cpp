@@ -698,7 +698,6 @@ unload:
             nl_socket_free(event_sock);
         if (info) {
             if (info->cmd) free(info->cmd);
-            if (info->event_cb) free(info->event_cb);
             if (info->cldctx) {
                 cld80211lib_cleanup(info);
             } else if (info->user_sock) {
@@ -708,6 +707,7 @@ unload:
             if (info->rx_aggr_pkts) free(info->rx_aggr_pkts);
             cleanupGscanHandlers(info);
             cleanupRSSIMonitorHandler(info);
+            free(info->event_cb);
             free(info);
         }
     }
@@ -772,9 +772,6 @@ static void internal_cleaned_up_handler(wifi_handle handle)
     if (info->cmd)
         free(info->cmd);
 
-    if (info->event_cb)
-        free(info->event_cb);
-
     if (info->cldctx != NULL) {
         cld80211lib_cleanup(info);
     } else if (info->user_sock != 0) {
@@ -789,6 +786,11 @@ static void internal_cleaned_up_handler(wifi_handle handle)
     wifi_logger_ring_buffers_deinit(info);
     cleanupGscanHandlers(info);
     cleanupRSSIMonitorHandler(info);
+
+    if (info->num_event_cb)
+        ALOGE("%d events were leftover without being freed",
+              info->num_event_cb);
+    free(info->event_cb);
 
     if (info->exit_sockets[0] >= 0) {
         close(info->exit_sockets[0]);
