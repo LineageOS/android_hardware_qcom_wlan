@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015, 2018 The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -266,7 +266,7 @@ wifi_error wifi_start_rssi_monitoring(wifi_request_id id,
                                 &vCommand);
     if (ret != WIFI_SUCCESS) {
         ALOGE("%s: Initialization failed", __FUNCTION__);
-        return mapKernelErrortoWifiHalError(ret);
+        return ret;
     }
 
     ALOGV("%s: Max RSSI:%d Min RSSI:%d", __FUNCTION__,
@@ -312,7 +312,7 @@ wifi_error wifi_start_rssi_monitoring(wifi_request_id id,
 
 cleanup:
     delete vCommand;
-    return mapKernelErrortoWifiHalError(ret);
+    return ret;
 }
 
 wifi_error wifi_stop_rssi_monitoring(wifi_request_id id,
@@ -341,7 +341,7 @@ wifi_error wifi_stop_rssi_monitoring(wifi_request_id id,
                                 &vCommand);
     if (ret != WIFI_SUCCESS) {
         ALOGE("%s: Initialization failed", __FUNCTION__);
-        return mapKernelErrortoWifiHalError(ret);
+        return ret;
     }
 
     /* Add the vendor specific attributes for the NL command. */
@@ -368,5 +368,5 @@ wifi_error wifi_stop_rssi_monitoring(wifi_request_id id,
 
 cleanup:
     delete vCommand;
-    return mapKernelErrortoWifiHalError(ret);
+    return ret;
 }
