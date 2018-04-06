@@ -163,7 +163,7 @@ wifi_error wifi_get_valid_channels(wifi_interface_handle handle,
 
 cleanup:
     delete gScanCommand;
-    return mapKernelErrortoWifiHalError(ret);
+    return ret;
 }
 
 wifi_error wifi_get_gscan_capabilities(wifi_interface_handle handle,
@@ -397,7 +397,8 @@ cleanup:
             __FUNCTION__, ret);
         gScanStartCmdEventHandler->disableEventHandling();
     }
-    return mapKernelErrortoWifiHalError(ret);
+    return ret;
+
 }
 
 wifi_error wifi_stop_gscan(wifi_request_id id,
@@ -473,7 +474,7 @@ wifi_error wifi_stop_gscan(wifi_request_id id,
 
 cleanup:
     delete gScanCommand;
-    return mapKernelErrortoWifiHalError(ret);
+    return ret;
 }
 
 /* Set the GSCAN BSSID Hotlist. */
@@ -637,7 +638,7 @@ cleanup:
             __FUNCTION__, ret);
         gScanSetBssidHotlistCmdEventHandler->disableEventHandling();
     }
-    return mapKernelErrortoWifiHalError(ret);
+    return ret;
 }
 
 wifi_error wifi_reset_bssid_hotlist(wifi_request_id id,
@@ -714,7 +715,7 @@ wifi_error wifi_reset_bssid_hotlist(wifi_request_id id,
 
 cleanup:
     delete gScanCommand;
-    return mapKernelErrortoWifiHalError(ret);
+    return ret;
 }
 
 /* Set the GSCAN Significant AP Change list. */
@@ -889,7 +890,7 @@ cleanup:
         gScanSetSignificantChangeCmdEventHandler->disableEventHandling();
     }
     delete gScanCommand;
-    return mapKernelErrortoWifiHalError(ret);
+    return ret;
 }
 
 /* Clear the GSCAN Significant AP change list. */
@@ -969,7 +970,7 @@ wifi_error wifi_reset_significant_change_handler(wifi_request_id id,
 
 cleanup:
     delete gScanCommand;
-    return mapKernelErrortoWifiHalError(ret);
+    return ret;
 }
 
 /* Get the GSCAN cached scan results. */
@@ -1094,7 +1095,7 @@ wifi_error wifi_get_cached_gscan_results(wifi_interface_handle iface,
 cleanup:
     gScanCommand->freeRspParams(eGScanGetCachedResultsRspParams);
     delete gScanCommand;
-    return mapKernelErrortoWifiHalError(ret);
+    return ret;
 }
 
 /* Random MAC OUI for PNO */
@@ -1149,7 +1150,7 @@ wifi_error wifi_set_scanning_mac_oui(wifi_interface_handle handle, oui scan_oui)
 
 cleanup:
     delete vCommand;
-    return mapKernelErrortoWifiHalError(ret);
+    return ret;
 }
 
 
@@ -1837,7 +1838,7 @@ cleanup:
             __FUNCTION__, ret);
         gScanSetPnoListCmdEventHandler->disableEventHandling();
     }
-    return mapKernelErrortoWifiHalError(ret);
+    return ret;
 }
 
 /* Reset the ePNO list - no ePNO networks should be matched after this */
@@ -1906,7 +1907,7 @@ wifi_error wifi_reset_epno_list(wifi_request_id id, wifi_interface_handle iface)
 
 cleanup:
     delete gScanCommand;
-    return mapKernelErrortoWifiHalError(ret);
+    return ret;
 }
 
 /* Set the ePNO Passpoint List. */
@@ -2076,7 +2077,7 @@ cleanup:
             __FUNCTION__, ret);
         gScanPnoSetPasspointListCmdEventHandler->disableEventHandling();
     }
-    return mapKernelErrortoWifiHalError(ret);
+    return ret;
 }
 
 wifi_error wifi_reset_passpoint_list(wifi_request_id id,
@@ -2163,7 +2164,7 @@ wifi_error wifi_reset_passpoint_list(wifi_request_id id,
 
 cleanup:
     delete gScanCommand;
-    return mapKernelErrortoWifiHalError(ret);
+    return ret;
 }
 
 wifi_error GScanCommand::allocCachedResultsTemp(int max,

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015, 2018 The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -54,6 +54,10 @@ extern "C"
 
 #define FIRMWARE_PRINTS_RB_BUF_SIZE 32768
 #define FIRMWARE_PRINTS_NUM_BUFS    16
+
+#define LOGGER_RING_BUFFER (WIFI_LOGGER_CONNECT_EVENT_SUPPORTED \
+                            | WIFI_LOGGER_POWER_EVENT_SUPPORTED \
+                            | WIFI_LOGGER_PER_PACKET_TX_RX_STATUS_SUPPORTED)
 
 enum rb_info_indices {
     POWER_EVENTS_RB_ID = 0,
