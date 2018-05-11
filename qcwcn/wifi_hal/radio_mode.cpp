@@ -97,6 +97,7 @@ int RADIOModeCommand::handleEvent(WifiEvent &event)
     int num_of_mac = 0;
     wifi_mac_info mode_info;
 
+    memset(&mode_info, 0, sizeof(mode_info));
     WifiVendorCommand::handleEvent(event);
 
     /* Parse the vendordata and get the attribute */
