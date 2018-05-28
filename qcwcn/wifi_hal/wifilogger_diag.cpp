@@ -129,6 +129,8 @@ static wifi_error process_log_extscan_capabilities(hal_info *info,
     wlan_ext_scan_capabilities_payload_type *pScanCapabilities;
     wifi_gscan_capabilities gscan_cap;
     gscan_capabilities_vendor_data_t cap_vendor_data;
+    memset(&cap_vendor_data, 0, sizeof(cap_vendor_data));
+
     tlv_log *pTlv;
     int tot_len = sizeof(wifi_ring_buffer_driver_connectivity_event);
     u8 out_buf[SCAN_CAP_ENTRY_SIZE];
@@ -699,6 +701,8 @@ static wifi_error process_roam_event(hal_info *info, u32 id,
         {
             wlan_roam_candidate_found_payload_type *pRoamCandidateFound;
             roam_candidate_found_vendor_data_t roamCandidateFoundVendata;
+            memset(&roamCandidateFoundVendata, 0,
+			sizeof(roamCandidateFoundVendata));
             pConnectEvent->event = WIFI_EVENT_ROAM_CANDIDATE_FOUND;
             pRoamCandidateFound = (wlan_roam_candidate_found_payload_type *)buf;
             pTlv = &pConnectEvent->tlvs[0];
