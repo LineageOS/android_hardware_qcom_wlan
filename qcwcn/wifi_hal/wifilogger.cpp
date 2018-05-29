@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015, 2018 The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -60,14 +60,6 @@ static int get_ring_id(hal_info *info, char *ring_name)
     return -1;
 }
 
-static bool check_supported_logger(uint32_t supported_logger)
-{
-    if(supported_logger == 0)
-       return false;
-    else
-       return true;
-}
-
 //Implementation of the functions exposed in wifi_logger.h
 
 /* Function to intiate logging */
@@ -86,8 +78,9 @@ wifi_error wifi_start_logging(wifi_interface_handle iface,
     int ring_id = 0;
 
     /* Check Supported logger capability */
-    if(!check_supported_logger(info->supported_logger_feature_set)) {
-        ALOGE("%s: Logger feature not supported ", __FUNCTION__);
+    if (!(info->supported_logger_feature_set & LOGGER_RING_BUFFER)) {
+        ALOGE("%s: Ring buffer logging feature not supported %x", __FUNCTION__,
+              info->supported_logger_feature_set);
         return WIFI_ERROR_NOT_SUPPORTED;
     }
     /*
@@ -159,9 +152,8 @@ wifi_error wifi_start_logging(wifi_interface_handle iface,
     rb_start_logging(&info->rb_infos[ring_id], verbose_level,
                     flags, max_interval_sec, min_data_size);
 cleanup:
-    if (wifiLoggerCommand)
-        delete wifiLoggerCommand;
-    return mapKernelErrortoWifiHalError(ret);
+    delete wifiLoggerCommand;
+    return ret;
 }
 
 /*  Function to get each ring related info */
@@ -176,8 +168,9 @@ wifi_error wifi_get_ring_buffers_status(wifi_interface_handle iface,
     int rb_id;
 
     /* Check Supported logger capability */
-    if(!check_supported_logger(info->supported_logger_feature_set)) {
-        ALOGE("%s: Logger feature not supported ", __FUNCTION__);
+    if (!(info->supported_logger_feature_set & LOGGER_RING_BUFFER)) {
+        ALOGE("%s: Ring buffer logging feature not supported %x", __FUNCTION__,
+              info->supported_logger_feature_set);
         return WIFI_ERROR_NOT_SUPPORTED;
     }
 
@@ -210,13 +203,13 @@ void push_out_all_ring_buffers(hal_info *info)
 void send_alert(hal_info *info, int reason_code)
 {
     wifi_alert_handler handler;
-
+    char alert_msg[20] = "Fatal Event";
     pthread_mutex_lock(&info->ah_lock);
     handler.on_alert = info->on_alert;
     pthread_mutex_unlock(&info->ah_lock);
 
     if (handler.on_alert) {
-        handler.on_alert(0, NULL, 0, reason_code);
+        handler.on_alert(0, alert_msg, strlen(alert_msg), reason_code);
     }
 }
 
@@ -281,7 +274,7 @@ wifi_error wifi_get_logger_supported_feature_set(wifi_interface_handle iface,
 
 cleanup:
     delete wifiLoggerCommand;
-    return mapKernelErrortoWifiHalError(ret);
+    return ret;
 }
 
 /*  Function to get the data in each ring for the given ring ID.*/
@@ -298,8 +291,9 @@ wifi_error wifi_get_ring_data(wifi_interface_handle iface,
     int ring_id = 0;
 
     /* Check Supported logger capability */
-    if(!check_supported_logger(info->supported_logger_feature_set)) {
-        ALOGE("%s: Logger feature not supported ", __FUNCTION__);
+    if (!(info->supported_logger_feature_set & LOGGER_RING_BUFFER)) {
+        ALOGE("%s: Ring buffer logging feature not supported %x", __FUNCTION__,
+              info->supported_logger_feature_set);
         return WIFI_ERROR_NOT_SUPPORTED;
     }
 
@@ -349,7 +343,7 @@ wifi_error wifi_get_ring_data(wifi_interface_handle iface,
 
 cleanup:
     delete wifiLoggerCommand;
-    return mapKernelErrortoWifiHalError(ret);
+    return ret;
 }
 
 void WifiLoggerCommand::setVersionInfo(char *buffer, int buffer_size) {
@@ -413,7 +407,8 @@ wifi_error wifi_get_firmware_version(wifi_interface_handle iface,
 
 cleanup:
     delete wifiLoggerCommand;
-    return mapKernelErrortoWifiHalError(ret);
+    return ret;
+
 }
 
 /*  Function to get wlan driver version.*/
@@ -470,9 +465,10 @@ wifi_error wifi_get_driver_version(wifi_interface_handle iface,
     ret = wifiLoggerCommand->requestResponse();
     if (ret != WIFI_SUCCESS)
         ALOGE("%s: Error %d happened. ", __FUNCTION__, ret);
+
 cleanup:
     delete wifiLoggerCommand;
-    return mapKernelErrortoWifiHalError(ret);
+    return ret;
 }
 
 
@@ -489,8 +485,10 @@ wifi_error wifi_get_firmware_memory_dump(wifi_interface_handle iface,
     hal_info *info = getHalInfo(wifiHandle);
 
     /* Check Supported logger capability */
-    if(!check_supported_logger(info->supported_logger_feature_set)) {
-        ALOGE("%s: Logger feature not supported ", __FUNCTION__);
+    if (!(info->supported_logger_feature_set &
+          WIFI_LOGGER_MEMORY_DUMP_SUPPORTED)) {
+        ALOGE("%s: Firmware memory dump logging feature not supported %x",
+              __FUNCTION__, info->supported_logger_feature_set);
         return WIFI_ERROR_NOT_SUPPORTED;
     }
 
@@ -544,7 +542,7 @@ wifi_error wifi_get_firmware_memory_dump(wifi_interface_handle iface,
 
 cleanup:
     delete wifiLoggerCommand;
-    return mapKernelErrortoWifiHalError(ret);
+    return ret;
 }
 
 wifi_error wifi_set_log_handler(wifi_request_id id,
@@ -615,6 +613,14 @@ wifi_error wifi_start_pkt_fate_monitoring(wifi_interface_handle iface)
 {
     wifi_handle wifiHandle = getWifiHandle(iface);
     hal_info *info = getHalInfo(wifiHandle);
+
+    /* Check Supported logger capability */
+    if (!(info->supported_logger_feature_set &
+          WIFI_LOGGER_PACKET_FATE_SUPPORTED)) {
+        ALOGE("%s: packet fate logging feature not supported %x",
+              __FUNCTION__, info->supported_logger_feature_set);
+        return WIFI_ERROR_NOT_SUPPORTED;
+    }
 
     if (info->fate_monitoring_enabled == true) {
         ALOGV("Packet monitoring is already enabled");
@@ -831,6 +837,13 @@ void rb_timerhandler(hal_info *info)
 wifi_error wifi_logger_ring_buffers_init(hal_info *info)
 {
     wifi_error ret;
+
+    /* Check Supported logger capability */
+    if (!(info->supported_logger_feature_set & LOGGER_RING_BUFFER)) {
+        ALOGE("%s: Ring buffer logging feature not supported %x", __FUNCTION__,
+              info->supported_logger_feature_set);
+        return WIFI_ERROR_NOT_SUPPORTED;
+    }
 
     ret = rb_init(info, &info->rb_infos[POWER_EVENTS_RB_ID],
                   POWER_EVENTS_RB_ID,
@@ -1152,59 +1165,56 @@ int WifiLoggerCommand::handleResponse(WifiEvent &reply) {
 
             if (!tbVendor[
                     QCA_WLAN_VENDOR_ATTR_WAKE_STATS_TOTAL_CMD_EVENT_WAKE]) {
-                ALOGE("%s: TOTAL_CMD_EVENT_WAKE not found", __FUNCTION__);
-                break;
+                mGetWakeStats->total_cmd_event_wake = 0;
+            } else {
+                mGetWakeStats->total_cmd_event_wake = nla_get_u32(
+                    tbVendor[QCA_WLAN_VENDOR_ATTR_WAKE_STATS_TOTAL_CMD_EVENT_WAKE]);
             }
-            mGetWakeStats->total_cmd_event_wake = nla_get_u32(
-                tbVendor[QCA_WLAN_VENDOR_ATTR_WAKE_STATS_TOTAL_CMD_EVENT_WAKE]);
 
             if (mGetWakeStats->total_cmd_event_wake &&
                     mGetWakeStats->cmd_event_wake_cnt) {
                 if (!tbVendor[
                     QCA_WLAN_VENDOR_ATTR_WAKE_STATS_CMD_EVENT_WAKE_CNT_PTR]) {
-                    ALOGE("%s: CMD_EVENT_WAKE_CNT_PTR not found", __FUNCTION__);
-                    break;
+                    mGetWakeStats->cmd_event_wake_cnt_used = 0;
+                } else {
+                    len = nla_len(tbVendor[
+                            QCA_WLAN_VENDOR_ATTR_WAKE_STATS_CMD_EVENT_WAKE_CNT_PTR]);
+                    mGetWakeStats->cmd_event_wake_cnt_used =
+                            (len < mGetWakeStats->cmd_event_wake_cnt_sz) ? len :
+                                        mGetWakeStats->cmd_event_wake_cnt_sz;
+                    memcpy(mGetWakeStats->cmd_event_wake_cnt,
+                        nla_data(tbVendor[
+                            QCA_WLAN_VENDOR_ATTR_WAKE_STATS_CMD_EVENT_WAKE_CNT_PTR]),
+                        (mGetWakeStats->cmd_event_wake_cnt_used * sizeof(int)));
                 }
-                len = nla_len(tbVendor[
-                        QCA_WLAN_VENDOR_ATTR_WAKE_STATS_CMD_EVENT_WAKE_CNT_PTR]);
-                mGetWakeStats->cmd_event_wake_cnt_used =
-                        (len < mGetWakeStats->cmd_event_wake_cnt_sz) ? len :
-                                    mGetWakeStats->cmd_event_wake_cnt_sz;
-                memcpy(mGetWakeStats->cmd_event_wake_cnt,
-                    nla_data(tbVendor[
-                        QCA_WLAN_VENDOR_ATTR_WAKE_STATS_CMD_EVENT_WAKE_CNT_PTR]),
-                    (mGetWakeStats->cmd_event_wake_cnt_used * sizeof(int)));
             } else
                 mGetWakeStats->cmd_event_wake_cnt_used = 0;
 
             if (!tbVendor[
-                    QCA_WLAN_VENDOR_ATTR_WAKE_STATS_TOTAL_DRIVER_FW_LOCAL_WAKE])
-            {
-                ALOGE("%s: TOTAL_DRIVER_FW_LOCAL_WAKE not found", __FUNCTION__);
-                break;
+                    QCA_WLAN_VENDOR_ATTR_WAKE_STATS_TOTAL_DRIVER_FW_LOCAL_WAKE]) {
+                mGetWakeStats->total_driver_fw_local_wake = 0;
+            } else {
+                mGetWakeStats->total_driver_fw_local_wake = nla_get_u32(tbVendor[
+                    QCA_WLAN_VENDOR_ATTR_WAKE_STATS_TOTAL_DRIVER_FW_LOCAL_WAKE]);
             }
-            mGetWakeStats->total_driver_fw_local_wake = nla_get_u32(tbVendor[
-                QCA_WLAN_VENDOR_ATTR_WAKE_STATS_TOTAL_DRIVER_FW_LOCAL_WAKE]);
 
             if (mGetWakeStats->total_driver_fw_local_wake &&
                     mGetWakeStats->driver_fw_local_wake_cnt) {
                 if (!tbVendor[
-                    QCA_WLAN_VENDOR_ATTR_WAKE_STATS_DRIVER_FW_LOCAL_WAKE_CNT_PTR])
-                {
-                    ALOGE("%s: DRIVER_FW_LOCAL_WAKE_CNT_PTR not found",
-                        __FUNCTION__);
-                    break;
-                }
-                len = nla_len(tbVendor[
-                    QCA_WLAN_VENDOR_ATTR_WAKE_STATS_DRIVER_FW_LOCAL_WAKE_CNT_PTR]);
-                mGetWakeStats->driver_fw_local_wake_cnt_used =
-                    (len < mGetWakeStats->driver_fw_local_wake_cnt_sz) ? len :
-                                    mGetWakeStats->driver_fw_local_wake_cnt_sz;
+                    QCA_WLAN_VENDOR_ATTR_WAKE_STATS_DRIVER_FW_LOCAL_WAKE_CNT_PTR]) {
+                    mGetWakeStats->driver_fw_local_wake_cnt_used = 0;
+                } else {
+                    len = nla_len(tbVendor[
+                        QCA_WLAN_VENDOR_ATTR_WAKE_STATS_DRIVER_FW_LOCAL_WAKE_CNT_PTR]);
+                    mGetWakeStats->driver_fw_local_wake_cnt_used =
+                        (len < mGetWakeStats->driver_fw_local_wake_cnt_sz) ? len :
+                                        mGetWakeStats->driver_fw_local_wake_cnt_sz;
 
-                memcpy(mGetWakeStats->driver_fw_local_wake_cnt,
-                    nla_data(tbVendor[
-                        QCA_WLAN_VENDOR_ATTR_WAKE_STATS_DRIVER_FW_LOCAL_WAKE_CNT_PTR]),
-                    (mGetWakeStats->driver_fw_local_wake_cnt_used * sizeof(int)));
+                    memcpy(mGetWakeStats->driver_fw_local_wake_cnt,
+                        nla_data(tbVendor[
+                            QCA_WLAN_VENDOR_ATTR_WAKE_STATS_DRIVER_FW_LOCAL_WAKE_CNT_PTR]),
+                        (mGetWakeStats->driver_fw_local_wake_cnt_used * sizeof(int)));
+                }
             } else
                 mGetWakeStats->driver_fw_local_wake_cnt_used = 0;
 
@@ -1377,8 +1387,10 @@ wifi_error wifi_get_driver_memory_dump(wifi_interface_handle iface,
     hal_info *info = getHalInfo(wifiHandle);
 
     /* Check Supported logger capability */
-    if(!check_supported_logger(info->supported_logger_feature_set)) {
-        ALOGE("%s: Logger feature not supported ", __FUNCTION__);
+    if (!(info->supported_logger_feature_set &
+          WIFI_LOGGER_DRIVER_DUMP_SUPPORTED)) {
+        ALOGE("%s: Driver memory dump logging feature not supported %x",
+              __FUNCTION__, info->supported_logger_feature_set);
         return WIFI_ERROR_NOT_SUPPORTED;
     }
     /* Open File */
@@ -1462,8 +1474,10 @@ wifi_error wifi_get_wake_reason_stats(wifi_interface_handle iface,
     hal_info *info = getHalInfo(wifiHandle);
 
     /* Check Supported logger capability */
-    if(!check_supported_logger(info->supported_logger_feature_set)) {
-        ALOGE("%s: Logger feature not supported ", __FUNCTION__);
+    if (!(info->supported_logger_feature_set &
+          WIFI_LOGGER_WAKE_LOCK_SUPPORTED)) {
+        ALOGE("%s: Wake lock logging feature not supported %x",
+              __FUNCTION__, info->supported_logger_feature_set);
         return WIFI_ERROR_NOT_SUPPORTED;
     }
 
@@ -1526,7 +1540,7 @@ wifi_error wifi_get_wake_reason_stats(wifi_interface_handle iface,
 
 cleanup:
     delete wifiLoggerCommand;
-    return mapKernelErrortoWifiHalError(ret);
+    return ret;
 }
 
 void WifiLoggerCommand::getWakeStatsRspParams(
