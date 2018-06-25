@@ -66,6 +66,13 @@
 #define WIFI_HAL_CMD_SOCK_PORT       644
 #define WIFI_HAL_EVENT_SOCK_PORT     645
 
+/*
+ * Defines for wifi_wait_for_driver_ready()
+ * Specify durations between polls and max wait time
+ */
+#define POLL_DRIVER_DURATION_US (100000)
+#define POLL_DRIVER_MAX_TIME_MS (10000)
+
 static void internal_event_handler(wifi_handle handle, int events,
                                    struct nl_sock *sock);
 static int internal_valid_message_handler(nl_msg *msg, void *arg);
@@ -360,6 +367,7 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn) {
     }
 
     fn->wifi_initialize = wifi_initialize;
+    fn->wifi_wait_for_driver_ready = wifi_wait_for_driver_ready;
     fn->wifi_cleanup = wifi_cleanup;
     fn->wifi_event_loop = wifi_event_loop;
     fn->wifi_get_supported_feature_set = wifi_get_supported_feature_set;
@@ -451,6 +459,7 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn) {
     fn->wifi_set_radio_mode_change_handler = wifi_set_radio_mode_change_handler;
     /* Customers will uncomment when they want to set qpower*/
     //fn->wifi_set_qpower = wifi_set_qpower;
+    fn->wifi_add_or_remove_virtual_intf = wifi_add_or_remove_virtual_intf;
 
     return WIFI_SUCCESS;
 }
@@ -559,15 +568,6 @@ wifi_error wifi_initialize(wifi_handle *handle)
     info->alloc_event_cb = DEFAULT_EVENT_CB_SIZE;
     info->num_event_cb = 0;
 
-    info->cmd = (cmd_info *)malloc(sizeof(cmd_info) * DEFAULT_CMD_SIZE);
-    if (info->cmd == NULL) {
-        ALOGE("Could not allocate cmd info");
-        ret = WIFI_ERROR_OUT_OF_MEMORY;
-        goto unload;
-    }
-    info->alloc_cmd = DEFAULT_CMD_SIZE;
-    info->num_cmd = 0;
-
     info->nl80211_family_id = genl_ctrl_resolve(cmd_sock, "nl80211");
     if (info->nl80211_family_id < 0) {
         ALOGE("Could not resolve nl80211 familty id");
@@ -670,10 +670,8 @@ wifi_error wifi_initialize(wifi_handle *handle)
 
     ret =  wifi_get_logger_supported_feature_set(iface_handle,
                          &info->supported_logger_feature_set);
-    if (ret != WIFI_SUCCESS) {
-        ALOGE("Failed to get supported logger featur set: %d", ret);
-        ret = WIFI_SUCCESS;
-    }
+    if (ret != WIFI_SUCCESS)
+        ALOGE("Failed to get supported logger feature set: %d", ret);
 
     ret = get_firmware_bus_max_size_supported(iface_handle);
     if (ret != WIFI_SUCCESS) {
@@ -682,10 +680,8 @@ wifi_error wifi_initialize(wifi_handle *handle)
     }
 
     ret = wifi_logger_ring_buffers_init(info);
-    if (ret != WIFI_SUCCESS && ret != WIFI_ERROR_NOT_SUPPORTED) {
+    if (ret != WIFI_SUCCESS)
         ALOGE("Wifi Logger Ring Initialization Failed");
-        goto unload;
-    }
 
     ret = wifi_get_capabilities(iface_handle);
     if (ret != WIFI_SUCCESS)
@@ -750,8 +746,6 @@ unload:
         if (event_sock)
             nl_socket_free(event_sock);
         if (info) {
-            if (info->cmd) free(info->cmd);
-            if (info->event_cb) free(info->event_cb);
             if (info->cldctx) {
                 cld80211lib_cleanup(info);
             } else if (info->user_sock) {
@@ -759,8 +753,10 @@ unload:
             }
             if (info->pkt_stats) free(info->pkt_stats);
             if (info->rx_aggr_pkts) free(info->rx_aggr_pkts);
+            wifi_logger_ring_buffers_deinit(info);
             cleanupGscanHandlers(info);
             cleanupRSSIMonitorHandler(info);
+            free(info->event_cb);
             if (info->driver_supported_features.flags) {
                 free(info->driver_supported_features.flags);
                 info->driver_supported_features.flags = NULL;
@@ -770,6 +766,25 @@ unload:
     }
 
     return ret;
+}
+
+wifi_error wifi_wait_for_driver_ready(void)
+{
+    // This function will wait to make sure basic client netdev is created
+    // Function times out after 10 seconds
+    int count = (POLL_DRIVER_MAX_TIME_MS * 1000) / POLL_DRIVER_DURATION_US;
+    FILE *fd;
+
+    do {
+        if ((fd = fopen("/sys/class/net/wlan0", "r")) != NULL) {
+            fclose(fd);
+            return WIFI_SUCCESS;
+        }
+        usleep(POLL_DRIVER_DURATION_US);
+    } while(--count > 0);
+
+    ALOGE("Timed out wating on Driver ready ... ");
+    return WIFI_ERROR_TIMED_OUT;
 }
 
 static int wifi_add_membership(wifi_handle handle, const char *group)
@@ -802,6 +817,12 @@ static void internal_cleaned_up_handler(wifi_handle handle)
         info->event_sock = NULL;
     }
 
+    if (info->interfaces) {
+        for (int i = 0; i < info->num_interfaces; i++)
+            free(info->interfaces[i]);
+        free(info->interfaces);
+    }
+
     if (info->cldctx != NULL) {
         cld80211lib_cleanup(info);
     } else if (info->user_sock != 0) {
@@ -816,6 +837,11 @@ static void internal_cleaned_up_handler(wifi_handle handle)
     wifi_logger_ring_buffers_deinit(info);
     cleanupGscanHandlers(info);
     cleanupRSSIMonitorHandler(info);
+
+    if (info->num_event_cb)
+        ALOGE("%d events were leftover without being freed",
+              info->num_event_cb);
+    free(info->event_cb);
 
     if (info->exit_sockets[0] >= 0) {
         close(info->exit_sockets[0]);
@@ -1180,6 +1206,22 @@ wifi_error wifi_get_ifaces(wifi_handle handle, int *num,
         wifi_interface_handle **interfaces)
 {
     hal_info *info = (hal_info *)handle;
+
+    /* In case of dynamic interface add/remove, interface handles need to be
+     * updated so that, interface specific APIs could be instantiated.
+     * Reload here to get interfaces which are dynamically added. */
+
+    if (info->num_interfaces > 0) {
+        for (int i = 0; i < info->num_interfaces; i++)
+            free(info->interfaces[i]);
+        free(info->interfaces);
+    }
+
+    wifi_error ret = wifi_init_interfaces(handle);
+    if (ret != WIFI_SUCCESS) {
+        ALOGE("Failed to init interfaces while wifi_get_ifaces");
+        return ret;
+    }
 
     *interfaces = (wifi_interface_handle *)info->interfaces;
     *num = info->num_interfaces;
@@ -1809,12 +1851,18 @@ cleanup:
 static wifi_error wifi_read_packet_filter(wifi_interface_handle handle,
                                           u32 src_offset, u8 *host_dst, u32 length)
 {
-    wifi_error ret;
+    wifi_error ret = WIFI_SUCCESS;
     struct nlattr *nlData;
     WifihalGeneric *vCommand = NULL;
     interface_info *ifaceInfo = getIfaceInfo(handle);
     wifi_handle wifiHandle = getWifiHandle(handle);
     hal_info *info = getHalInfo(wifiHandle);
+
+    /* Length to be passed to this function should be non-zero
+     * Return invalid argument if length is passed as zero
+     */
+    if (length == 0)
+        return  WIFI_ERROR_INVALID_ARGS;
 
     /*Temporary varibles to support the read complete length in chunks */
     u8 *temp_host_dst;
