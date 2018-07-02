@@ -66,6 +66,13 @@
 #define WIFI_HAL_CMD_SOCK_PORT       644
 #define WIFI_HAL_EVENT_SOCK_PORT     645
 
+/*
+ * Defines for wifi_wait_for_driver_ready()
+ * Specify durations between polls and max wait time
+ */
+#define POLL_DRIVER_DURATION_US (100000)
+#define POLL_DRIVER_MAX_TIME_MS (10000)
+
 static void internal_event_handler(wifi_handle handle, int events,
                                    struct nl_sock *sock);
 static int internal_valid_message_handler(nl_msg *msg, void *arg);
@@ -78,6 +85,8 @@ static wifi_error wifi_set_packet_filter(wifi_interface_handle iface,
                                          const u8 *program, u32 len);
 static wifi_error wifi_get_packet_filter_capabilities(wifi_interface_handle handle,
                                               u32 *version, u32 *max_len);
+static wifi_error wifi_read_packet_filter(wifi_interface_handle handle,
+                                   u32 src_offset, u8 *host_dst, u32 length);
 static wifi_error wifi_configure_nd_offload(wifi_interface_handle iface,
                                             u8 enable);
 wifi_error wifi_get_wake_reason_stats(wifi_interface_handle iface,
@@ -185,6 +194,38 @@ static wifi_error acquire_supported_features(wifi_interface_handle iface,
 
 cleanup:
     return ret;
+}
+
+static wifi_error acquire_driver_supported_features(wifi_interface_handle iface,
+                                          features_info *driver_features)
+{
+    wifi_error ret;
+    interface_info *iinfo = getIfaceInfo(iface);
+    wifi_handle handle = getWifiHandle(iface);
+
+    WifihalGeneric driverFeatures(handle, 0,
+            OUI_QCA,
+            QCA_NL80211_VENDOR_SUBCMD_GET_FEATURES);
+
+    /* create the message */
+    ret = driverFeatures.create();
+    if (ret != WIFI_SUCCESS)
+        goto cleanup;
+
+    ret = driverFeatures.set_iface_id(iinfo->name);
+    if (ret != WIFI_SUCCESS)
+        goto cleanup;
+
+    ret = driverFeatures.requestResponse();
+    if (ret != WIFI_SUCCESS) {
+        ALOGE("%s: requestResponse Error:%d",__func__, ret);
+        goto cleanup;
+    }
+
+    driverFeatures.getDriverFeatures(driver_features);
+
+cleanup:
+    return mapKernelErrortoWifiHalError(ret);
 }
 
 static wifi_error wifi_get_capabilities(wifi_interface_handle handle)
@@ -326,6 +367,7 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn) {
     }
 
     fn->wifi_initialize = wifi_initialize;
+    fn->wifi_wait_for_driver_ready = wifi_wait_for_driver_ready;
     fn->wifi_cleanup = wifi_cleanup;
     fn->wifi_event_loop = wifi_event_loop;
     fn->wifi_get_supported_feature_set = wifi_get_supported_feature_set;
@@ -396,6 +438,7 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn) {
     fn->wifi_nan_get_version = nan_get_version;
     fn->wifi_set_packet_filter = wifi_set_packet_filter;
     fn->wifi_get_packet_filter_capabilities = wifi_get_packet_filter_capabilities;
+    fn->wifi_read_packet_filter = wifi_read_packet_filter;
     fn->wifi_nan_get_capabilities = nan_get_capabilities;
     fn->wifi_nan_data_interface_create = nan_data_interface_create;
     fn->wifi_nan_data_interface_delete = nan_data_interface_delete;
@@ -416,6 +459,7 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn) {
     fn->wifi_set_radio_mode_change_handler = wifi_set_radio_mode_change_handler;
     /* Customers will uncomment when they want to set qpower*/
     //fn->wifi_set_qpower = wifi_set_qpower;
+    fn->wifi_add_or_remove_virtual_intf = wifi_add_or_remove_virtual_intf;
 
     return WIFI_SUCCESS;
 }
@@ -524,15 +568,6 @@ wifi_error wifi_initialize(wifi_handle *handle)
     info->alloc_event_cb = DEFAULT_EVENT_CB_SIZE;
     info->num_event_cb = 0;
 
-    info->cmd = (cmd_info *)malloc(sizeof(cmd_info) * DEFAULT_CMD_SIZE);
-    if (info->cmd == NULL) {
-        ALOGE("Could not allocate cmd info");
-        ret = WIFI_ERROR_OUT_OF_MEMORY;
-        goto unload;
-    }
-    info->alloc_cmd = DEFAULT_CMD_SIZE;
-    info->num_cmd = 0;
-
     info->nl80211_family_id = genl_ctrl_resolve(cmd_sock, "nl80211");
     if (info->nl80211_family_id < 0) {
         ALOGE("Could not resolve nl80211 familty id");
@@ -626,12 +661,17 @@ wifi_error wifi_initialize(wifi_handle *handle)
         ret = WIFI_SUCCESS;
     }
 
-    ret =  wifi_get_logger_supported_feature_set(iface_handle,
-                         &info->supported_logger_feature_set);
+    ret = acquire_driver_supported_features(iface_handle,
+                                  &info->driver_supported_features);
     if (ret != WIFI_SUCCESS) {
-        ALOGE("Failed to get supported logger featur set: %d", ret);
+        ALOGI("Failed to get vendor feature set : %d", ret);
         ret = WIFI_SUCCESS;
     }
+
+    ret =  wifi_get_logger_supported_feature_set(iface_handle,
+                         &info->supported_logger_feature_set);
+    if (ret != WIFI_SUCCESS)
+        ALOGE("Failed to get supported logger feature set: %d", ret);
 
     ret = get_firmware_bus_max_size_supported(iface_handle);
     if (ret != WIFI_SUCCESS) {
@@ -640,10 +680,8 @@ wifi_error wifi_initialize(wifi_handle *handle)
     }
 
     ret = wifi_logger_ring_buffers_init(info);
-    if (ret != WIFI_SUCCESS && ret != WIFI_ERROR_NOT_SUPPORTED) {
+    if (ret != WIFI_SUCCESS)
         ALOGE("Wifi Logger Ring Initialization Failed");
-        goto unload;
-    }
 
     ret = wifi_get_capabilities(iface_handle);
     if (ret != WIFI_SUCCESS)
@@ -708,8 +746,6 @@ unload:
         if (event_sock)
             nl_socket_free(event_sock);
         if (info) {
-            if (info->cmd) free(info->cmd);
-            if (info->event_cb) free(info->event_cb);
             if (info->cldctx) {
                 cld80211lib_cleanup(info);
             } else if (info->user_sock) {
@@ -717,13 +753,38 @@ unload:
             }
             if (info->pkt_stats) free(info->pkt_stats);
             if (info->rx_aggr_pkts) free(info->rx_aggr_pkts);
+            wifi_logger_ring_buffers_deinit(info);
             cleanupGscanHandlers(info);
             cleanupRSSIMonitorHandler(info);
+            free(info->event_cb);
+            if (info->driver_supported_features.flags) {
+                free(info->driver_supported_features.flags);
+                info->driver_supported_features.flags = NULL;
+            }
             free(info);
         }
     }
 
     return ret;
+}
+
+wifi_error wifi_wait_for_driver_ready(void)
+{
+    // This function will wait to make sure basic client netdev is created
+    // Function times out after 10 seconds
+    int count = (POLL_DRIVER_MAX_TIME_MS * 1000) / POLL_DRIVER_DURATION_US;
+    FILE *fd;
+
+    do {
+        if ((fd = fopen("/sys/class/net/wlan0", "r")) != NULL) {
+            fclose(fd);
+            return WIFI_SUCCESS;
+        }
+        usleep(POLL_DRIVER_DURATION_US);
+    } while(--count > 0);
+
+    ALOGE("Timed out wating on Driver ready ... ");
+    return WIFI_ERROR_TIMED_OUT;
 }
 
 static int wifi_add_membership(wifi_handle handle, const char *group)
@@ -756,6 +817,12 @@ static void internal_cleaned_up_handler(wifi_handle handle)
         info->event_sock = NULL;
     }
 
+    if (info->interfaces) {
+        for (int i = 0; i < info->num_interfaces; i++)
+            free(info->interfaces[i]);
+        free(info->interfaces);
+    }
+
     if (info->cldctx != NULL) {
         cld80211lib_cleanup(info);
     } else if (info->user_sock != 0) {
@@ -771,6 +838,11 @@ static void internal_cleaned_up_handler(wifi_handle handle)
     cleanupGscanHandlers(info);
     cleanupRSSIMonitorHandler(info);
 
+    if (info->num_event_cb)
+        ALOGE("%d events were leftover without being freed",
+              info->num_event_cb);
+    free(info->event_cb);
+
     if (info->exit_sockets[0] >= 0) {
         close(info->exit_sockets[0]);
         info->exit_sockets[0] = -1;
@@ -784,6 +856,11 @@ static void internal_cleaned_up_handler(wifi_handle handle)
     if (info->pkt_fate_stats) {
         free(info->pkt_fate_stats);
         info->pkt_fate_stats = NULL;
+    }
+
+    if (info->driver_supported_features.flags) {
+        free(info->driver_supported_features.flags);
+        info->driver_supported_features.flags = NULL;
     }
 
     (*cleaned_up_handler)(handle);
@@ -1130,6 +1207,22 @@ wifi_error wifi_get_ifaces(wifi_handle handle, int *num,
 {
     hal_info *info = (hal_info *)handle;
 
+    /* In case of dynamic interface add/remove, interface handles need to be
+     * updated so that, interface specific APIs could be instantiated.
+     * Reload here to get interfaces which are dynamically added. */
+
+    if (info->num_interfaces > 0) {
+        for (int i = 0; i < info->num_interfaces; i++)
+            free(info->interfaces[i]);
+        free(info->interfaces);
+    }
+
+    wifi_error ret = wifi_init_interfaces(handle);
+    if (ret != WIFI_SUCCESS) {
+        ALOGE("Failed to init interfaces while wifi_get_ifaces");
+        return ret;
+    }
+
     *interfaces = (wifi_interface_handle *)info->interfaces;
     *num = info->num_interfaces;
 
@@ -1469,6 +1562,8 @@ static wifi_error wifi_set_packet_filter(wifi_interface_handle iface,
         current_offset += min(info->firmware_bus_max_size, len);
     } while (current_offset < len);
 
+    info->apf_enabled = !!len;
+
 cleanup:
     if (vCommand)
         delete vCommand;
@@ -1573,6 +1668,292 @@ static wifi_error wifi_configure_nd_offload(wifi_interface_handle iface,
     ret = vCommand->requestResponse();
 
 cleanup:
+    delete vCommand;
+    return ret;
+}
+
+/**
+ * Copy 'len' bytes of raw data from host memory at source address 'program'
+ * to APF (Android Packet Filter) working memory starting at offset 'dst_offset'.
+ * The size of the program lenght passed to the interpreter is set to
+ * 'progaram_lenght'
+ *
+ * The implementation is allowed to tranlate this wrtie into a series of smaller
+ * writes,but this function is not allowed to return untill all write operations
+ * have been completed
+ * additionally visible memory not targeted by this function must remain
+ * unchanged
+
+ * @param dst_offset write offset in bytes relative to the beginning of the APF
+ * working memory with logical address 0X000. Must be a multiple of 4
+ *
+ * @param program host memory to copy bytes from. Must be 4B aligned
+ *
+ * @param len the number of bytes to copy from the bost into the APF working
+ * memory
+ *
+ * @param program_length new length of the program instructions in bytes to pass
+ * to the interpreter
+ */
+
+wifi_error wifi_write_packet_filter(wifi_interface_handle iface,
+                                         u32 dst_offset, const u8 *program,
+                                         u32 len, u32 program_length)
+{
+    wifi_error ret;
+    struct nlattr *nlData;
+    WifiVendorCommand *vCommand = NULL;
+    u32 current_offset = 0;
+    wifi_handle wifiHandle = getWifiHandle(iface);
+    hal_info *info = getHalInfo(wifiHandle);
+
+    /* len=0 clears the filters in driver/firmware */
+    if (len != 0 && program == NULL) {
+        ALOGE("%s: No valid program provided. Exit.",
+            __func__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+
+    do {
+        ret = initialize_vendor_cmd(iface, get_requestid(),
+                                    QCA_NL80211_VENDOR_SUBCMD_PACKET_FILTER,
+                                    &vCommand);
+        if (ret != WIFI_SUCCESS) {
+            ALOGE("%s: Initialization failed", __FUNCTION__);
+            return ret;
+        }
+
+        /* Add the vendor specific attributes for the NL command. */
+        nlData = vCommand->attr_start(NL80211_ATTR_VENDOR_DATA);
+        if (!nlData)
+             goto cleanup;
+
+        ret = vCommand->put_u32(QCA_WLAN_VENDOR_ATTR_PACKET_FILTER_SUB_CMD,
+                                 QCA_WLAN_WRITE_PACKET_FILTER);
+        if (ret != WIFI_SUCCESS)
+            goto cleanup;
+        ret = vCommand->put_u32(QCA_WLAN_VENDOR_ATTR_PACKET_FILTER_ID,
+                                PACKET_FILTER_ID);
+        if (ret != WIFI_SUCCESS)
+            goto cleanup;
+        ret = vCommand->put_u32(QCA_WLAN_VENDOR_ATTR_PACKET_FILTER_TOTAL_LENGTH,
+                                len);
+        if (ret != WIFI_SUCCESS)
+            goto cleanup;
+        ret = vCommand->put_u32(
+                            QCA_WLAN_VENDOR_ATTR_PACKET_FILTER_CURRENT_OFFSET,
+                            dst_offset + current_offset);
+        if (ret != WIFI_SUCCESS)
+            goto cleanup;
+        ret = vCommand->put_u32(
+                           QCA_WLAN_VENDOR_ATTR_PACKET_FILTER_PROG_LENGTH,
+                            program_length);
+        if (ret != WIFI_SUCCESS)
+            goto cleanup;
+
+        ret = vCommand->put_bytes(
+                                 QCA_WLAN_VENDOR_ATTR_PACKET_FILTER_PROGRAM,
+                                 (char *)&program[current_offset],
+                                 min(info->firmware_bus_max_size,
+                                 len - current_offset));
+        if (ret!= WIFI_SUCCESS) {
+            ALOGE("%s: failed to put program", __FUNCTION__);
+            goto cleanup;
+        }
+
+        vCommand->attr_end(nlData);
+
+        ret = vCommand->requestResponse();
+       if (ret != WIFI_SUCCESS) {
+            ALOGE("%s: requestResponse Error:%d",__func__, ret);
+            goto cleanup;
+        }
+
+        /* destroy the object after sending each fragment to driver */
+        delete vCommand;
+        vCommand = NULL;
+
+        current_offset += min(info->firmware_bus_max_size,
+                                         len - current_offset);
+    } while (current_offset < len);
+
+cleanup:
+    if (vCommand)
+        delete vCommand;
+    return ret;
+}
+
+wifi_error wifi_enable_packet_filter(wifi_interface_handle handle,
+                                        u32 enable)
+{
+    wifi_error ret;
+    struct nlattr *nlData;
+    WifiVendorCommand *vCommand = NULL;
+    u32 subcmd;
+    wifi_handle wifiHandle = getWifiHandle(handle);
+    hal_info *info = getHalInfo(wifiHandle);
+
+    ret = initialize_vendor_cmd(handle, get_requestid(),
+                                QCA_NL80211_VENDOR_SUBCMD_PACKET_FILTER,
+                                &vCommand);
+
+    if (ret != WIFI_SUCCESS) {
+        ALOGE("%s: Initialization failed", __func__);
+        return ret;
+    }
+    /* Add the vendor specific attributes for the NL command. */
+    nlData = vCommand->attr_start(NL80211_ATTR_VENDOR_DATA);
+    if (!nlData)
+        goto cleanup;
+
+    subcmd = enable ? QCA_WLAN_ENABLE_PACKET_FILTER :
+                      QCA_WLAN_DISABLE_PACKET_FILTER;
+    ret = vCommand->put_u32(QCA_WLAN_VENDOR_ATTR_PACKET_FILTER_SUB_CMD,
+                            subcmd);
+    if (ret != WIFI_SUCCESS)
+            goto cleanup;
+
+    vCommand->attr_end(nlData);
+    ret = vCommand->requestResponse();
+
+    if (ret != WIFI_SUCCESS) {
+        ALOGE("%s: requestResponse() error: %d", __FUNCTION__, ret);
+        goto cleanup;
+    }
+
+    info->apf_enabled = !!enable;
+
+cleanup:
+    if (vCommand)
+        delete vCommand;
+    return ret;
+
+}
+
+/**
+ * Copy 'length' bytes of raw data from APF (Android Packet Filter) working
+ * memory  to host memory starting at offset src_offset into host memory
+ * pointed to by host_dst.
+ * Memory can be text, data or some combination of the two. The implementiion is
+ * allowed to translate this read into a series of smaller reads, but this
+ * function is not allowed to return untill all the reads operations
+ * into host_dst have been completed.
+ *
+ * @param src_offset offset in bytes of destination memory within APF working
+ * memory
+ *
+ * @param host_dst host memory to copy into. Must be 4B aligned.
+ *
+ * @param length the number of bytes to copy from the APF working memory to the
+ * host.
+ */
+
+static wifi_error wifi_read_packet_filter(wifi_interface_handle handle,
+                                          u32 src_offset, u8 *host_dst, u32 length)
+{
+    wifi_error ret = WIFI_SUCCESS;
+    struct nlattr *nlData;
+    WifihalGeneric *vCommand = NULL;
+    interface_info *ifaceInfo = getIfaceInfo(handle);
+    wifi_handle wifiHandle = getWifiHandle(handle);
+    hal_info *info = getHalInfo(wifiHandle);
+
+    /* Length to be passed to this function should be non-zero
+     * Return invalid argument if length is passed as zero
+     */
+    if (length == 0)
+        return  WIFI_ERROR_INVALID_ARGS;
+
+    /*Temporary varibles to support the read complete length in chunks */
+    u8 *temp_host_dst;
+    u32 remainingLengthToBeRead, currentLength;
+    u8 apf_locally_disabled = 0;
+
+    /*Initializing the temporary variables*/
+    temp_host_dst = host_dst;
+    remainingLengthToBeRead = length;
+
+    if (info->apf_enabled) {
+        /* Disable APF only when not disabled by framework before calling
+         * wifi_read_packet_filter()
+         */
+        ret = wifi_enable_packet_filter(handle, 0);
+        if (ret != WIFI_SUCCESS) {
+            ALOGE("%s: Failed to disable APF", __FUNCTION__);
+            return ret;
+        }
+        apf_locally_disabled = 1;
+    }
+    /**
+     * Read the complete length in chunks of size less or equal to firmware bus
+     * max size
+     */
+    while (remainingLengthToBeRead)
+    {
+        vCommand = new WifihalGeneric(wifiHandle, 0, OUI_QCA,
+                                      QCA_NL80211_VENDOR_SUBCMD_PACKET_FILTER);
+
+        if (vCommand == NULL) {
+            ALOGE("%s: Error vCommand NULL", __FUNCTION__);
+            ret = WIFI_ERROR_OUT_OF_MEMORY;
+            break;
+        }
+
+        /* Create the message */
+        ret = vCommand->create();
+        if (ret != WIFI_SUCCESS)
+            break;
+        ret = vCommand->set_iface_id(ifaceInfo->name);
+        if (ret != WIFI_SUCCESS)
+            break;
+        /* Add the vendor specific attributes for the NL command. */
+        nlData = vCommand->attr_start(NL80211_ATTR_VENDOR_DATA);
+        if (!nlData)
+            break;
+        ret = vCommand->put_u32(QCA_WLAN_VENDOR_ATTR_PACKET_FILTER_SUB_CMD,
+                                QCA_WLAN_READ_PACKET_FILTER);
+        if (ret != WIFI_SUCCESS)
+            break;
+
+        currentLength = min(remainingLengthToBeRead, info->firmware_bus_max_size);
+
+        ret = vCommand->put_u32(QCA_WLAN_VENDOR_ATTR_PACKET_FILTER_TOTAL_LENGTH,
+                                currentLength);
+        if (ret != WIFI_SUCCESS)
+            break;
+        ret = vCommand->put_u32(QCA_WLAN_VENDOR_ATTR_PACKET_FILTER_CURRENT_OFFSET,
+                                src_offset);
+        if (ret != WIFI_SUCCESS)
+            break;
+
+        vCommand->setPacketBufferParams(temp_host_dst, currentLength);
+        vCommand->attr_end(nlData);
+        ret = vCommand->requestResponse();
+
+        if (ret != WIFI_SUCCESS) {
+            ALOGE("%s: requestResponse() error: %d current_len = %u, src_offset = %u",
+                  __FUNCTION__, ret, currentLength, src_offset);
+            break;
+        }
+
+        remainingLengthToBeRead -= currentLength;
+        temp_host_dst += currentLength;
+        src_offset += currentLength;
+        delete vCommand;
+        vCommand = NULL;
+    }
+
+    /* Re enable APF only when disabled above within this API */
+    if (apf_locally_disabled) {
+        wifi_error status;
+        status = wifi_enable_packet_filter(handle, 1);
+        if (status != WIFI_SUCCESS)
+            ALOGE("%s: Failed to enable APF", __FUNCTION__);
+        /* Prefer to return read status if read fails */
+        if (ret == WIFI_SUCCESS)
+            ret = status;
+    }
+
     delete vCommand;
     return ret;
 }

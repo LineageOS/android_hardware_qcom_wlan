@@ -50,7 +50,6 @@
 #define SOCKET_BUFFER_SIZE      (32768U)
 #define RECV_BUF_SIZE           (4096)
 #define DEFAULT_EVENT_CB_SIZE   (64)
-#define DEFAULT_CMD_SIZE        (64)
 #define NUM_RING_BUFS           5
 
 #define MAC_ADDR_ARRAY(a) (a)[0], (a)[1], (a)[2], (a)[3], (a)[4], (a)[5]
@@ -89,6 +88,11 @@ typedef struct {
     wifi_roaming_capabilities roaming_capa;
 } wifi_capa;
 
+typedef struct {
+    u8 *flags;
+    size_t flags_len;
+} features_info;
+
 struct gscan_event_handlers_s;
 struct rssi_monitor_event_handler_s;
 struct cld80211_ctx;
@@ -111,14 +115,13 @@ typedef struct hal_info_s {
     int alloc_event_cb;                             // number of allocated callback objects
     pthread_mutex_t cb_lock;                        // mutex for the event_cb access
 
-    cmd_info *cmd;                                  // Outstanding commands
-    int num_cmd;                                    // number of commands
-    int alloc_cmd;                                  // number of commands allocated
-
     interface_info **interfaces;                    // array of interfaces
     int num_interfaces;                             // number of interfaces
 
     feature_set supported_feature_set;
+    /* driver supported features defined by enum qca_wlan_vendor_features that
+       can be queried by vendor command QCA_NL80211_VENDOR_SUBCMD_GET_FEATURES */
+    features_info driver_supported_features;
     u32 supported_logger_feature_set;
     // add other details
     int user_sock_arg;
@@ -149,6 +152,7 @@ typedef struct hal_info_s {
     struct rssi_monitor_event_handler_s *rssi_handlers;
     wifi_capa capa;
     struct cld80211_ctx *cldctx;
+    bool apf_enabled;
 } hal_info;
 
 wifi_error wifi_register_handler(wifi_handle handle, int cmd, nl_recvmsg_msg_cb_t func, void *arg);
@@ -157,10 +161,6 @@ wifi_error wifi_register_vendor_handler(wifi_handle handle,
 
 void wifi_unregister_handler(wifi_handle handle, int cmd);
 void wifi_unregister_vendor_handler(wifi_handle handle, uint32_t id, int subcmd);
-
-wifi_error wifi_register_cmd(wifi_handle handle, int id, WifiCommand *cmd);
-WifiCommand *wifi_unregister_cmd(wifi_handle handle, int id);
-void wifi_unregister_cmd(wifi_handle handle, WifiCommand *cmd);
 
 interface_info *getIfaceInfo(wifi_interface_handle);
 wifi_handle getWifiHandle(wifi_interface_handle handle);
@@ -186,6 +186,9 @@ wifi_error wifi_stop_rssi_monitoring(wifi_request_id id, wifi_interface_handle i
 wifi_error wifi_set_radio_mode_change_handler(wifi_request_id id, wifi_interface_handle
         iface, wifi_radio_mode_change_handler eh);
 wifi_error mapKernelErrortoWifiHalError(int kern_err);
+wifi_error wifi_add_or_remove_virtual_intf(wifi_interface_handle iface,
+                                           const char* ifname, u32 iface_type,
+                                           bool create);
 // some common macros
 
 #define min(x, y)       ((x) < (y) ? (x) : (y))

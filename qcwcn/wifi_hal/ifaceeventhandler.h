@@ -83,6 +83,7 @@ class WifihalGeneric: public WifiVendorCommand
 {
 private:
     feature_set mSet;
+    features_info mDriverFeatures;
     int mSetSizeMax;
     int *mSetSizePtr;
     feature_set *mConcurrencySet;
@@ -90,7 +91,9 @@ private:
     int filterLength;
     int firmware_bus_max_size;
     wifi_capa *mCapa;
-
+    /* Packet Filter buffer and length */
+    u8 *mfilter_packet_read_buffer;
+    int mfilter_packet_length;
     virtual wifi_error wifiParseCapabilities(struct nlattr **tbVendor);
 
 public:
@@ -99,8 +102,10 @@ public:
     virtual wifi_error requestResponse();
     virtual int handleResponse(WifiEvent &reply);
     virtual void getResponseparams(feature_set *pset);
+    virtual void getDriverFeatures(features_info *pfeatures);
     virtual void setMaxSetSize(int set_size_max);
     virtual void setSizePtr(int *set_size);
+    virtual void setPacketBufferParams(u8 *host_packet_buffer, int packet_length);
     virtual void setConcurrencySet(feature_set set[]);
     virtual int getFilterVersion();
     virtual int getFilterLength();

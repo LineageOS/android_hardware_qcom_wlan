@@ -105,6 +105,14 @@ cleanup:
     return ret;
 }
 
+int check_feature(enum qca_wlan_vendor_features feature, features_info *info)
+{
+    size_t idx = feature / 8;
+
+    return (idx < info->flags_len) &&
+            (info->flags[idx] & BIT(feature % 8));
+}
+
 /* Set the country code to driver. */
 wifi_error wifi_set_country_code(wifi_interface_handle iface,
                                  const char* country_code)
@@ -113,6 +121,7 @@ wifi_error wifi_set_country_code(wifi_interface_handle iface,
     wifi_error ret;
     WiFiConfigCommand *wifiConfigCommand;
     wifi_handle wifiHandle = getWifiHandle(iface);
+    hal_info *info = getHalInfo(wifiHandle);
 
     ALOGV("%s: %s", __FUNCTION__, country_code);
 
@@ -143,6 +152,18 @@ wifi_error wifi_set_country_code(wifi_interface_handle iface,
         ALOGE("wifi_set_country_code: put country code failed. Error:%d", ret);
         goto cleanup;
     }
+
+    if (check_feature(QCA_WLAN_VENDOR_FEATURE_SELF_MANAGED_REGULATORY,
+                      &info->driver_supported_features)) {
+        ret = wifiConfigCommand->put_u32(NL80211_ATTR_USER_REG_HINT_TYPE,
+                                         NL80211_USER_REG_HINT_CELL_BASE);
+        if (ret != WIFI_SUCCESS) {
+            ALOGE("wifi_set_country_code: put reg hint type failed. Error:%d",
+                  ret);
+            goto cleanup;
+        }
+    }
+
 
     /* Send the NL msg. */
     wifiConfigCommand->waitForRsp(false);
@@ -646,3 +667,58 @@ out:
     return res;
 }
 
+wifi_error wifi_add_or_remove_virtual_intf(wifi_interface_handle iface,
+                                           const char* ifname, u32 iface_type,
+                                           bool create)
+{
+    wifi_error ret;
+    WiFiConfigCommand *wifiConfigCommand;
+    interface_info *ifaceInfo = getIfaceInfo(iface);
+    wifi_handle wifiHandle = getWifiHandle(iface);
+
+    ALOGD("%s: ifname=%s create=%u", __FUNCTION__, ifname, create);
+
+    wifiConfigCommand = new WiFiConfigCommand(wifiHandle, get_requestid(), 0, 0);
+    if (wifiConfigCommand == NULL) {
+        ALOGE("%s: Error wifiConfigCommand NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
+
+    if (create) {
+        nl80211_iftype type;
+        switch(iface_type) {
+            case 0:    /* IfaceType:STA */
+                type = NL80211_IFTYPE_STATION;
+                break;
+            case 1:    /* IfaceType:AP */
+                type = NL80211_IFTYPE_AP;
+                break;
+            case 2:    /* IfaceType:P2P */
+                type = NL80211_IFTYPE_P2P_DEVICE;
+                break;
+            default:
+                ALOGE("%s: Wrong interface type %u", __FUNCTION__, iface_type);
+                ret = WIFI_ERROR_UNKNOWN;
+                goto done;
+                break;
+        }
+        wifiConfigCommand->create_generic(NL80211_CMD_NEW_INTERFACE);
+        wifiConfigCommand->put_u32(NL80211_ATTR_IFINDEX, ifaceInfo->id);
+        wifiConfigCommand->put_string(NL80211_ATTR_IFNAME, ifname);
+        wifiConfigCommand->put_u32(NL80211_ATTR_IFTYPE, type);
+    } else {
+        wifiConfigCommand->create_generic(NL80211_CMD_DEL_INTERFACE);
+        wifiConfigCommand->put_u32(NL80211_ATTR_IFINDEX, if_nametoindex(ifname));
+    }
+
+    /* Send the NL msg. */
+    wifiConfigCommand->waitForRsp(false);
+    ret = wifiConfigCommand->requestEvent();
+    if (ret != WIFI_SUCCESS) {
+        ALOGE("wifi_add_or_remove_virtual_intf: requestEvent Error:%d", ret);
+    }
+
+done:
+    delete wifiConfigCommand;
+    return ret;
+}
