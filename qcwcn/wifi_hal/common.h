@@ -23,6 +23,7 @@
 #define LOG_TAG  "WifiHAL"
 #endif
 
+#include <errno.h>
 #include <stdint.h>
 #include <fcntl.h>
 #include <inttypes.h>
