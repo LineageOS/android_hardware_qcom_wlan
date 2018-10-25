@@ -102,13 +102,14 @@ unsigned char wlan_nv_mac_addr[WLAN_ADDR_SIZE];
 #define WLAN_MAC_ADDR_STRING 18
 #endif
 
+#ifdef DYNAMIC_NV
 #define MAX_SOC_INFO_NAME_LEN (15)
 #define MAX_DATA_NVBIN_PATH_LEN (64)
 #define QRD_DYNAMIC_NV_PROP  "persist.sys.dynamic.nv"
 #define QRD_HW_PLATFORM  "QRD"
 #define QRD_PLATFORM_SUBTYPE_ID  0
 #define PERSIST_NVFILE    "/persist/WCNSS_qcom_wlan_nv.bin"
-#define DATA_NVFILE_DIR   "/data/misc/wifi/nvbin/"
+#define DATA_NVFILE_DIR   "/vendor/etc/wifi/nvbin/"
 #define SYSFS_SOCID_PATH1   "/sys/devices/soc0/soc_id"
 #define SYSFS_SOCID_PATH2   "/sys/devices/system/soc/soc0/id"
 #define SYSFS_HW_PLATFORM_PATH1  "/sys/devices/soc0/hw_platform"
@@ -127,6 +128,7 @@ unsigned char wlan_nv_mac_addr[WLAN_ADDR_SIZE];
 		    } \
 		    info_got = atoi(buf); \
 		}
+#endif
 
 int wcnss_write_cal_data(int fd_dev)
 {
@@ -547,6 +549,7 @@ int check_modem_compatability(struct dev_info *mdm_detect_info)
 }
 #endif
 
+#ifdef DYNAMIC_NV
 static int read_line_from_file(const char *path, char *buf, size_t count)
 {
 	char * fgets_ret;
@@ -637,7 +640,6 @@ static int get_data_nvfile_path(char *data_nvfile_path,
 static int nvbin_sendfile(const char *dst, const char *src,
 	struct stat *src_stat)
 {
-	struct utimbuf new_time;
 	int fp_src, fp_dst;
 	int rc;
 	if ((fp_src = open(src, O_RDONLY)) < 0)
@@ -658,16 +660,6 @@ static int nvbin_sendfile(const char *dst, const char *src,
 	if (sendfile(fp_dst, fp_src, 0, src_stat->st_size) == -1)
 	{
 		ALOGE("dynamic nv sendfile failed: (%s).\n",
-				strerror(errno));
-		rc = FAILED;
-		goto exit;
-	}
-
-	new_time.actime  = src_stat->st_atime;
-	new_time.modtime = src_stat->st_mtime;
-	if (utime(dst, &new_time) != 0)
-	{
-		ALOGE("could not preserve the timestamp %s",
 				strerror(errno));
 		rc = FAILED;
 		goto exit;
@@ -875,7 +867,9 @@ int main(int argc, char *argv[])
 nomodem:
 #endif
 
+#ifdef DYNAMIC_NV
 	dynamic_nv_replace();
+#endif
 
 #if defined(WCNSS_QMI) || defined(WCNSS_QMI_OSS)
 	setup_wcnss_parameters(&ret_cal, nv_mac_addr);
