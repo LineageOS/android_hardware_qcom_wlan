@@ -435,6 +435,95 @@ cleanup:
     return ret;
 }
 
+wifi_error wifi_set_latency_mode(wifi_interface_handle handle,
+                                 wifi_latency_mode mode) {
+    wifi_error ret;
+    WiFiConfigCommand *wifiConfigCommand;
+    struct nlattr *nlData;
+    u32 latency_mode;
+    interface_info *ifaceInfo = getIfaceInfo(handle);
+    wifi_handle wifiHandle = getWifiHandle(handle);
+    hal_info *info = getHalInfo(wifiHandle);
+
+    ALOGV("%s : latency mode:%d", __FUNCTION__, mode);
+
+    /* Check Supported low-latency capability */
+    if (!(info->supported_feature_set & WIFI_FEATURE_SET_LATENCY_MODE)) {
+        ALOGE("%s: Set latency mode feature not supported %x", __FUNCTION__,
+              info->supported_feature_set);
+        return WIFI_ERROR_NOT_SUPPORTED;
+    }
+
+    wifiConfigCommand = new WiFiConfigCommand(
+                            wifiHandle,
+                            1,
+                            OUI_QCA,
+                            QCA_NL80211_VENDOR_SUBCMD_SET_WIFI_CONFIGURATION);
+    if (wifiConfigCommand == NULL) {
+        ALOGE("%s: Error wifiConfigCommand NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
+
+    /* Create the NL message. */
+    ret = wifiConfigCommand->create();
+    if (ret != WIFI_SUCCESS) {
+        ALOGE("wifi_set_latency_mode: failed to create NL msg. Error:%d", ret);
+        goto cleanup;
+    }
+
+    /* Set the interface Id of the message. */
+    ret = wifiConfigCommand->set_iface_id(ifaceInfo->name);
+    if (ret != WIFI_SUCCESS) {
+        ALOGE("wifi_set_latency_mode: failed to set iface id. Error:%d", ret);
+        goto cleanup;
+    }
+
+    /* Add the vendor specific attributes for the NL command. */
+    nlData = wifiConfigCommand->attr_start(NL80211_ATTR_VENDOR_DATA);
+    if (!nlData) {
+        ret = WIFI_ERROR_UNKNOWN;
+        ALOGE("wifi_set_latency_mode: failed attr_start for VENDOR_DATA. "
+            "Error:%d", ret);
+        goto cleanup;
+    }
+
+    switch(mode) {
+        case WIFI_LATENCY_MODE_NORMAL:
+            latency_mode = QCA_WLAN_VENDOR_ATTR_CONFIG_LATENCY_LEVEL_NORMAL;
+        break;
+
+        case WIFI_LATENCY_MODE_LOW:
+            latency_mode = QCA_WLAN_VENDOR_ATTR_CONFIG_LATENCY_LEVEL_LOW;
+        break;
+
+        default:
+            ALOGE("wifi_set_latency_mode: Invalid mode: %d", mode);
+            ret = WIFI_ERROR_UNKNOWN;
+            goto cleanup;
+    }
+
+    if (wifiConfigCommand->put_u32(
+                      QCA_WLAN_VENDOR_ATTR_CONFIG_LATENCY_LEVEL,
+                      latency_mode)) {
+        ALOGE("wifi_set_latency_mode: failed to put latency mode");
+        ret = WIFI_ERROR_UNKNOWN;
+        goto cleanup;
+    }
+    wifiConfigCommand->attr_end(nlData);
+
+    /* Send the NL msg. */
+    wifiConfigCommand->waitForRsp(false);
+    ret = wifiConfigCommand->requestEvent();
+    if (ret != WIFI_SUCCESS) {
+        ALOGE("wifi_set_latency_mode: requestEvent Error:%d", ret);
+        goto cleanup;
+    }
+
+cleanup:
+    delete wifiConfigCommand;
+    return ret;
+}
+
 WiFiConfigCommand::WiFiConfigCommand(wifi_handle handle,
                                      int id, u32 vendor_id,
                                      u32 subcmd)
