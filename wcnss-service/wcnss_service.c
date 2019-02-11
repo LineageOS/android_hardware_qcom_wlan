@@ -74,8 +74,10 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define WCNSS_FACT_FILE "/data/vendor/wifi/WCN_FACTORY"
 #define WCNSS_DEVICE    "/dev/wcnss_wlan"
 #define WCNSS_CTRL      "/dev/wcnss_ctrl"
+#ifdef WCNSS_COPY_CONFIG
 #define WLAN_INI_FILE_DEST   "/data/vendor/wifi/WCNSS_qcom_cfg.ini"
 #define WLAN_INI_FILE_SOURCE "/vendor/etc/wifi/WCNSS_qcom_cfg.ini"
+#endif
 #define WCNSS_HAS_CAL_DATA\
 		"/sys/module/wcnsscore/parameters/has_calibrated_data"
 #define WLAN_DRIVER_ATH_DEFAULT_VAL "0"
@@ -306,6 +308,7 @@ void find_full_path(char *cur_dir, char *file_to_find, char *full_path)
 	chdir("..");
 }
 
+#ifdef WCNSS_COPY_CONFIG
 void setup_wlan_config_file()
 {
 	int rfd;
@@ -376,6 +379,8 @@ out_nocopy:
 	property_set("vendor.wlan.driver.config", WLAN_INI_FILE_DEST);
 	return;
 }
+#endif
+
 unsigned int convert_string_to_hex(char* string)
 {
 	int idx;
@@ -784,7 +789,9 @@ int main(int argc, char *argv[])
 #endif
 #endif
 
+#ifdef WCNSS_COPY_CONFIG
 	setup_wlan_config_file();
+#endif
 
 #ifdef WCNSS_QMI_OSS
 	/* dlopen WCNSS QMI lib */
