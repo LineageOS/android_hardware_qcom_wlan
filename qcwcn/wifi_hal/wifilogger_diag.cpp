@@ -2394,27 +2394,7 @@ static wifi_error parse_stats_record_v2(hal_info *info,
 {
     wifi_error status = WIFI_SUCCESS;
 
-    if (pkt_stats_header->log_type == PKTLOG_TYPE_RX_STAT) {
-        /* Ignore the event if it doesn't carry RX descriptor */
-        if (pkt_stats_header->flags & PKT_INFO_FLG_RX_RXDESC_MASK)
-            status = parse_rx_stats_v2(info,
-                                    (u8 *)(pkt_stats_header + 1),
-                                    pkt_stats_header->size);
-        else
-            status = WIFI_SUCCESS;
-    } else if (pkt_stats_header->log_type == PKTLOG_TYPE_PKT_DUMP_V2) {
-        pthread_mutex_lock(&info->pkt_fate_stats_lock);
-        if (info->fate_monitoring_enabled) {
-            if (pkt_stats_header->flags & PKT_INFO_FLG_PKT_DUMP_V2)
-                status = parse_pkt_fate_stats(info,
-                                              (u8 *)pkt_stats_header + sizeof(wh_pktlog_hdr_v2_t),
-                                              pkt_stats_header->size);
-            else
-                status = WIFI_SUCCESS;
-        } else
-            status = WIFI_SUCCESS;
-        pthread_mutex_unlock(&info->pkt_fate_stats_lock);
-    } else if (pkt_stats_header->log_type == PKTLOG_TYPE_PKT_SW_EVENT) {
+    if (pkt_stats_header->log_type == PKTLOG_TYPE_PKT_SW_EVENT) {
         status = parse_stats_sw_event(info, pkt_stats_header);
     } else
         ALOGE("%s: invalid log_type %d",__FUNCTION__, pkt_stats_header->log_type);
@@ -2499,10 +2479,7 @@ static wifi_error parse_stats(hal_info *info, u8 *data, u32 buflen)
            }
         }
 
-        if (info->pkt_log_ver == PKT_LOG_V2) {
-            data += (sizeof(wh_pktlog_hdr_v2_t) + pkt_stats_header->size);
-            buflen -= (sizeof(wh_pktlog_hdr_v2_t) + pkt_stats_header->size);
-        } else {
+        if (info->pkt_log_ver == PKT_LOG_V1) {
            if (pkt_stats_header->flags & PKT_INFO_FLG_PKT_DUMP_V2){
                data += (sizeof(wh_pktlog_hdr_v2_t) + pkt_stats_header->size);
                buflen -= (sizeof(wh_pktlog_hdr_v2_t) + pkt_stats_header->size);
@@ -2510,6 +2487,9 @@ static wifi_error parse_stats(hal_info *info, u8 *data, u32 buflen)
                data += (sizeof(wh_pktlog_hdr_t) + pkt_stats_header->size);
                buflen -= (sizeof(wh_pktlog_hdr_t) + pkt_stats_header->size);
            }
+        } else if (info->pkt_log_ver == PKT_LOG_V2) {
+            data += (sizeof(wh_pktlog_hdr_v2_t) + pkt_stats_header->size);
+            buflen -= (sizeof(wh_pktlog_hdr_v2_t) + pkt_stats_header->size);
         }
     } while (buflen > 0);
 
