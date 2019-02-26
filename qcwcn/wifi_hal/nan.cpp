@@ -73,10 +73,18 @@ wifi_error nan_enable_request(transaction_id id,
     NanCommand *nanCommand = NULL;
     interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
+    hal_info *info = getHalInfo(wifiHandle);
+
+    if (info == NULL) {
+        ALOGE("%s: Error hal_info NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
 
     nanCommand = new NanCommand(wifiHandle,
                                 0,
                                 OUI_QCA,
+                                info->support_nan_ext_cmd?
+                                QCA_NL80211_VENDOR_SUBCMD_NAN_EXT :
                                 QCA_NL80211_VENDOR_SUBCMD_NAN);
     if (nanCommand == NULL) {
         ALOGE("%s: Error NanCommand NULL", __FUNCTION__);
@@ -115,10 +123,18 @@ wifi_error nan_disable_request(transaction_id id,
     NanCommand *nanCommand = NULL;
     interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
+    hal_info *info = getHalInfo(wifiHandle);
+
+    if (info == NULL) {
+        ALOGE("%s: Error hal_info NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
 
     nanCommand = new NanCommand(wifiHandle,
                                 0,
                                 OUI_QCA,
+                                info->support_nan_ext_cmd?
+                                QCA_NL80211_VENDOR_SUBCMD_NAN_EXT :
                                 QCA_NL80211_VENDOR_SUBCMD_NAN);
     if (nanCommand == NULL) {
         ALOGE("%s: Error NanCommand NULL", __FUNCTION__);
@@ -158,10 +174,18 @@ wifi_error nan_publish_request(transaction_id id,
     NanCommand *nanCommand = NULL;
     interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
+    hal_info *info = getHalInfo(wifiHandle);
+
+    if (info == NULL) {
+        ALOGE("%s: Error hal_info NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
 
     nanCommand = new NanCommand(wifiHandle,
                                 0,
                                 OUI_QCA,
+                                info->support_nan_ext_cmd?
+                                QCA_NL80211_VENDOR_SUBCMD_NAN_EXT :
                                 QCA_NL80211_VENDOR_SUBCMD_NAN);
     if (nanCommand == NULL) {
         ALOGE("%s: Error NanCommand NULL", __FUNCTION__);
@@ -201,10 +225,18 @@ wifi_error nan_publish_cancel_request(transaction_id id,
     NanCommand *nanCommand = NULL;
     interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
+    hal_info *info = getHalInfo(wifiHandle);
+
+    if (info == NULL) {
+        ALOGE("%s: Error hal_info NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
 
     nanCommand = new NanCommand(wifiHandle,
                                 0,
                                 OUI_QCA,
+                                info->support_nan_ext_cmd?
+                                QCA_NL80211_VENDOR_SUBCMD_NAN_EXT :
                                 QCA_NL80211_VENDOR_SUBCMD_NAN);
     if (nanCommand == NULL) {
         ALOGE("%s: Error NanCommand NULL", __FUNCTION__);
@@ -244,10 +276,18 @@ wifi_error nan_subscribe_request(transaction_id id,
     NanCommand *nanCommand = NULL;
     interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
+    hal_info *info = getHalInfo(wifiHandle);
+
+    if (info == NULL) {
+        ALOGE("%s: Error hal_info NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
 
     nanCommand = new NanCommand(wifiHandle,
                                 0,
                                 OUI_QCA,
+                                info->support_nan_ext_cmd?
+                                QCA_NL80211_VENDOR_SUBCMD_NAN_EXT :
                                 QCA_NL80211_VENDOR_SUBCMD_NAN);
     if (nanCommand == NULL) {
         ALOGE("%s: Error NanCommand NULL", __FUNCTION__);
@@ -287,10 +327,18 @@ wifi_error nan_subscribe_cancel_request(transaction_id id,
     NanCommand *nanCommand = NULL;
     interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
+    hal_info *info = getHalInfo(wifiHandle);
+
+    if (info == NULL) {
+        ALOGE("%s: Error hal_info NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
 
     nanCommand = new NanCommand(wifiHandle,
                                 0,
                                 OUI_QCA,
+                                info->support_nan_ext_cmd?
+                                QCA_NL80211_VENDOR_SUBCMD_NAN_EXT :
                                 QCA_NL80211_VENDOR_SUBCMD_NAN);
     if (nanCommand == NULL) {
         ALOGE("%s: Error NanCommand NULL", __FUNCTION__);
@@ -330,10 +378,18 @@ wifi_error nan_transmit_followup_request(transaction_id id,
     NanCommand *nanCommand = NULL;
     interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
+    hal_info *info = getHalInfo(wifiHandle);
+
+    if (info == NULL) {
+        ALOGE("%s: Error hal_info NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
 
     nanCommand = new NanCommand(wifiHandle,
                                 0,
                                 OUI_QCA,
+                                info->support_nan_ext_cmd?
+                                QCA_NL80211_VENDOR_SUBCMD_NAN_EXT :
                                 QCA_NL80211_VENDOR_SUBCMD_NAN);
     if (nanCommand == NULL) {
         ALOGE("%s: Error NanCommand NULL", __FUNCTION__);
@@ -373,10 +429,18 @@ wifi_error nan_stats_request(transaction_id id,
     NanCommand *nanCommand = NULL;
     interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
+    hal_info *info = getHalInfo(wifiHandle);
+
+    if (info == NULL) {
+        ALOGE("%s: Error hal_info NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
 
     nanCommand = new NanCommand(wifiHandle,
                                 0,
                                 OUI_QCA,
+                                info->support_nan_ext_cmd?
+                                QCA_NL80211_VENDOR_SUBCMD_NAN_EXT :
                                 QCA_NL80211_VENDOR_SUBCMD_NAN);
     if (nanCommand == NULL) {
         ALOGE("%s: Error NanCommand NULL", __FUNCTION__);
@@ -416,10 +480,18 @@ wifi_error nan_config_request(transaction_id id,
     NanCommand *nanCommand = NULL;
     interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
+    hal_info *info = getHalInfo(wifiHandle);
+
+    if (info == NULL) {
+        ALOGE("%s: Error hal_info NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
 
     nanCommand = new NanCommand(wifiHandle,
                                 0,
                                 OUI_QCA,
+                                info->support_nan_ext_cmd?
+                                QCA_NL80211_VENDOR_SUBCMD_NAN_EXT :
                                 QCA_NL80211_VENDOR_SUBCMD_NAN);
     if (nanCommand == NULL) {
         ALOGE("%s: Error NanCommand NULL", __FUNCTION__);
@@ -459,10 +531,18 @@ wifi_error nan_tca_request(transaction_id id,
     NanCommand *nanCommand = NULL;
     interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
+    hal_info *info = getHalInfo(wifiHandle);
+
+    if (info == NULL) {
+        ALOGE("%s: Error hal_info NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
 
     nanCommand = new NanCommand(wifiHandle,
                                 0,
                                 OUI_QCA,
+                                info->support_nan_ext_cmd?
+                                QCA_NL80211_VENDOR_SUBCMD_NAN_EXT :
                                 QCA_NL80211_VENDOR_SUBCMD_NAN);
     if (nanCommand == NULL) {
         ALOGE("%s: Error NanCommand NULL", __FUNCTION__);
@@ -505,10 +585,18 @@ wifi_error nan_beacon_sdf_payload_request(transaction_id id,
     NanCommand *nanCommand = NULL;
     interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
+    hal_info *info = getHalInfo(wifiHandle);
+
+    if (info == NULL) {
+        ALOGE("%s: Error hal_info NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
 
     nanCommand = new NanCommand(wifiHandle,
                                 0,
                                 OUI_QCA,
+                                info->support_nan_ext_cmd?
+                                QCA_NL80211_VENDOR_SUBCMD_NAN_EXT :
                                 QCA_NL80211_VENDOR_SUBCMD_NAN);
     if (nanCommand == NULL) {
         ALOGE("%s: Error NanCommand NULL", __FUNCTION__);
@@ -571,10 +659,18 @@ wifi_error nan_get_capabilities(transaction_id id,
     NanCommand *nanCommand = NULL;
     interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
+    hal_info *info = getHalInfo(wifiHandle);
+
+    if (info == NULL) {
+        ALOGE("%s: Error hal_info NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
 
     nanCommand = new NanCommand(wifiHandle,
                                 0,
                                 OUI_QCA,
+                                info->support_nan_ext_cmd?
+                                QCA_NL80211_VENDOR_SUBCMD_NAN_EXT :
                                 QCA_NL80211_VENDOR_SUBCMD_NAN);
     if (nanCommand == NULL) {
         ALOGE("%s: Error NanCommand NULL", __FUNCTION__);
@@ -615,6 +711,12 @@ wifi_error nan_debug_command_config(transaction_id id,
     NanCommand *nanCommand = NULL;
     interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
+    hal_info *info = getHalInfo(wifiHandle);
+
+    if (info == NULL) {
+        ALOGE("%s: Error hal_info NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
 
     if (debug_msg_length <= 0) {
         ALOGE("%s: Invalid debug message length = %d", __FUNCTION__,
@@ -625,6 +727,8 @@ wifi_error nan_debug_command_config(transaction_id id,
     nanCommand = new NanCommand(wifiHandle,
                                 0,
                                 OUI_QCA,
+                                info->support_nan_ext_cmd?
+                                QCA_NL80211_VENDOR_SUBCMD_NAN_EXT :
                                 QCA_NL80211_VENDOR_SUBCMD_NAN);
     if (nanCommand == NULL) {
         ALOGE("%s: Error NanCommand NULL", __FUNCTION__);
@@ -913,11 +1017,6 @@ wifi_error nan_data_request_initiator(transaction_id id,
             (char *)msg->service_name, msg->service_name_len))
             goto cleanup;
     }
-    if (msg->nan_ipv6_addr_present) {
-        if (nanCommand->put_bytes(QCA_WLAN_VENDOR_ATTR_NDP_IPV6_ADDR,
-            (char *)msg->nan_ipv6_intf_addr, NAN_IPV6_ADDR_LEN))
-            goto cleanup;
-    }
     nanCommand->attr_end(nlData);
 
     ret = nanCommand->requestEvent();
@@ -1035,22 +1134,6 @@ wifi_error nan_data_indication_response(transaction_id id,
             (char *)msg->service_name, msg->service_name_len))
             goto cleanup;
     }
-    if (msg->nan_ipv6_addr_present) {
-        if (nanCommand->put_bytes(QCA_WLAN_VENDOR_ATTR_NDP_IPV6_ADDR,
-            (char *)msg->nan_ipv6_intf_addr, NAN_IPV6_ADDR_LEN))
-            goto cleanup;
-    }
-    if (msg->nan_transport_port != 0) {
-        if (nanCommand->put_u16(QCA_WLAN_VENDOR_ATTR_NDP_TRANSPORT_PORT,
-            msg->nan_transport_port))
-            goto cleanup;
-    }
-    if (msg->nan_transport_proto != 0xFF) {
-        if (nanCommand->put_u8(QCA_WLAN_VENDOR_ATTR_NDP_TRANSPORT_PROTOCOL,
-            msg->nan_transport_proto))
-            goto cleanup;
-    }
-
     nanCommand->attr_end(nlData);
 
     ret = nanCommand->requestEvent();
@@ -1123,13 +1206,23 @@ NanCommand::NanCommand(wifi_handle handle, int id, u32 vendor_id, u32 subcmd)
 
 NanCommand* NanCommand::instance(wifi_handle handle)
 {
+    hal_info *info;
+
     if (handle == NULL) {
         ALOGE("Handle is invalid");
         return NULL;
     }
+    info = getHalInfo(handle);
+    if (info == NULL) {
+        ALOGE("%s: Error hal_info NULL", __FUNCTION__);
+        return NULL;
+    }
+
     if (mNanCommandInstance == NULL) {
         mNanCommandInstance = new NanCommand(handle, 0,
                                              OUI_QCA,
+                                             info->support_nan_ext_cmd?
+                                             QCA_NL80211_VENDOR_SUBCMD_NAN_EXT :
                                              QCA_NL80211_VENDOR_SUBCMD_NAN);
         ALOGV("NanCommand %p created", mNanCommandInstance);
         return mNanCommandInstance;
