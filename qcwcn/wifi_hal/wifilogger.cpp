@@ -147,8 +147,7 @@ wifi_error wifi_start_logging(wifi_interface_handle iface,
     if (ret != WIFI_SUCCESS)
         ALOGE("%s: Error %d happened. ", __FUNCTION__, ret);
 
-    ALOGV("%s: Logging Started for %s. with verboselevel %d",
-           __FUNCTION__, buffer_name,verbose_level);
+    ALOGV("%s: Logging Started for %s.", __FUNCTION__, buffer_name);
     rb_start_logging(&info->rb_infos[ring_id], verbose_level,
                     flags, max_interval_sec, min_data_size);
 cleanup:
