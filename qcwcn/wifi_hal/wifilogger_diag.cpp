@@ -2497,7 +2497,10 @@ static wifi_error parse_stats(hal_info *info, u8 *data, u32 buflen)
            }
         }
 
-        if (info->pkt_log_ver == PKT_LOG_V1) {
+        if (info->pkt_log_ver == PKT_LOG_V2) {
+            data += (sizeof(wh_pktlog_hdr_v2_t) + pkt_stats_header->size);
+            buflen -= (sizeof(wh_pktlog_hdr_v2_t) + pkt_stats_header->size);
+        } else {
            if (pkt_stats_header->flags & PKT_INFO_FLG_PKT_DUMP_V2){
                data += (sizeof(wh_pktlog_hdr_v2_t) + pkt_stats_header->size);
                buflen -= (sizeof(wh_pktlog_hdr_v2_t) + pkt_stats_header->size);
@@ -2505,9 +2508,6 @@ static wifi_error parse_stats(hal_info *info, u8 *data, u32 buflen)
                data += (sizeof(wh_pktlog_hdr_t) + pkt_stats_header->size);
                buflen -= (sizeof(wh_pktlog_hdr_t) + pkt_stats_header->size);
            }
-        } else if (info->pkt_log_ver == PKT_LOG_V2) {
-            data += (sizeof(wh_pktlog_hdr_v2_t) + pkt_stats_header->size);
-            buflen -= (sizeof(wh_pktlog_hdr_v2_t) + pkt_stats_header->size);
         }
     } while (buflen > 0);
 
