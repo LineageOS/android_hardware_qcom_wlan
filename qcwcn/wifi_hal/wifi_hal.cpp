@@ -65,6 +65,7 @@
 #define WIFI_HAL_CMD_SOCK_PORT       644
 #define WIFI_HAL_EVENT_SOCK_PORT     645
 
+#define MAX_HW_VER_LENGTH 100
 /*
  * Defines for wifi_wait_for_driver_ready()
  * Specify durations between polls and max wait time
@@ -494,6 +495,8 @@ wifi_error wifi_initialize(wifi_handle *handle)
     struct nl_cb *cb = NULL;
     int status = 0;
     int index;
+    char hw_ver_type[MAX_HW_VER_LENGTH];
+    char *hw_name = NULL;
 
     ALOGI("Initializing wifi");
     hal_info *info = (hal_info *)malloc(sizeof(hal_info));
@@ -669,6 +672,24 @@ wifi_error wifi_initialize(wifi_handle *handle)
                          &info->supported_logger_feature_set);
     if (ret != WIFI_SUCCESS)
         ALOGE("Failed to get supported logger feature set: %d", ret);
+
+    ret =  wifi_get_firmware_version(iface_handle, hw_ver_type,
+                                     MAX_HW_VER_LENGTH);
+    if (ret == WIFI_SUCCESS) {
+        hw_name = strstr(hw_ver_type, "HW:");
+        if (hw_name) {
+            hw_name += strlen("HW:");
+            if (strncmp(hw_name, "QCA6174", 7) == 0)
+               info->pkt_log_ver = PKT_LOG_V1;
+            else
+               info->pkt_log_ver = PKT_LOG_V2;
+        } else {
+           info->pkt_log_ver = PKT_LOG_V0;
+        }
+        ALOGV("%s: hardware version type %d", __func__, info->pkt_log_ver);
+    } else {
+        ALOGE("Failed to get supported logger feature set: %d", ret);
+    }
 
     ret = get_firmware_bus_max_size_supported(iface_handle);
     if (ret != WIFI_SUCCESS) {
@@ -1348,6 +1369,7 @@ cleanup:
 
 wifi_error wifi_start_sending_offloaded_packet(wifi_request_id id,
                                                wifi_interface_handle iface,
+                                               u16 ether_type,
                                                u8 *ip_packet,
                                                u16 ip_packet_len,
                                                u8 *src_mac_addr,
@@ -1366,6 +1388,7 @@ wifi_error wifi_start_sending_offloaded_packet(wifi_request_id id,
         return ret;
     }
 
+    ALOGV("ether type 0x%04x\n", ether_type);
     ALOGV("ip packet length : %u\nIP Packet:", ip_packet_len);
     hexdump(ip_packet, ip_packet_len);
     ALOGV("Src Mac Address: " MAC_ADDR_STR "\nDst Mac Address: " MAC_ADDR_STR
@@ -1386,6 +1409,12 @@ wifi_error wifi_start_sending_offloaded_packet(wifi_request_id id,
     ret = vCommand->put_u32(
             QCA_WLAN_VENDOR_ATTR_OFFLOADED_PACKETS_REQUEST_ID,
             id);
+    if (ret != WIFI_SUCCESS)
+        goto cleanup;
+
+    ret = vCommand->put_u16(
+            QCA_WLAN_VENDOR_ATTR_OFFLOADED_PACKETS_ETHER_PROTO_TYPE,
+            ether_type);
     if (ret != WIFI_SUCCESS)
         goto cleanup;
 
