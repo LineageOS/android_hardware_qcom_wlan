@@ -461,6 +461,7 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn) {
     //fn->wifi_set_qpower = wifi_set_qpower;
 #ifdef WCNSS_QTI_AOSP
     fn->wifi_add_or_remove_virtual_intf = wifi_add_or_remove_virtual_intf;
+    fn->wifi_set_latency_mode = wifi_set_latency_mode;
 #endif
 
     return WIFI_SUCCESS;
@@ -888,9 +889,11 @@ void wifi_cleanup(wifi_handle handle, wifi_cleaned_up_handler handler)
 
     hal_info *info = getHalInfo(handle);
     info->cleaned_up_handler = handler;
-    info->clean_up = true;
 
     TEMP_FAILURE_RETRY(write(info->exit_sockets[0], "E", 1));
+
+    // Ensure wifi_event_loop() exits by setting clean_up to true.
+    info->clean_up = true;
     ALOGI("Sent msg on exit sock to unblock poll()");
 }
 
@@ -919,6 +922,19 @@ static void internal_event_handler(wifi_handle handle, int events,
     } else {
         ALOGE("Unknown event - %0x", events);
     }
+}
+
+static bool exit_event_handler(int fd) {
+    char buf[4];
+    memset(buf, 0, sizeof(buf));
+
+    TEMP_FAILURE_RETRY(read(fd, buf, sizeof(buf)));
+    ALOGI("exit_event_handler, buf=%s", buf);
+    if (strncmp(buf, "E", 1) == 0) {
+       return true;
+    }
+
+    return false;
 }
 
 /* Run event handler */
@@ -960,10 +976,16 @@ void wifi_event_loop(wifi_handle handle)
             if (pfd[1].revents & (POLLIN | POLLHUP | POLLERR)) {
                 internal_event_handler(handle, pfd[1].revents, info->user_sock);
             }
+            if (pfd[2].revents & POLLIN) {
+                if (exit_event_handler(pfd[2].fd)) {
+                    break;
+                }
+            }
         }
         rb_timerhandler(info);
     } while (!info->clean_up);
     internal_cleaned_up_handler(handle);
+    ALOGI("wifi_event_loop() exits success");
 }
 
 static int user_sock_message_handler(nl_msg *msg, void *arg)
