@@ -29,7 +29,7 @@ LOCAL_CLANG_CFLAGS := -Wno-pointer-bool-conversion
 LOCAL_CFLAGS += -Wall -Werror
 
 # Allow implicit fallthrough in nan_ind.cpp:834 until it is fixed.
-LOCAL_CFLAGS += -Wno-error=implicit-fallthrough
+LOCAL_CFLAGS += -Wno-implicit-fallthrough
 
 LOCAL_C_INCLUDES += \
 	$(LOCAL_PATH) \
@@ -94,7 +94,7 @@ endif
 LOCAL_CLANG_CFLAGS := -Wno-pointer-bool-conversion
 
 # Allow implicit fallthrough in nan_ind.cpp:834 until it is fixed.
-LOCAL_CFLAGS += -Wno-error=implicit-fallthrough
+LOCAL_CFLAGS += -Wno-implicit-fallthrough
 
 LOCAL_C_INCLUDES += \
 	$(LOCAL_PATH) \
