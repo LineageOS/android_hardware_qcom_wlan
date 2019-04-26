@@ -148,7 +148,8 @@ wifi_error wifi_start_logging(wifi_interface_handle iface,
     if (ret != WIFI_SUCCESS)
         ALOGE("%s: Error %d happened. ", __FUNCTION__, ret);
 
-    ALOGV("%s: Logging Started for %s.", __FUNCTION__, buffer_name);
+    ALOGV("%s: Logging Started for %s. with verboselevel %d",
+           __FUNCTION__, buffer_name,verbose_level);
     rb_start_logging(&info->rb_infos[ring_id], verbose_level,
                     flags, max_interval_sec, min_data_size);
 cleanup:
@@ -959,7 +960,7 @@ wifi_error WifiLoggerCommand::requestEvent()
 {
     int status;
     wifi_error res = WIFI_SUCCESS;
-    struct nl_cb *cb;
+    struct nl_cb *cb = NULL;
 
     cb = nl_cb_alloc(NL_CB_DEFAULT);
     if (!cb) {
@@ -1000,6 +1001,7 @@ wifi_error WifiLoggerCommand::requestEvent()
             __FUNCTION__, res, mWaitforRsp);
     }
 out:
+    nl_cb_put(cb);
     /* Cleanup the mMsg */
     mMsg.destroy();
     return res;

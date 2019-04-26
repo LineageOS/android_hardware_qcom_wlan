@@ -94,6 +94,13 @@ typedef struct {
     size_t flags_len;
 } features_info;
 
+enum pkt_log_version {
+    PKT_LOG_V0          = 0,     // UNSPECIFIED Target
+    PKT_LOG_V1          = 1,     // ROME Base Target
+    PKT_LOG_V2          = 2,     // HELIUM Base Target
+    PKT_LOG_V3          = 3,     // LETHIUM Base target
+};
+
 struct gscan_event_handlers_s;
 struct rssi_monitor_event_handler_s;
 struct cld80211_ctx;
@@ -126,6 +133,7 @@ typedef struct hal_info_s {
     u32 supported_logger_feature_set;
     // add other details
     int user_sock_arg;
+    int event_sock_arg;
     struct rb_info rb_infos[NUM_RING_BUFS];
     void (*on_ring_buffer_data) (char *ring_name, char *buffer, int buffer_size,
           wifi_ring_buffer_status *status);
@@ -155,6 +163,7 @@ typedef struct hal_info_s {
     struct cld80211_ctx *cldctx;
     bool apf_enabled;
     bool support_nan_ext_cmd;
+    pkt_log_version  pkt_log_ver;
 } hal_info;
 
 wifi_error wifi_register_handler(wifi_handle handle, int cmd, nl_recvmsg_msg_cb_t func, void *arg);
