@@ -1309,7 +1309,7 @@ static wifi_error update_stats_to_ring_buf(hal_info *info,
     pRingBufferEntry->timestamp = time.tv_usec + time.tv_sec * 1000 * 1000;
 
     // Write if verbose and handler is set
-    if ((info->rb_infos[PKT_STATS_RB_ID].verbose_level >= VERBOSE_DEBUG_PROBLEM)
+    if ((info->rb_infos[PKT_STATS_RB_ID].verbose_level >= VERBOSE_REPRO_PROBLEM)
         && info->on_ring_buffer_data) {
         ring_buffer_write(&info->rb_infos[PKT_STATS_RB_ID],
                           (u8*)pRingBufferEntry,
@@ -2110,7 +2110,7 @@ wifi_error write_per_packet_stats_to_rb(hal_info *info, u8 *buf, u16 length)
     rb_entry_hdr.timestamp = time.tv_usec + time.tv_sec * 1000 * 1000;
 
     /* Write if verbose and handler is set */
-    if (info->rb_infos[PKT_STATS_RB_ID].verbose_level >= 3 &&
+    if (info->rb_infos[PKT_STATS_RB_ID].verbose_level >= VERBOSE_REPRO_PROBLEM &&
         info->on_ring_buffer_data) {
         /* Write header and payload separately to avoid
          * complete payload memcpy */
