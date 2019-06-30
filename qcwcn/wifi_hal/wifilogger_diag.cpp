@@ -2291,9 +2291,12 @@ static wifi_error parse_stats_sw_event(hal_info *info,
     u8 *data;
     u8 *node_pkt_data;
     wh_pktlog_hdr_v2_t *pkt_stats_node_header;
-    int node_pkt_type,pkt_sub_type,node_pkt_len,i;
+    int node_pkt_type,pkt_sub_type,i;
+    int node_pkt_len = 0;
     wifi_error status = WIFI_SUCCESS;
     node_pkt_stats node_pkt_t;
+    node_pkt_t.bmap_enqueued = 0;
+    node_pkt_t.bmap_failed = 0;
     wifi_ring_buffer_entry *pRingBufferEntry =
         (wifi_ring_buffer_entry *)info->pkt_stats->tx_stats;
 
@@ -2339,7 +2342,8 @@ static wifi_error parse_stats_sw_event(hal_info *info,
                        node_pkt_t.qos_ctrl = *((u8*)(node_pkt_data + QOS_CTRL_OFFSET));
                        rb_pkt_stats->tid = node_pkt_t.qos_ctrl & 0xF;
                        rb_pkt_stats->MCS = get_tx_mcs_v1(node_pkt_data);
-                       rb_pkt_stats->last_transmit_rate = get_rate_v1(rb_pkt_stats->MCS);
+                       if ((rb_pkt_stats->MCS & INVALID_RATE_CODE) != INVALID_RATE_CODE)
+                           rb_pkt_stats->last_transmit_rate = get_rate_v1(rb_pkt_stats->MCS);
                        node_pkt_t.bmap_failed = *((u64*)(node_pkt_data + BMAP_FAILED_OFFSET));
                        node_pkt_t.bmap_enqueued = *((u64*)(node_pkt_data + BMAP_ENQUEUED_OFFSET));
 
@@ -2623,9 +2627,6 @@ wifi_error diag_message_handler(hal_info *info, nl_msg *msg)
 
                list_for_each_entry(reg, &info->monitor_sockets, list) {
 
-                   if(reg == NULL)
-                      break;
-
                    if (reg->family_name != CLD80211_FAMILY || reg->cmd_id != WLAN_NL_MSG_OEM)
                        continue;
 
@@ -2633,6 +2634,7 @@ wifi_error diag_message_handler(hal_info *info, nl_msg *msg)
                    /* Indicate the received OEM msg to respective client
                       it is responsibility of the registered client to check
                       the oem_msg is meant for them or not based on oem_msg sub type */
+                   ALOGI("send oem msg of len : %d to apps",ctrl_evt->data_len);
                    if (sendto(info->wifihal_ctrl_sock.s, (char *)ctrl_evt,
                               sizeof(*ctrl_evt) + ctrl_evt->data_len, 0,
                               (struct sockaddr *)&reg->monsock, reg->monsock_len) < 0)
