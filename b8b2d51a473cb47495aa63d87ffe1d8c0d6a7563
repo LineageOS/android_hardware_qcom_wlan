@@ -22,6 +22,30 @@
       "revId": "b8b2d51a473cb47495aa63d87ffe1d8c0d6a7563",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "2871cd93_10fada71",
+        "filename": "wcnss-service/Android.mk",
+        "patchSetId": 2
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 4550
+      },
+      "writtenOn": "2019-10-04T21:40:36Z",
+      "side": 1,
+      "message": "Yes. I asked Rashed twice why was this needed and he said AOSP devices were broken without it, even though next commits remove it...",
+      "parentUuid": "9897d6b3_b2e2b497",
+      "range": {
+        "startLine": 1,
+        "startChar": 0,
+        "endLine": 1,
+        "endChar": 51
+      },
+      "revId": "b8b2d51a473cb47495aa63d87ffe1d8c0d6a7563",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": true
     }
   ]
 }
