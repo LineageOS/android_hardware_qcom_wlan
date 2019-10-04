@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "9897d6b3_b2e2b497",
+        "filename": "wcnss-service/Android.mk",
+        "patchSetId": 2
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 13648
+      },
+      "writtenOn": "2019-10-04T21:32:32Z",
+      "side": 1,
+      "message": "Can we get rid of this next time?",
+      "range": {
+        "startLine": 1,
+        "startChar": 0,
+        "endLine": 1,
+        "endChar": 51
+      },
+      "revId": "b8b2d51a473cb47495aa63d87ffe1d8c0d6a7563",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": true
+    }
+  ]
+}
