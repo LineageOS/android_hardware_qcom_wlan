@@ -880,7 +880,7 @@ wifi_error wifi_initialize(wifi_handle *handle)
     }
 
     ALOGV("Initialized Wifi HAL Successfully; vendor cmd = %d Supported"
-            " features : %x", NL80211_CMD_VENDOR, info->supported_feature_set);
+            " features : %lx", NL80211_CMD_VENDOR, info->supported_feature_set);
 
 cld80211_cleanup:
     if (status != 0 || ret != WIFI_SUCCESS) {
@@ -1826,10 +1826,10 @@ wifi_error wifi_get_supported_feature_set(wifi_interface_handle iface,
     ret = acquire_supported_features(iface, set);
     if (ret != WIFI_SUCCESS) {
         *set = info->supported_feature_set;
-        ALOGV("Supported feature set acquired at initialization : %x", *set);
+        ALOGV("Supported feature set acquired at initialization : %lx", *set);
     } else {
         info->supported_feature_set = *set;
-        ALOGV("Supported feature set acquired : %x", *set);
+        ALOGV("Supported feature set acquired : %lx", *set);
     }
     return WIFI_SUCCESS;
 }
