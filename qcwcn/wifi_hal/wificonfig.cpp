@@ -471,7 +471,7 @@ wifi_error wifi_set_latency_mode(wifi_interface_handle handle,
 
     /* Check Supported low-latency capability */
     if (!(info->supported_feature_set & WIFI_FEATURE_SET_LATENCY_MODE)) {
-        ALOGE("%s: Set latency mode feature not supported %lx", __FUNCTION__,
+        ALOGE("%s: Set latency mode feature not supported 0x%" PRIx64, __FUNCTION__,
               info->supported_feature_set);
         return WIFI_ERROR_NOT_SUPPORTED;
     }

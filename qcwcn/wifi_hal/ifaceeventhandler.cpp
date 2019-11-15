@@ -244,7 +244,7 @@ int WifihalGeneric::handleResponse(WifiEvent &reply)
                     return -EINVAL;
                 }
                 mSet = nla_get_u32(tb_vendor[QCA_WLAN_VENDOR_ATTR_FEATURE_SET]);
-                ALOGV("Supported feature set : %lx", mSet);
+                ALOGV("Supported feature set : 0x%" PRIx64, mSet);
 
                 break;
             }
@@ -304,7 +304,7 @@ int WifihalGeneric::handleResponse(WifiEvent &reply)
                         __func__);
                     for(i = 0; i < *mSetSizePtr; i++)
                     {
-                        ALOGV("%lx", *(mConcurrencySet + i));
+                        ALOGV("0x%" PRIx64, *(mConcurrencySet + i));
                     }
                 }
             }
