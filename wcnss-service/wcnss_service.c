@@ -78,7 +78,6 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define WLAN_INI_FILE_SOURCE "/vendor/etc/wifi/WCNSS_qcom_cfg.ini"
 #define WCNSS_HAS_CAL_DATA\
 		"/sys/module/wcnsscore/parameters/has_calibrated_data"
-#define WLAN_DRIVER_ATH_DEFAULT_VAL "0"
 
 #define ASCII_A		65
 #define ASCII_a		97
@@ -491,11 +490,6 @@ fail:
 	return;
 }
 
-void setup_wlan_driver_ath_prop()
-{
-	property_set("vendor.wlan.driver.ath", WLAN_DRIVER_ATH_DEFAULT_VAL);
-}
-
 #ifdef MDM_DETECT
 int check_modem_compatability(struct dev_info *mdm_detect_info)
 {
@@ -877,8 +871,6 @@ nomodem:
 		else
 			ALOGE("Cal data is successfully written to WCNSS");
 	}
-
-	setup_wlan_driver_ath_prop();
 
 	rc = wcnss_read_and_store_cal_data(fd_dev);
 	if (rc != SUCCESS)
