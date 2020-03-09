@@ -863,7 +863,8 @@ static wifi_error process_fw_diag_msg(hal_info *info, u8* buf, u16 length)
     buf += 4;
     length -= 4;
 
-    while (length > (count + sizeof(fw_diag_msg_fixed_hdr_t))) {
+    while ((info && !info->clean_up)
+          && (length > (count + sizeof(fw_diag_msg_fixed_hdr_t)))) {
         diag_msg_fixed_hdr = (fw_diag_msg_fixed_hdr_t *)(buf + count);
         switch (diag_msg_fixed_hdr->diag_event_type) {
             case WLAN_DIAG_TYPE_EVENT:
@@ -1511,7 +1512,7 @@ static wifi_error populate_rx_aggr_stats(hal_info *info)
     wifi_ring_per_packet_status_entry *pps_entry;
     u32 index = 0;
 
-    while (index < info->rx_buf_size_occupied) {
+    while (!info->clean_up && (index < info->rx_buf_size_occupied)) {
         pps_entry = (wifi_ring_per_packet_status_entry *)(pRingBufferEntry + 1);
 
         pps_entry->MCS = info->aggr_stats.RxMCS.mcs;
@@ -2351,6 +2352,9 @@ static wifi_error parse_stats_sw_event(hal_info *info,
                        rb_pkt_stats->flags |= PER_PACKET_ENTRY_FLAGS_80211_HEADER;
                       }
                  break;
+                 default:
+                 // TODO: Unexpected PKTLOG types
+                 break;
               }
               if (info->pkt_stats->tx_stats_events &  BIT(PKTLOG_TYPE_TX_STAT)) {
                  /* if bmap_enqueued is 1 ,Handle non aggregated cases */
@@ -2388,8 +2392,12 @@ static wifi_error parse_stats_sw_event(hal_info *info,
            pkt_stats_len = (pkt_stats_len - (sizeof(wh_pktlog_hdr_v2_t) + node_pkt_len));
            data = (u8*) (data + sizeof(wh_pktlog_hdr_v2_t) + node_pkt_len);
            info->pkt_stats->tx_stats_events = 0;
+        } else {
+            //TODO parsing of unknown packet sub type
+            status = WIFI_ERROR_INVALID_ARGS;
+            break;
         }
-    } while (pkt_stats_len > 0);
+    } while (!info->clean_up && (pkt_stats_len > 0));
     return status;
 }
 
@@ -2421,9 +2429,14 @@ static wifi_error parse_stats_record_v2(hal_info *info,
         pthread_mutex_unlock(&info->pkt_fate_stats_lock);
     } else if (pkt_stats_header->log_type == PKTLOG_TYPE_PKT_SW_EVENT) {
         status = parse_stats_sw_event(info, pkt_stats_header);
-    } else
-        ALOGE("%s: invalid log_type %d",__FUNCTION__, pkt_stats_header->log_type);
-
+    } else if (pkt_stats_header->log_type == PKTLOG_TYPE_TX_STAT ||
+               pkt_stats_header->log_type == PKTLOG_TYPE_RX_STATBUF ||
+               pkt_stats_header->log_type == PKTLOG_TYPE_LITE_T2H ||
+               pkt_stats_header->log_type == PKTLOG_TYPE_LITE_RX) {
+        //TODO Parsing of per packet log.
+    } else {
+        //No Parsing on Default packet log type.
+    }
     return status;
 }
 
@@ -2526,7 +2539,7 @@ static wifi_error parse_stats(hal_info *info, u8 *data, u32 buflen)
         data += record_len;
         buflen -= record_len;
 
-    } while (buflen > 0);
+    } while (!info->clean_up && (buflen > 0));
 
     return status;
 }

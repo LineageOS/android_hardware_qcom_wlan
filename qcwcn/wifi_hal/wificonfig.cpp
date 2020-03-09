@@ -698,6 +698,9 @@ wifi_error wifi_add_or_remove_virtual_intf(wifi_interface_handle iface,
             case 2:    /* IfaceType:P2P */
                 type = NL80211_IFTYPE_P2P_DEVICE;
                 break;
+            case 3:    /* IfaceType:NAN */
+                type = NL80211_IFTYPE_NAN;
+                break;
             default:
                 ALOGE("%s: Wrong interface type %u", __FUNCTION__, iface_type);
                 ret = WIFI_ERROR_UNKNOWN;
