@@ -1054,6 +1054,11 @@ static int validate_cld80211_msg(nlmsghdr *nlh, int family, int cmd)
     struct genlmsghdr *hdr;
     hdr = (genlmsghdr *)nlmsg_data(nlh);
 
+    if (nlh->nlmsg_len > DEFAULT_PAGE_SIZE - sizeof(wifihal_ctrl_req_t))
+    {
+      ALOGE("%s: Invalid nlmsg length", __FUNCTION__);
+      return -1;
+    }
     if(hdr->cmd == WLAN_NL_MSG_OEM)
     {
       ALOGV("%s: FAMILY ID : %d ,NL CMD : %d received", __FUNCTION__,
@@ -1077,6 +1082,11 @@ static int validate_genl_msg(nlmsghdr *nlh, int family, int cmd)
     struct genlmsghdr *hdr;
     hdr = (genlmsghdr *)nlmsg_data(nlh);
 
+    if (nlh->nlmsg_len > DEFAULT_PAGE_SIZE - sizeof(wifihal_ctrl_req_t))
+    {
+      ALOGE("%s: Invalid nlmsg length", __FUNCTION__);
+      return -1;
+    }
     if(hdr->cmd == NL80211_CMD_FRAME ||
        hdr->cmd == NL80211_CMD_REGISTER_ACTION)
     {
@@ -1112,6 +1122,12 @@ static int send_nl_data(wifi_handle handle, wifihal_ctrl_req_t *ctrl_msg)
        goto nl_out;
     }
 
+    if (ctrl_msg->data_len > nlmsg_get_max_size(msg))
+    {
+        ALOGE("%s: Invalid ctrl msg length \n", __FUNCTION__);
+        retval = -1;
+        goto nl_out;
+    }
     memcpy((char *)msg->nm_nlh, (char *)ctrl_msg->data, ctrl_msg->data_len);
 
    if(ctrl_msg->family_name == GENERIC_NL_FAMILY)
@@ -1188,9 +1204,17 @@ static int register_monitor_sock(wifi_handle handle, wifihal_ctrl_req_t *ctrl_ms
        genlh = (struct genlmsghdr *)nlmsg_data(nlh);
        struct nlattr *nlattrs[NL80211_ATTR_MAX + 1];
 
-       nla_parse(nlattrs, NL80211_ATTR_MAX, genlmsg_attrdata(genlh, 0),
-                 genlmsg_attrlen(genlh, 0), NULL);
-
+       if (nlh->nlmsg_len > DEFAULT_PAGE_SIZE - sizeof(*ctrl_msg))
+       {
+         ALOGE("%s: Invalid nlmsg length", __FUNCTION__);
+         return -1;
+       }
+       if (nla_parse(nlattrs, NL80211_ATTR_MAX, genlmsg_attrdata(genlh, 0),
+                 genlmsg_attrlen(genlh, 0), NULL))
+       {
+         ALOGE("unable to parse nl attributes");
+         return -1;
+       }
        if (!nlattrs[NL80211_ATTR_FRAME_TYPE])
        {
          ALOGD("No Valid frame type");
@@ -1285,6 +1309,12 @@ static int register_monitor_sock(wifi_handle handle, wifihal_ctrl_req_t *ctrl_ms
 
     if(attach)
     {
+       if (ctrl_msg->monsock_len > sizeof(struct sockaddr_un))
+       {
+         ALOGE("%s: Invalid monitor socket length \n", __FUNCTION__);
+         return -3;
+       }
+
        nreg = (wifihal_mon_sock_t *)malloc(sizeof(*reg) + match_len);
         if (!nreg)
            return -1;
@@ -1543,18 +1573,17 @@ static int internal_valid_message_handler(nl_msg *msg, void *arg)
          ALOGD("No Frame body");
          return WIFI_SUCCESS;
        }
-
-       ctrl_evt = (wifihal_ctrl_event_t *)malloc(DEFAULT_PAGE_SIZE);
+       ctrl_evt = (wifihal_ctrl_event_t *)malloc(sizeof(*ctrl_evt) + nlh->nlmsg_len);
        if(ctrl_evt == NULL)
        {
          ALOGE("Memory allocation failure");
          return -1;
        }
-       memset((char *)ctrl_evt, 0, DEFAULT_PAGE_SIZE);
+       memset((char *)ctrl_evt, 0, sizeof(*ctrl_evt) + nlh->nlmsg_len);
        ctrl_evt->family_name = GENERIC_NL_FAMILY;
        ctrl_evt->cmd_id = cmd;
-       ctrl_evt->data_len = msg->nm_nlh->nlmsg_len;
-       memcpy(ctrl_evt->data, (char *)msg->nm_nlh, ctrl_evt->data_len);
+       ctrl_evt->data_len = nlh->nlmsg_len;
+       memcpy(ctrl_evt->data, (char *)nlh, ctrl_evt->data_len);
 
 
        buff = (char *)nla_data(nlattrs[NL80211_ATTR_FRAME]) + 24; //! Size of Wlan80211FrameHeader
