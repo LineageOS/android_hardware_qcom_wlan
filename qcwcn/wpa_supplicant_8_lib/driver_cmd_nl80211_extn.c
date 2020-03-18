@@ -30,8 +30,8 @@
 #include <netlink/object-api.h>
 #include <linux/pkt_sched.h>
 #include <dlfcn.h>
-#include "driver_cmd_nl80211_extn.h"
 #include "common.h"
+#include "driver_cmd_nl80211_extn.h"
 
 
 int wpa_driver_oem_initialize(wpa_driver_oem_cb_table_t *oem_cb_table)
