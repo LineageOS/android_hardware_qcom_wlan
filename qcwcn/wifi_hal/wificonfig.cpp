@@ -554,6 +554,13 @@ wifi_error wifi_set_thermal_mitigation_mode(wifi_handle handle,
     WiFiConfigCommand *wifiConfigCommand;
     struct nlattr *nlData;
     u32 qca_vendor_thermal_level;
+    hal_info *info = getHalInfo(handle);
+
+    if (!info || info->num_interfaces < 1) {
+         ALOGE("%s: Error wifi_handle NULL or base wlan interface not present",
+               __FUNCTION__);
+         return WIFI_ERROR_UNKNOWN;
+    }
 
     wifiConfigCommand = new WiFiConfigCommand(
                             handle,
@@ -573,10 +580,9 @@ wifi_error wifi_set_thermal_mitigation_mode(wifi_handle handle,
     }
 
     /* Set the interface Id of the message. */
-    ret = wifiConfigCommand->set_iface_id("wlan0");
-    if (ret != WIFI_SUCCESS) {
-        ALOGE("%s: failed to set iface id. Error:%d",
-            __FUNCTION__, ret);
+    if (wifiConfigCommand->put_u32(NL80211_ATTR_IFINDEX,
+                                   info->interfaces[0]->id)) {
+        ALOGE("%s: Failed to put iface id", __FUNCTION__);
         goto cleanup;
     }
 
