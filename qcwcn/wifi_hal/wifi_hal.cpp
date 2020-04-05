@@ -1315,6 +1315,12 @@ static int register_monitor_sock(wifi_handle handle, wifihal_ctrl_req_t *ctrl_ms
 
     if(attach)
     {
+       if (ctrl_msg->monsock_len > sizeof(struct sockaddr_un))
+       {
+         ALOGE("%s: Invalid monitor socket length \n", __FUNCTION__);
+         return -3;
+       }
+
        nreg = (wifihal_mon_sock_t *)malloc(sizeof(*reg) + match_len);
         if (!nreg)
            return -1;
@@ -1762,7 +1768,8 @@ static int wifi_get_multicast_id(wifi_handle handle, const char *name,
 
 static bool is_wifi_interface(const char *name)
 {
-    if (strncmp(name, "wlan", 4) != 0 && strncmp(name, "p2p", 3) != 0) {
+    if (strncmp(name, "wlan", 4) != 0 && strncmp(name, "p2p", 3) != 0
+        && strncmp(name, "wifi", 4) != 0) {
         /* not a wifi interface; ignore it */
         return false;
     } else {
