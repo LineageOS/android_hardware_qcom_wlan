@@ -391,7 +391,7 @@ wifi_error wifi_get_firmware_version(wifi_interface_handle iface,
     if (!nlData)
         goto cleanup;
 
-    ret = wifiLoggerCommand->put_u32(
+    ret = wifiLoggerCommand->put_u8(
                 QCA_WLAN_VENDOR_ATTR_WIFI_INFO_FIRMWARE_VERSION, requestId);
     if (ret != WIFI_SUCCESS)
         goto cleanup;
@@ -452,7 +452,7 @@ wifi_error wifi_get_driver_version(wifi_interface_handle iface,
     if (!nlData)
         goto cleanup;
 
-    ret = wifiLoggerCommand->put_u32(
+    ret = wifiLoggerCommand->put_u8(
                       QCA_WLAN_VENDOR_ATTR_WIFI_INFO_DRIVER_VERSION, requestId);
     if (ret != WIFI_SUCCESS)
         goto cleanup;
