@@ -58,7 +58,9 @@
 
 #define MAC_ADDR_ARRAY(a) (a)[0], (a)[1], (a)[2], (a)[3], (a)[4], (a)[5]
 #define MAC_ADDR_STR "%02x:%02x:%02x:%02x:%02x:%02x"
+#ifndef BIT
 #define BIT(x) (1 << (x))
+#endif
 
 typedef int16_t s16;
 typedef int32_t s32;
@@ -206,6 +208,10 @@ wifi_error wifi_stop_rssi_monitoring(wifi_request_id id, wifi_interface_handle i
 wifi_error wifi_set_radio_mode_change_handler(wifi_request_id id, wifi_interface_handle
         iface, wifi_radio_mode_change_handler eh);
 wifi_error mapKernelErrortoWifiHalError(int kern_err);
+void wifi_cleanup_dynamic_ifaces(wifi_handle handle);
+wifi_error wifi_virtual_interface_create(wifi_handle handle, const char* ifname,
+                                         wifi_interface_type iface_type);
+wifi_error wifi_virtual_interface_delete(wifi_handle handle, const char* ifname);
 // some common macros
 
 #define min(x, y)       ((x) < (y) ? (x) : (y))
