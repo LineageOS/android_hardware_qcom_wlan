@@ -571,7 +571,10 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn) {
     fn->wifi_select_tx_power_scenario = wifi_select_tx_power_scenario;
     fn->wifi_reset_tx_power_scenario = wifi_reset_tx_power_scenario;
     fn->wifi_set_radio_mode_change_handler = wifi_set_radio_mode_change_handler;
+    fn->wifi_virtual_interface_create = wifi_virtual_interface_create;
+    fn->wifi_virtual_interface_delete = wifi_virtual_interface_delete;
     fn->wifi_set_latency_mode = wifi_set_latency_mode;
+    fn->wifi_set_thermal_mitigation_mode = wifi_set_thermal_mitigation_mode;
 
     return WIFI_SUCCESS;
 }
@@ -880,7 +883,7 @@ wifi_error wifi_initialize(wifi_handle *handle)
     }
 
     ALOGV("Initialized Wifi HAL Successfully; vendor cmd = %d Supported"
-            " features : %x", NL80211_CMD_VENDOR, info->supported_feature_set);
+            " features : 0x%" PRIx64, NL80211_CMD_VENDOR, info->supported_feature_set);
 
 cld80211_cleanup:
     if (status != 0 || ret != WIFI_SUCCESS) {
@@ -1041,6 +1044,9 @@ void wifi_cleanup(wifi_handle handle, wifi_cleaned_up_handler handler)
     hal_info *info = getHalInfo(handle);
     info->cleaned_up_handler = handler;
     info->clean_up = true;
+    // Remove the dynamically created interface during wifi cleanup.
+    wifi_cleanup_dynamic_ifaces(handle);
+
 
     TEMP_FAILURE_RETRY(write(info->exit_sockets[0], "E", 1));
     ALOGI("Sent msg on exit sock to unblock poll()");
@@ -1744,7 +1750,8 @@ static int wifi_get_multicast_id(wifi_handle handle, const char *name,
 
 static bool is_wifi_interface(const char *name)
 {
-    if (strncmp(name, "wlan", 4) != 0 && strncmp(name, "p2p", 3) != 0) {
+    if (strncmp(name, "wlan", 4) != 0 && strncmp(name, "p2p", 3) != 0
+        && strncmp(name, "wifi", 4) != 0) {
         /* not a wifi interface; ignore it */
         return false;
     } else {
@@ -1855,10 +1862,10 @@ wifi_error wifi_get_supported_feature_set(wifi_interface_handle iface,
     ret = acquire_supported_features(iface, set);
     if (ret != WIFI_SUCCESS) {
         *set = info->supported_feature_set;
-        ALOGV("Supported feature set acquired at initialization : %x", *set);
+        ALOGV("Supported feature set acquired at initialization : 0x%" PRIx64, *set);
     } else {
         info->supported_feature_set = *set;
-        ALOGV("Supported feature set acquired : %x", *set);
+        ALOGV("Supported feature set acquired : 0x%" PRIx64, *set);
     }
     return WIFI_SUCCESS;
 }
