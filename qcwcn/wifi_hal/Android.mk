@@ -46,6 +46,10 @@ ifneq ($(TARGET_USES_AOSP_FOR_WLAN), true)
 LOCAL_CFLAGS += -DWCNSS_QTI_AOSP
 endif
 
+ifeq ($(TARGET_HAS_BROKEN_WLAN_SET_INTERFACE),true)
+LOCAL_CFLAGS += -DBROKEN_SET_INTERFACE
+endif
+
 # gscan.cpp: address of array 'cached_results[i].results' will always evaluate to 'true'
 LOCAL_CLANG_CFLAGS := -Wno-pointer-bool-conversion
 
@@ -123,6 +127,10 @@ LOCAL_CFLAGS += -Wno-unused-parameter -Wall -Werror
 LOCAL_CPPFLAGS += -Wno-conversion-null
 ifeq ($(TARGET_BUILD_VARIANT),userdebug)
 LOCAL_CFLAGS += "-DLOG_NDEBUG=0"
+endif
+
+ifeq ($(TARGET_HAS_BROKEN_WLAN_SET_INTERFACE),true)
+LOCAL_CFLAGS += -DBROKEN_SET_INTERFACE
 endif
 
 # gscan.cpp: address of array 'cached_results[i].results' will always evaluate to 'true'
