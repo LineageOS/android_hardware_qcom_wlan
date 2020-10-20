@@ -798,6 +798,7 @@ void wifi_cleanup_dynamic_ifaces(wifi_handle handle)
     added_ifaces.clear(); // could be redundent. But to be on safe side.
 }
 
+#ifndef BROKEN_SET_INTERFACE
 static wifi_error wifi_set_interface_mode(wifi_handle handle,
                                    const char* ifname,
                                    u32 iface_type)
@@ -848,6 +849,7 @@ done:
     delete wifiConfigCommand;
     return ret;
 }
+#endif
 
 wifi_error wifi_virtual_interface_create(wifi_handle handle,
                                          const char* ifname,
@@ -863,7 +865,11 @@ wifi_error wifi_virtual_interface_create(wifi_handle handle,
 
     // Already exists and set interface mode only
     if (if_nametoindex(ifname) != 0) {
+#ifdef BROKEN_SET_INTERFACE
+        return WIFI_SUCCESS;
+#else
         return wifi_set_interface_mode(handle, ifname, iface_type);
+#endif
     }
 
     ALOGD("%s: ifname=%s create", __FUNCTION__, ifname);
