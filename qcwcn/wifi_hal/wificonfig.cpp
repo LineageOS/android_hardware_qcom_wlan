@@ -863,7 +863,11 @@ wifi_error wifi_virtual_interface_create(wifi_handle handle,
 
     // Already exists and set interface mode only
     if (if_nametoindex(ifname) != 0) {
+#ifdef BROKEN_SET_INTERFACE
+        return WIFI_SUCCESS;
+#else
         return wifi_set_interface_mode(handle, ifname, iface_type);
+#endif
     }
 
     ALOGD("%s: ifname=%s create", __FUNCTION__, ifname);
