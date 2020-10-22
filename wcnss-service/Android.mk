@@ -1,5 +1,3 @@
-ifeq ($(call my-dir),$(call project-path-for,wlan))
-
 ifneq (,$(filter arm aarch64 arm64, $(TARGET_ARCH)))
 LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
@@ -27,6 +25,4 @@ endif #TARGET_USES_QCOM_WCNSS_QMI
 LOCAL_MODULE_TAGS := optional
 LOCAL_CFLAGS += -Wall -Werror
 include $(BUILD_EXECUTABLE)
-endif
-
 endif
