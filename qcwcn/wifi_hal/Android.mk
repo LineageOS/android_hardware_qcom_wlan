@@ -50,6 +50,13 @@ LOCAL_CFLAGS += -Wall -Werror
 # Allow implicit fallthrough in nan_ind.cpp:834 until it is fixed.
 LOCAL_CFLAGS += -Wno-implicit-fallthrough
 
+ifdef WIFI_DRIVER_STATE_CTRL_PARAM
+LOCAL_CFLAGS += -DWIFI_DRIVER_STATE_CTRL_PARAM=\"$(WIFI_DRIVER_STATE_CTRL_PARAM)\"
+ifdef WIFI_DRIVER_STATE_ON
+LOCAL_CFLAGS += -DWIFI_DRIVER_STATE_ON=\"$(WIFI_DRIVER_STATE_ON)\"
+endif
+endif
+
 LOCAL_C_INCLUDES += \
 	$(LOCAL_PATH) \
 	external/libnl/include \
@@ -113,6 +120,13 @@ LOCAL_CLANG_CFLAGS := -Wno-pointer-bool-conversion
 
 # Allow implicit fallthrough in nan_ind.cpp:834 until it is fixed.
 LOCAL_CFLAGS += -Wno-implicit-fallthrough
+
+ifdef WIFI_DRIVER_STATE_CTRL_PARAM
+LOCAL_CFLAGS += -DWIFI_DRIVER_STATE_CTRL_PARAM=\"$(WIFI_DRIVER_STATE_CTRL_PARAM)\"
+ifdef WIFI_DRIVER_STATE_ON
+LOCAL_CFLAGS += -DWIFI_DRIVER_STATE_ON=\"$(WIFI_DRIVER_STATE_ON)\"
+endif
+endif
 
 LOCAL_C_INCLUDES += \
 	$(LOCAL_PATH) \
