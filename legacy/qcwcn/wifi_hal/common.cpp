@@ -16,10 +16,10 @@
 
 #include <stdlib.h>
 #include <linux/pkt_sched.h>
+#include <linux-private/linux/fib_rules.h>
 #include <netlink/object-api.h>
 #include <dlfcn.h>
 #include <pthread.h>
-
 #include <hardware_legacy/wifi_hal.h>
 #include "common.h"
 #include <errno.h>
