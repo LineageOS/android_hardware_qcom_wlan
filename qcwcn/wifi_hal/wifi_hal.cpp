@@ -927,7 +927,7 @@ static int wifi_update_driver_state(const char *state) {
     ts.tv_nsec = 200 * 1000000L;
 
     do {
-        if (access(WIFI_DRIVER_STATE_CTRL_PARAM, R_OK|W_OK) == 0)
+        if (access(WIFI_DRIVER_STATE_CTRL_PARAM, W_OK) == 0)
             break;
         nanosleep(&ts, (struct timespec *)NULL);
     } while (--count > 0); /* wait at most 1 second for completion. */
