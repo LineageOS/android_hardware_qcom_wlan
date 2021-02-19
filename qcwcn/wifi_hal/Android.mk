@@ -21,6 +21,8 @@ include $(CLEAR_VARS)
 LOCAL_CFLAGS := -Wno-unused-parameter
 LOCAL_CFLAGS += -Wall -Werror
 LOCAL_MODULE := libwifi-hal-ctrl
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_VENDOR_MODULE := true
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/wifi_hal_ctrl
 LOCAL_SRC_FILES := wifi_hal_ctrl/wifi_hal_ctrl.c
@@ -29,6 +31,8 @@ include $(BUILD_SHARED_LIBRARY)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := libwifi-hal-ctrl_headers
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/wifi_hal_ctrl
 LOCAL_HEADER_LIBRARIES := libcutils_headers
 include $(BUILD_HEADER_LIBRARY)
@@ -89,6 +93,8 @@ LOCAL_SRC_FILES := \
 	radio_mode.cpp
 
 LOCAL_MODULE := libwifi-hal-qcom
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_VENDOR_MODULE := true
 LOCAL_CLANG := true
 LOCAL_SHARED_LIBRARIES += libnetutils liblog libwpa_client libcld80211
@@ -161,6 +167,8 @@ LOCAL_SRC_FILES := \
 
 LOCAL_CFLAGS += -Wall -Werror
 LOCAL_MODULE := libwifi-hal-qcom
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_VENDOR_MODULE := true
 LOCAL_CLANG := true
 LOCAL_SHARED_LIBRARIES += libnetutils liblog
