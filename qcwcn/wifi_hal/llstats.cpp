@@ -54,6 +54,7 @@ LLStatsCommand::LLStatsCommand(wifi_handle handle, int id, u32 vendor_id, u32 su
     memset(&mHandler, 0,sizeof(mHandler));
     mRadioStatsSize = 0;
     mNumRadios = 0;
+    mNumRadiosAllocated = 0;
 }
 
 LLStatsCommand::~LLStatsCommand()
@@ -864,6 +865,11 @@ wifi_error LLStatsCommand::notifyResponse()
     /* Indicate stats to framework only if both radio and iface stats
      * are present */
     if (mResultsParams.radio_stat && mResultsParams.iface_stat) {
+        if (mNumRadios > mNumRadiosAllocated) {
+            ALOGE("%s: Force reset mNumRadios=%d to allocated=%d",
+                    __FUNCTION__, mNumRadios, mNumRadiosAllocated);
+            mNumRadios = mNumRadiosAllocated;
+        }
         mHandler.on_link_stats_results(mRequestId,
                                        mResultsParams.iface_stat, mNumRadios,
                                        mResultsParams.radio_stat);
@@ -882,6 +888,11 @@ void LLStatsCommand::clearStats()
     if(mResultsParams.radio_stat)
     {
         wifi_radio_stat *radioStat = mResultsParams.radio_stat;
+        if (mNumRadios > mNumRadiosAllocated) {
+            ALOGE("%s: Force reset mNumRadios=%d to allocated=%d",
+                    __FUNCTION__, mNumRadios, mNumRadiosAllocated);
+            mNumRadios = mNumRadiosAllocated;
+        }
         for (u8 radio = 0; radio < mNumRadios; radio++) {
             if (radioStat->tx_time_per_levels) {
                 free(radioStat->tx_time_per_levels);
@@ -895,6 +906,7 @@ void LLStatsCommand::clearStats()
         mResultsParams.radio_stat = NULL;
         mRadioStatsSize = 0;
         mNumRadios = 0;
+        mNumRadiosAllocated = 0;
      }
      if(mResultsParams.iface_stat)
      {
@@ -979,6 +991,7 @@ int LLStatsCommand::handleResponse(WifiEvent &reply)
                                                             + mRadioStatsSize);
                     memset(radioStatsBuf, 0, resultsBufSize);
                     mRadioStatsSize += resultsBufSize;
+                    mNumRadiosAllocated ++;
 
                     if (tb_vendor[QCA_WLAN_VENDOR_ATTR_LL_STATS_RADIO_NUM_TX_LEVELS])
                         radioStatsBuf->num_tx_levels = nla_get_u32(tb_vendor[
@@ -1152,10 +1165,19 @@ int LLStatsCommand::handleResponse(WifiEvent &reply)
 
                         memset(pIfaceStat, 0, resultsBufSize);
                         if(mResultsParams.iface_stat) {
-                            memcpy ( pIfaceStat, mResultsParams.iface_stat,
-                                sizeof(wifi_iface_stat));
-                            free (mResultsParams.iface_stat);
-                            mResultsParams.iface_stat = pIfaceStat;
+                            if(resultsBufSize > sizeof(wifi_iface_stat)) {
+                                memcpy ( pIfaceStat, mResultsParams.iface_stat,
+                                    sizeof(wifi_iface_stat));
+                                free (mResultsParams.iface_stat);
+                                mResultsParams.iface_stat = pIfaceStat;
+                            } else {
+                                ALOGE("%s: numPeers = %u, num_rates= %u, "
+                                      "either numPeers or num_rates is invalid",
+                                      __FUNCTION__,numPeers,num_rates);
+                                status = WIFI_ERROR_UNKNOWN;
+                                free(pIfaceStat);
+                                goto cleanup;
+                            }
                         }
                         wifi_peer_info *pPeerStats;
                         pIfaceStat->num_peers = numPeers;
@@ -1257,6 +1279,12 @@ wifi_error wifi_set_link_stats(wifi_interface_handle iface,
     struct nlattr *nl_data;
     interface_info *iinfo = getIfaceInfo(iface);
     wifi_handle handle = getWifiHandle(iface);
+    hal_info *info = getHalInfo(handle);
+
+    if (!(info->supported_feature_set & WIFI_FEATURE_LINK_LAYER_STATS)) {
+        ALOGI("%s: LLS is not supported by driver", __FUNCTION__);
+        return WIFI_ERROR_NOT_SUPPORTED;
+    }
 
     ALOGI("mpdu_size_threshold : %u, aggressive_statistics_gathering : %u",
           params.mpdu_size_threshold, params.aggressive_statistics_gathering);
@@ -1311,6 +1339,12 @@ wifi_error wifi_get_link_stats(wifi_request_id id,
     struct nlattr *nl_data;
     interface_info *iinfo = getIfaceInfo(iface);
     wifi_handle handle = getWifiHandle(iface);
+    hal_info *info = getHalInfo(handle);
+
+    if (!(info->supported_feature_set & WIFI_FEATURE_LINK_LAYER_STATS)) {
+        ALOGI("%s: LLS is not supported by driver", __FUNCTION__);
+        return WIFI_ERROR_NOT_SUPPORTED;
+    }
 
     LLCommand = LLStatsCommand::instance(handle);
     if (LLCommand == NULL) {
@@ -1375,6 +1409,12 @@ wifi_error wifi_clear_link_stats(wifi_interface_handle iface,
     struct nlattr *nl_data;
     interface_info *iinfo = getIfaceInfo(iface);
     wifi_handle handle = getWifiHandle(iface);
+    hal_info *info = getHalInfo(handle);
+
+    if (!(info->supported_feature_set & WIFI_FEATURE_LINK_LAYER_STATS)) {
+        ALOGI("%s: LLS is not supported by driver", __FUNCTION__);
+        return WIFI_ERROR_NOT_SUPPORTED;
+    }
 
     ALOGI("clear_req : %x, stop_req : %u", stats_clear_req_mask, stop_req);
     LLCommand = LLStatsCommand::instance(handle);
