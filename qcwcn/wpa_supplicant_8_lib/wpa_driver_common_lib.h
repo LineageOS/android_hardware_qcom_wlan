@@ -30,16 +30,19 @@
 #ifndef WPA_DRIVER_COMMON_LIB
 #define WPA_DRIVER_COMMON_LIB
 
-#include "android_drv.h"	//needed?
+#include "android_drv.h"
 #define OUI_LEN		3
 #define MAX_CMD_LEN	32
 #define MAC_ADDR_LEN	6
+#define COUNTRY_LEN	4
 
 #define IEEE80211_HE_OPERATION_VHT_OPER_MASK 0x00004000
 #define IEEE80211_HE_OPERATION_CO_LOC_BSS_MASK 0x00008000
 #define IEEE80211_HE_OPERATION_6G_OPER_MASK 0x00020000
 
 #define HE_OPER_VHT_CH_WIDTH_OFFSET 0
+#define HE_OPER_VHT_CENTER_FRQ_SEG0_OFFSET 1
+#define HE_OPER_VHT_CENTER_FRQ_SEG1_OFFSET 2
 #define HE_OPER_VHT_MAX_OFFSET 2
 
 #define HE_OPER_CO_LOCATED_MAX_OFFSET 0
@@ -49,6 +52,53 @@
 #define HE_OPER_6G_PARAMS_SUB_CH_BW_MASK 0X03
 
 #define CHANNEL_BW_INVALID 255
+
+/* Define short names */
+#define GET_STATION_INFO_AKM \
+	QCA_WLAN_VENDOR_ATTR_GET_STATION_INFO_AKM
+#define GET_STATION_INFO_HT_OPERATION \
+	QCA_WLAN_VENDOR_ATTR_GET_STATION_INFO_HT_OPERATION
+#define GET_STATION_INFO_VHT_OPERATION \
+	QCA_WLAN_VENDOR_ATTR_GET_STATION_INFO_VHT_OPERATION
+#define GET_STATION_INFO_REMOTE_LAST_RX_RATE \
+	QCA_WLAN_VENDOR_ATTR_GET_STATION_INFO_REMOTE_LAST_RX_RATE
+#define GET_STATION_INFO_REMOTE_SUPPORTED_MODE \
+	QCA_WLAN_VENDOR_ATTR_GET_STATION_INFO_REMOTE_SUPPORTED_MODE
+#define GET_STATION_INFO_REMOTE_CH_WIDTH \
+	QCA_WLAN_VENDOR_ATTR_GET_STATION_INFO_REMOTE_CH_WIDTH
+#define GET_STATION_INFO_REMOTE_RX_RETRY_COUNT \
+	QCA_WLAN_VENDOR_ATTR_GET_STATION_INFO_REMOTE_RX_RETRY_COUNT
+#define GET_STATION_INFO_REMOTE_RX_BC_MC_COUNT \
+	QCA_WLAN_VENDOR_ATTR_GET_STATION_INFO_REMOTE_RX_BC_MC_COUNT
+#define GET_STATION_INFO_BEACON_IES \
+	QCA_WLAN_VENDOR_ATTR_GET_STATION_INFO_BEACON_IES
+#define GET_STATION_INFO_DRIVER_DISCONNECT_REASON \
+	QCA_WLAN_VENDOR_ATTR_GET_STATION_INFO_DRIVER_DISCONNECT_REASON
+#define GET_STATION_INFO_ASSOC_REQ_IES \
+	QCA_WLAN_VENDOR_ATTR_GET_STATION_INFO_ASSOC_REQ_IES
+#define GET_STATION_INFO_HE_OPERATION \
+	QCA_WLAN_VENDOR_ATTR_GET_STATION_INFO_HE_OPERATION
+#define GET_STATION_INFO_MAX \
+	QCA_WLAN_VENDOR_ATTR_GET_STATION_INFO_MAX
+
+#define GET_STA_INFO_MAC \
+	QCA_WLAN_VENDOR_ATTR_GET_STA_INFO_MAC
+#define GET_STA_INFO_RX_RETRY_COUNT \
+	QCA_WLAN_VENDOR_ATTR_GET_STA_INFO_RX_RETRY_COUNT
+#define GET_STA_INFO_RX_BC_MC_COUNT \
+	QCA_WLAN_VENDOR_ATTR_GET_STA_INFO_RX_BC_MC_COUNT
+#define GET_STA_INFO_TX_RETRY_SUCCEED \
+	QCA_WLAN_VENDOR_ATTR_GET_STA_INFO_TX_RETRY_SUCCEED
+#define GET_STA_INFO_TX_RETRY_EXHAUSTED \
+	QCA_WLAN_VENDOR_ATTR_GET_STA_INFO_TX_RETRY_EXHAUSTED
+#define GET_STA_INFO_TARGET_TX_TOTAL \
+	QCA_WLAN_VENDOR_ATTR_GET_STA_INFO_TARGET_TX_TOTAL
+#define GET_STA_INFO_TARGET_TX_RETRY \
+	QCA_WLAN_VENDOR_ATTR_GET_STA_INFO_TARGET_TX_RETRY
+#define GET_STA_INFO_TARGET_TX_RETRY_EXHAUSTED \
+	QCA_WLAN_VENDOR_ATTR_GET_STA_INFO_TARGET_TX_RETRY_EXHAUSTED
+#define GET_STA_INFO_MAX \
+	QCA_WLAN_VENDOR_ATTR_GET_STA_INFO_MAX
 
 struct bss_info {
 	uint8_t oui[OUI_LEN];
@@ -74,6 +124,7 @@ struct bss_info {
 enum get_info_cmd {
 	GETSTATSBSSINFO = 1,
 	SETCELLSWITCHMODE = 2,
+	GET_DRIVER_SUPPORTED_FEATURES = 3,
 };
 
 struct resp_info {
@@ -83,7 +134,7 @@ struct resp_info {
 	enum get_info_cmd cmd_type;
 	uint8_t mac_addr[MAC_ADDR_LEN];
 	u32 freq;
-	uint8_t country[4];
+	uint8_t country[COUNTRY_LEN];
 };
 
 #define QCA_NL80211_VENDOR_SUBCMD_GET_STATION 121
@@ -100,6 +151,13 @@ struct resp_info {
 #ifndef CHANWIDTH_80P80MHZ
 #define CHANWIDTH_80P80MHZ VHT_CHANWIDTH_80P80MHZ
 #endif /* CHANWIDTH_80P80MHZ */
+
+/* HE channel widths */
+
+#define HE_CHANWIDTH_20MHZ     0
+#define HE_CHANWIDTH_40MHZ     1
+#define HE_CHANWIDTH_80MHZ     2
+#define HE_CHANWIDTH_160MHZ    3
 
 /**
  * enum qca_wlan_vendor_attr_get_station - Sub commands used by
@@ -119,23 +177,6 @@ enum qca_wlan_vendor_attr_get_station {
 	QCA_WLAN_VENDOR_ATTR_GET_STATION_AFTER_LAST,
 	QCA_WLAN_VENDOR_ATTR_GET_STATION_MAX =
 	QCA_WLAN_VENDOR_ATTR_GET_STATION_AFTER_LAST - 1,
-};
-
-/*
-these enum changes are temporary, shall be removed when
-updated wpa_supplicant_8/src/common/qca-vendor.h is available
-*/
-
-enum qca_roam_control_scheme_tmp{
-	QCA_ATTR_ROAM_CONTROL_SCAN_SCHEME_TRIGGERS_TMP = 13,
-};
-
-enum qca_roam_trigger_reasons_tmp {
-	QCA_ROAM_TRIGGER_REASON_USER_TRIGGER_TMP	= 1 << 8,
-	QCA_ROAM_TRIGGER_REASON_DEAUTH_TMP              = 1 << 9,
-	QCA_ROAM_TRIGGER_REASON_IDLE_TMP		= 1 << 10,
-	QCA_ROAM_TRIGGER_REASON_TX_FAILURES_TMP	        = 1 << 11,
-	QCA_ROAM_TRIGGER_REASON_EXTERNAL_SCAN_TMP	= 1 << 12,
 };
 
 /**
@@ -226,10 +267,43 @@ enum qca_wlan_vendor_attr_get_station_info {
 
 #define WMI_MAX_CHAINS (3)
 
+enum qca_vendor_wlan_chan_width {
+	QCA_VENDOR_WLAN_CHAN_WIDTH_20 = 0,
+	QCA_VENDOR_WLAN_CHAN_WIDTH_40 = 1,
+	QCA_VENDOR_WLAN_CHAN_WIDTH_80 = 2,
+	QCA_VENDOR_WLAN_CHAN_WIDTH_80_80 = 3,
+	QCA_VENDOR_WLAN_CHAN_WIDTH_160 = 4,
+};
+
+enum qca_vendor_wlan_802_11_mode {
+	QCA_VENDOR_WLAN_802_11_MODE_B = 0,
+	QCA_VENDOR_WLAN_802_11_MODE_G = 1,
+	QCA_VENDOR_WLAN_802_11_MODE_N = 2,
+	QCA_VENDOR_WLAN_802_11_MODE_A = 3,
+	QCA_VENDOR_WLAN_802_11_MODE_AC = 4,
+	QCA_VENDOR_WLAN_802_11_MODE_AX = 5,
+};
+
+enum qca_vendor_wlan_phy_mode {
+	QCA_VENDOR_WLAN_PHY_MODE_LEGACY = 0,
+	QCA_VENDOR_WLAN_PHY_MODE_HT = 1,
+	QCA_VENDOR_WLAN_PHY_MODE_VHT = 2,
+	QCA_VENDOR_WLAN_PHY_MODE_HE = 3,
+};
+
+struct assoc_req_ie_flags {
+	u8 ht_supported:1;
+	u8 vht_supported:1;
+	u8 he_supported:1;
+};
+
 struct remote_sta_info {
 	u8 num_sta;
-	u8 num_request_sta_info;
-	u8 num_received_sta_info;
+	u8 num_request_vendor_sta_info;
+	u8 num_received_vendor_sta_info;
+	u8 num_request_nl80211_sta_info;
+	u8 num_received_nl80211_sta_info;
+	u8 mac_addr[MAC_ADDR_LEN];
 	u32 rx_retry_pkts;
 	u32 rx_bcmc_pkts;
 	u16 cap;
@@ -256,6 +330,9 @@ struct remote_sta_info {
 			      * received, starting from the Length field */
 	u8 *supp_channels;
 	u32 supported_band;
+	bool show_band;
+	struct assoc_req_ie_flags flags;
+	uint8_t country[COUNTRY_LEN];
 };
 
 #endif
