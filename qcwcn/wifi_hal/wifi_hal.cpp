@@ -1879,6 +1879,24 @@ wifi_error wifi_get_ifaces(wifi_handle handle, int *num,
 {
     hal_info *info = (hal_info *)handle;
 
+    /* In case of dynamic interface add/remove, interface handles need to be
+     * updated so that, interface specific APIs could be instantiated.
+     * Reload here to get interfaces which are dynamically added. */
+
+    if (info->num_interfaces > 0) {
+        for (int i = 0; i < info->num_interfaces; i++)
+            free(info->interfaces[i]);
+        free(info->interfaces);
+        info->interfaces = NULL;
+        info->num_interfaces = 0;
+    }
+
+    wifi_error ret = wifi_init_interfaces(handle);
+    if (ret != WIFI_SUCCESS) {
+        ALOGE("Failed to init interfaces while wifi_get_ifaces");
+        return ret;
+    }
+
     *interfaces = (wifi_interface_handle *)info->interfaces;
     *num = info->num_interfaces;
 
