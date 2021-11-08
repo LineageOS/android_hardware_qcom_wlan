@@ -16,6 +16,24 @@
       "message": "why wasn\u0027t this needed on 18.1?",
       "revId": "f00ea2f590af255a1f27c1503b97666a451ad894",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "c5461a5a_97b55b9c",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 18796
+      },
+      "writtenOn": "2021-11-08T19:04:21Z",
+      "side": 1,
+      "message": "dunno, when i used wlan-caf (18.1). i was getting duplicate errors",
+      "parentUuid": "16e56460_7ca91107",
+      "revId": "f00ea2f590af255a1f27c1503b97666a451ad894",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
