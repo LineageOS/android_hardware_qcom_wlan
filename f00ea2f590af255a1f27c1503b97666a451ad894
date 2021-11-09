@@ -34,6 +34,23 @@
       "parentUuid": "16e56460_7ca91107",
       "revId": "f00ea2f590af255a1f27c1503b97666a451ad894",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "5c5834bd_f8787bd3",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 4550
+      },
+      "writtenOn": "2021-11-09T00:52:16Z",
+      "side": 1,
+      "message": "Not needed once caf repos setup is done",
+      "revId": "f00ea2f590af255a1f27c1503b97666a451ad894",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
