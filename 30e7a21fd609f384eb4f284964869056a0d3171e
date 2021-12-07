@@ -50,6 +50,24 @@
       "message": "\u003e Patch Set 1:\n\u003e \n\u003e \u003e Patch Set 1:\n\u003e  \u003e \n\u003e  \u003e (1 comment)\n\u003e \n\u003e Mike went through and reverted all commits that swapped then over, and dropped all that do it from the chains for devices. figured I\u0027d mirror that here?\n\nWe only reverted s|device_kernel_headers|generated_kernel_headers| changes, i think",
       "revId": "30e7a21fd609f384eb4f284964869056a0d3171e",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "a6ca461c_23d5943f",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 28232
+      },
+      "writtenOn": "2021-12-07T16:32:32Z",
+      "side": 1,
+      "message": "Right. I was going to tell the same. Basically with the build/soong change, device_kernel_headers \u003d\u003d generated_kernel_headers.\n\nHence I feel we should still consider this change. Please correct me if I am wrong.",
+      "parentUuid": "ff381d02_821ab447",
+      "revId": "30e7a21fd609f384eb4f284964869056a0d3171e",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
