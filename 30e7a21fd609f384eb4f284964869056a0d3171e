@@ -85,6 +85,23 @@
       "message": "https://review.lineageos.org/c/LineageOS/android_build/+/317090 - there\u0027s this as well though?\n\nmaybe I misunderstand, feel free to correct me if I\u0027m wrong.",
       "revId": "30e7a21fd609f384eb4f284964869056a0d3171e",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "31959659_66bf129e",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 4550
+      },
+      "writtenOn": "2021-12-10T23:47:06Z",
+      "side": 1,
+      "message": "This isn\u0027t necessary, it only makes sense to do this kind of changes on other repositories that are no longer maintained by qcom. Header deps are automatically replaced at build time",
+      "revId": "30e7a21fd609f384eb4f284964869056a0d3171e",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
