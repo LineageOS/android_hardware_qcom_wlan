@@ -365,7 +365,7 @@ wifi_error wifi_get_firmware_version(wifi_interface_handle iface,
     /* No request id from caller, so generate one and pass it on to the driver.
      * Generate one randomly.
      */
-    requestId = get_requestid();
+    requestId = get_requestid_u8();
 
     wifiLoggerCommand = new WifiLoggerCommand(
                                 wifiHandle,
@@ -426,7 +426,7 @@ wifi_error wifi_get_driver_version(wifi_interface_handle iface,
     /* No request id from caller, so generate one and pass it on to the driver.
      * Generate one randomly.
      */
-    requestId = get_requestid();
+    requestId = get_requestid_u8();
 
     wifiLoggerCommand = new WifiLoggerCommand(
                             wifiHandle,
