@@ -174,6 +174,7 @@ typedef struct hal_info_s {
     wifi_capa capa;
     struct cld80211_ctx *cldctx;
     bool apf_enabled;
+    bool support_nan_ext_cmd;
     pkt_log_version  pkt_log_ver;
 } hal_info;
 
