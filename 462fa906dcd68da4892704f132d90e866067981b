@@ -52,6 +52,24 @@
       "parentUuid": "39076036_31b74958",
       "revId": "462fa906dcd68da4892704f132d90e866067981b",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "edf39851_d4888841",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 28232
+      },
+      "writtenOn": "2022-04-03T18:37:19Z",
+      "side": 1,
+      "message": "Would it be a dirty option if I use something like `service wcnss-service /system/vendor/bin/wcnss_service_prebuilt` in rc file and keep destination binary as `wcnss_service_prebuilt`?",
+      "parentUuid": "4272c532_d5bd0619",
+      "revId": "462fa906dcd68da4892704f132d90e866067981b",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
