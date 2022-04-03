@@ -34,6 +34,24 @@
       "parentUuid": "98e3b5ba_44657559",
       "revId": "462fa906dcd68da4892704f132d90e866067981b",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "4272c532_d5bd0619",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 28232
+      },
+      "writtenOn": "2022-04-03T18:16:53Z",
+      "side": 1,
+      "message": "Dropping from PRODUCT_PACKAGES doesn\u0027t help as it\u0027s still visible in Makefile. Any other suggestions?",
+      "parentUuid": "39076036_31b74958",
+      "revId": "462fa906dcd68da4892704f132d90e866067981b",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
