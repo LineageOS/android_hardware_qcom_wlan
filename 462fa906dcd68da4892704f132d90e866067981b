@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "98e3b5ba_44657559",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 29415
+      },
+      "writtenOn": "2022-04-03T18:05:09Z",
+      "side": 1,
+      "message": "Just don\u0027t put it in PRODUCT_PACKAGES",
+      "revId": "462fa906dcd68da4892704f132d90e866067981b",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    }
+  ]
+}
