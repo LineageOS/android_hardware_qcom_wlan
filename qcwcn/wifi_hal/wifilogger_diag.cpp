@@ -24,6 +24,40 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *
+ *   * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 /* Suppress -Waddress-of-packed-member for new toolchain update.
@@ -2597,14 +2631,14 @@ wifi_error diag_message_handler(hal_info *info, nl_msg *msg)
                     clh = (tAniCLDHdr *)nla_data(tb_vendor[CLD80211_ATTR_DATA]);
                 }
             }
-            if (!clh) {
-                ALOGE("Invalid data received from driver");
-                return WIFI_SUCCESS;
-            }
             if((info->wifihal_ctrl_sock.s > 0) && (genlh->cmd == WLAN_NL_MSG_OEM)) {
                wifihal_ctrl_event_t *ctrl_evt;
                wifihal_mon_sock_t *reg;
 
+               if (!(tb_vendor[CLD80211_ATTR_DATA] || tb_vendor[CLD80211_ATTR_CMD])) {
+                   ALOGE("Invalid oem data received from driver");
+                   return WIFI_ERROR_UNKNOWN;
+               }
                ctrl_evt = (wifihal_ctrl_event_t *)malloc(sizeof(*ctrl_evt) + nlh->nlmsg_len);
 
                if(ctrl_evt == NULL)
@@ -2653,6 +2687,7 @@ wifi_error diag_message_handler(hal_info *info, nl_msg *msg)
                    }
                }
                free(ctrl_evt);
+               return WIFI_SUCCESS;
             }
         }
     } else {
@@ -2660,6 +2695,10 @@ wifi_error diag_message_handler(hal_info *info, nl_msg *msg)
         cmd = wnl->nlh.nlmsg_type;
     }
 
+    if (!clh) {
+         ALOGE("Invalid data received from driver");
+         return WIFI_ERROR_UNKNOWN;
+    }
     /* Check nlmsg_type also to avoid processing unintended msgs */
     if (cmd == ANI_NL_MSG_PUMAC) {
         if (!info->cldctx) {

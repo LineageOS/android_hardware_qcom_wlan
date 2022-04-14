@@ -58,6 +58,10 @@ struct cld80211_ctx {
  * CLD80211_ATTR_META_DATA: Embed meta data for above data. This will  help
  * wlan driver to peek into request message packet without opening up definition
  * of complete request message.
+ * @CLD80211_ATTR_CMD: cld80211 vendor subcommand in this attribute
+ * @CLD80211_ATTR_CMD_TAG_DATA: cld80211 vendor subcommand data is present in
+ * this attribute. It is a nested attribute with sub attributes of specified
+ * vendor sub command.
  *
  * Any new message in future can be added as another attribute
  */
@@ -65,6 +69,8 @@ enum cld80211_attr {
 	CLD80211_ATTR_VENDOR_DATA = 1,
 	CLD80211_ATTR_DATA,
 	CLD80211_ATTR_META_DATA,
+	CLD80211_ATTR_CMD,
+	CLD80211_ATTR_CMD_TAG_DATA,
 
 	__CLD80211_ATTR_AFTER_LAST,
 	CLD80211_ATTR_MAX = __CLD80211_ATTR_AFTER_LAST - 1
@@ -75,7 +81,7 @@ enum cld80211_attr {
  * Retuns valid sock only if socket creation is succesful and cld80211
  * family is present, returns NULL otherwise
  */
-struct cld80211_ctx *cld80211_init();
+struct cld80211_ctx *cld80211_init(void);
 
 /**
  * free the socket created in cld80211_init()
