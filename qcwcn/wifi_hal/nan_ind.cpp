@@ -12,6 +12,40 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *
+ *   * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "sync.h"
@@ -84,6 +118,16 @@ int NanCommand::handleNanIndication()
         NanDiscEngEventInd discEngEventInd;
         memset(&discEngEventInd, 0, sizeof(discEngEventInd));
         res = getNanDiscEngEvent(&discEngEventInd);
+        /* Save the self MAC address received in DE indication event to use it
+         * in Passphrase to PMK calculation. And do not call the handler if the
+         * framework has disabled the self MAC address indication.
+         */
+        if (!res &&
+            (discEngEventInd.event_type == NAN_EVENT_ID_DISC_MAC_ADDR)) {
+            mNanCommandInstance->saveNmi(discEngEventInd.data.mac_addr.addr);
+            if (mNanCommandInstance->mNanDiscAddrIndDisabled)
+                break;
+        }
         if (!res && mHandler.EventDiscEngEvent) {
             (*mHandler.EventDiscEngEvent)(&discEngEventInd);
         }
@@ -417,6 +461,12 @@ int NanCommand::getNanMatch(NanMatchInd *event)
             event->sdea_service_specific_info_len = outputTlv.length;
             memcpy(event->sdea_service_specific_info, outputTlv.value,
                    outputTlv.length);
+            break;
+        case NAN_TLV_TYPE_SERVICE_ID:
+            mNanCommandInstance->saveServiceId(outputTlv.value,
+                                               event->publish_subscribe_id,
+                                               event->requestor_instance_id,
+                                               NAN_ROLE_SUBSCRIBER);
             break;
         default:
             ALOGV("Unknown TLV type skipped");
@@ -998,6 +1048,7 @@ int NanCommand::handleNdpIndication(u32 ndpCmdType, struct nlattr **tb_vendor)
     {
         NanDataPathEndInd *ndpEndInd = NULL;
         u8 num_ndp_ids = 0;
+        u8 i;
 
         if (!tb_vendor[QCA_WLAN_VENDOR_ATTR_NDP_INSTANCE_ID_ARRAY]) {
             ALOGE("%s: QCA_WLAN_VENDOR_ATTR_NDP not found", __FUNCTION__);
@@ -1018,6 +1069,11 @@ int NanCommand::handleNdpIndication(u32 ndpCmdType, struct nlattr **tb_vendor)
             nla_memcpy(ndpEndInd->ndp_instance_id,
                        tb_vendor[QCA_WLAN_VENDOR_ATTR_NDP_INSTANCE_ID_ARRAY],
                        sizeof(u32) * ndpEndInd->num_ndp_instances);
+        }
+        for (i = 0; i < num_ndp_ids; i++) {
+            mNanCommandInstance->deleteServiceId(0,
+                                                 ndpEndInd->ndp_instance_id[i],
+                                                 NAN_ROLE_PUBLISHER);
         }
         if (mHandler.EventDataEnd) {
             (*mHandler.EventDataEnd)(ndpEndInd);
@@ -1108,6 +1164,16 @@ int NanCommand::getNdpRequest(struct nlattr **tb_vendor,
     } else {
         ALOGD("%s: NDP App Info not present", __FUNCTION__);
     }
+
+    if (tb_vendor[QCA_WLAN_VENDOR_ATTR_NDP_SERVICE_ID]) {
+            mNanCommandInstance->saveServiceId((u8 *)nla_data(tb_vendor[QCA_WLAN_VENDOR_ATTR_NDP_SERVICE_ID]),
+                                               event->service_instance_id,
+                                               event->ndp_instance_id,
+                                               NAN_ROLE_PUBLISHER);
+    } else {
+        ALOGD("%s: Service ID not present", __FUNCTION__);
+    }
+
     return WIFI_SUCCESS;
 }
 
@@ -1157,8 +1223,12 @@ int NanCommand::getNdpConfirm(struct nlattr **tb_vendor,
         case NDP_I_MGMT_FRAME_REQUEST_FAILED:
         case NDP_I_MGMT_FRAME_RESPONSE_FAILED:
         case NDP_I_MGMT_FRAME_CONFIRM_FAILED:
+        case NDP_I_MGMT_FRAME_END_REQUEST_FAILED:
         case NDP_I_MGMT_FRAME_SECURITY_INSTALL_FAILED:
             event->reason_code = NAN_STATUS_PROTOCOL_FAILURE;
+            break;
+        case NDP_I_END_FAILED:
+            event->reason_code = NAN_STATUS_INTERNAL_FAILURE;
             break;
         default:
             event->reason_code = (NanStatusType)drv_reason_code;
