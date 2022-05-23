@@ -1734,7 +1734,7 @@ static int wpa_driver_ioctl(struct i802_bss *bss, char *cmd,
 	memset(&ifr, 0, sizeof(ifr));
 	memset(&priv_cmd, 0, sizeof(priv_cmd));
 	os_memcpy(buf, cmd, strlen(cmd) + 1);
-	strlcpy(ifr.ifr_name, bss->ifname, IFNAMSIZ);
+	os_strlcpy(ifr.ifr_name, bss->ifname, IFNAMSIZ);
 	priv_cmd.buf = buf;
 	priv_cmd.used_len = buf_len;
 	priv_cmd.total_len = buf_len;
@@ -5304,6 +5304,11 @@ static int wpa_driver_form_set_mcc_quota_msg(struct i802_bss *bss,
 	}
 
 	mcc_attr_list = nla_nest_start(nlmsg, QCA_WLAN_VENDOR_ATTR_MCC_QUOTA_ENTRIES);
+	if (!mcc_attr_list) {
+		wpa_printf(MSG_ERROR, "mcc_quota: Failed to alloc mcc_attr_list");
+		ret = -ENOMEM;
+		goto fail;
+	}
 
 	for (i = 0; i < entry  && entry <= MCC_QUOTA_ENTRIES_MAX; i++) {
 		/* Nest the (iface ,quota) */
