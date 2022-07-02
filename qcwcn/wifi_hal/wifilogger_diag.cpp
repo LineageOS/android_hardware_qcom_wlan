@@ -896,8 +896,23 @@ static wifi_error process_fw_diag_msg(hal_info *info, u8* buf, u16 length)
     buf += 4;
     length -= 4;
 
-    while (length > (count + sizeof(fw_diag_msg_fixed_hdr_t))) {
+    while ((info && !info->clean_up)
+          && (length > (count + sizeof(fw_diag_msg_fixed_hdr_t)))) {
         diag_msg_fixed_hdr = (fw_diag_msg_fixed_hdr_t *)(buf + count);
+
+        if (diag_msg_fixed_hdr->diag_event_type > WLAN_DIAG_TYPE_LEGACY_MSG) {
+            hdr_size = sizeof(fw_diag_msg_hdr_v2_t);
+        } else {
+            hdr_size = sizeof(fw_diag_msg_hdr_t);
+        }
+
+        if ((count + hdr_size) > length)
+        {
+            ALOGE("process_fw_diag_msg (%d) - possible buffer over access, length=%d count=%d hdr_size=%d",
+                  diag_msg_fixed_hdr->diag_event_type, length, count, hdr_size);
+            return WIFI_ERROR_UNKNOWN;
+        }
+
         switch (diag_msg_fixed_hdr->diag_event_type) {
             case WLAN_DIAG_TYPE_EVENT:
             case WLAN_DIAG_TYPE_EVENT_V2:
@@ -917,6 +932,12 @@ static wifi_error process_fw_diag_msg(hal_info *info, u8* buf, u16 length)
                     hdr_size = sizeof(fw_diag_msg_hdr_v2_t);
                     payload = diag_msg_hdr_v2->payload;
                 }
+                if ((count + hdr_size + payloadlen) > length) {
+                    ALOGE("WLAN_DIAG_TYPE_EVENT - possible buffer over access, length=%d count=%d hdr_size=%d payload len=%d",
+                           length, count, hdr_size, payloadlen);
+                    return WIFI_ERROR_UNKNOWN;
+                }
+
                 switch (id) {
                     case EVENT_WLAN_BT_COEX_BT_SCO_START:
                     case EVENT_WLAN_BT_COEX_BT_SCO_STOP:
@@ -1014,6 +1035,12 @@ static wifi_error process_fw_diag_msg(hal_info *info, u8* buf, u16 length)
                     hdr_size = sizeof(fw_diag_msg_hdr_v2_t);
                     payload = diag_msg_hdr_v2->payload;
                 }
+                if ((count + hdr_size + payloadlen) > length) {
+                    ALOGE("WLAN_DIAG_TYPE_LOG - possible buffer over access, length=%d count=%d hdr_size=%d payload len=%d",
+                           length, count, hdr_size, payloadlen);
+                    return WIFI_ERROR_UNKNOWN;
+                }
+
                 switch (id) {
                 case LOG_WLAN_EXTSCAN_CAPABILITIES:
                     status = process_log_extscan_capabilities(info,
@@ -1036,6 +1063,11 @@ static wifi_error process_fw_diag_msg(hal_info *info, u8* buf, u16 length)
                 payloadlen = diag_msg_hdr->u.msg_hdr.payload_len;
                 hdr_size = sizeof(fw_diag_msg_hdr_t);
                 payload = diag_msg_hdr->payload;
+                if ((count + hdr_size + payloadlen) > length) {
+                    ALOGE("WLAN_DIAG_TYPE_MSG - possible buffer over access, length=%d count=%d hdr_size=%d payload len=%d",
+                           length, count, hdr_size, payloadlen);
+                    return WIFI_ERROR_UNKNOWN;
+                }
                 process_firmware_prints(info, (u8 *)diag_msg_fixed_hdr,
                                        payloadlen + hdr_size);
                 break;
@@ -1046,6 +1078,11 @@ static wifi_error process_fw_diag_msg(hal_info *info, u8* buf, u16 length)
                 payloadlen = diag_msg_hdr_v2->u.msg_hdr.payload_len;
                 hdr_size = sizeof(fw_diag_msg_hdr_v2_t);
                 payload = diag_msg_hdr_v2->payload;
+                if ((count + hdr_size + payloadlen) > length) {
+                    ALOGE("WLAN_DIAG_TYPE_MSG_V2 - possible buffer over access, length=%d count=%d hdr_size=%d payload len=%d",
+                           length, count, hdr_size, payloadlen);
+                    return WIFI_ERROR_UNKNOWN;
+                }
                 process_firmware_prints(info, (u8 *)diag_msg_fixed_hdr,
                                        payloadlen + hdr_size);
                 break;
@@ -1057,6 +1094,11 @@ static wifi_error process_fw_diag_msg(hal_info *info, u8* buf, u16 length)
                 payload = diag_msg_hdr->payload;
                 payloadlen = diag_msg_hdr->u.payload_len;
                 hdr_size = sizeof(fw_diag_msg_hdr_t);
+                if ((count + hdr_size + payloadlen) > length) {
+                    ALOGE("WLAN_DIAG_TYPE_CONFIG - possible buffer over access, length=%d count=%d hdr_size=%d payload len=%d",
+                           length, count, hdr_size, payloadlen);
+                    return WIFI_ERROR_UNKNOWN;
+                }
                 process_firmware_prints(info, (u8 *)diag_msg_hdr,
                                         payloadlen + hdr_size);
             }
@@ -1544,7 +1586,7 @@ static wifi_error populate_rx_aggr_stats(hal_info *info)
     wifi_ring_per_packet_status_entry *pps_entry;
     u32 index = 0;
 
-    while (index < info->rx_buf_size_occupied) {
+    while ((info && !info->clean_up) && (index < info->rx_buf_size_occupied)) {
         pps_entry = (wifi_ring_per_packet_status_entry *)(pRingBufferEntry + 1);
 
         pps_entry->MCS = info->aggr_stats.RxMCS.mcs;
@@ -2381,6 +2423,9 @@ static wifi_error parse_stats_sw_event(hal_info *info,
                        rb_pkt_stats->flags |= PER_PACKET_ENTRY_FLAGS_80211_HEADER;
                       }
                  break;
+                 default:
+                 // TODO: Unexpected PKTLOG types
+                 break;
               }
               if (info->pkt_stats->tx_stats_events &  BIT(PKTLOG_TYPE_TX_STAT)) {
                  /* if bmap_enqueued is 1 ,Handle non aggregated cases */
@@ -2419,7 +2464,7 @@ static wifi_error parse_stats_sw_event(hal_info *info,
            data = (u8*) (data + sizeof(wh_pktlog_hdr_v2_t) + node_pkt_len);
            info->pkt_stats->tx_stats_events = 0;
         }
-    } while (pkt_stats_len > 0);
+    } while ((info && !info->clean_up) && (pkt_stats_len > 0));
     return status;
 }
 
@@ -2556,7 +2601,7 @@ static wifi_error parse_stats(hal_info *info, u8 *data, u32 buflen)
         data += record_len;
         buflen -= record_len;
 
-    } while (buflen > 0);
+    } while ((info && !info->clean_up) && (buflen > 0));
 
     return status;
 }
