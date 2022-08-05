@@ -24,5 +24,7 @@ LOCAL_HEADER_LIBRARIES += libril-qc-qmi-services-headers
 endif #TARGET_USES_QCOM_WCNSS_QMI
 LOCAL_MODULE_TAGS := optional
 LOCAL_CFLAGS += -Wall -Werror
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
 include $(BUILD_EXECUTABLE)
 endif
