@@ -115,7 +115,7 @@ LOCAL_C_INCLUDES += external/libnl-headers
 endif
 
 LOCAL_HEADER_LIBRARIES := libcutils_headers libutils_headers libwifi-hal-ctrl_headers libcld80211_headers
-LOCAL_SANITIZE := cfi signed-integer-overflow unsigned-integer-overflow
+LOCAL_SANITIZE := cfi
 
 LOCAL_LICENSE_KINDS := legacy_not_a_contribution SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-BSD
 LOCAL_LICENSE_CONDITIONS := by_exception_only not_allowed notice
