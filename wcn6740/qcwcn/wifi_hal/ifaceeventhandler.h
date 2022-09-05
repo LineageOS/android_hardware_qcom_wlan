@@ -126,6 +126,7 @@ public:
     virtual wifi_error copyCachedRadarHistory(radar_history_result *resultBuf,
             int resultBufSize, int *numResults);
     virtual void freeCachedRadarHistory();
+    virtual wifi_error getSarVersion(wifi_interface_handle handle);
 };
 
 /**
