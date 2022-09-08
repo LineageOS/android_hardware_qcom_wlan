@@ -8,6 +8,8 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := libcld80211_headers
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)
 LOCAL_VENDOR_MODULE := true
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
 include $(BUILD_HEADER_LIBRARY)
 
 include $(CLEAR_VARS)
@@ -21,5 +23,6 @@ LOCAL_SRC_FILES := cld80211_lib.c
 LOCAL_CFLAGS += -Wall -Werror -Wno-unused-parameter
 LOCAL_HEADER_LIBRARIES := libcld80211_headers
 LOCAL_VENDOR_MODULE := true
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
 include $(BUILD_SHARED_LIBRARY)
-
