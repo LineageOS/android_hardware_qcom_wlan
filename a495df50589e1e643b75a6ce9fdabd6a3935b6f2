@@ -16,6 +16,24 @@
       "message": "wlan interfaces commit doesn\u0027t even come close to applying after refactor. ",
       "revId": "a495df50589e1e643b75a6ce9fdabd6a3935b6f2",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "69480986_e553646b",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 13648
+      },
+      "writtenOn": "2022-10-02T14:11:52Z",
+      "side": 1,
+      "message": "Which one, this? https://review.lineageos.org/c/LineageOS/android_hardware_interfaces/+/339844",
+      "parentUuid": "c5dadb10_fac48480",
+      "revId": "a495df50589e1e643b75a6ce9fdabd6a3935b6f2",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
