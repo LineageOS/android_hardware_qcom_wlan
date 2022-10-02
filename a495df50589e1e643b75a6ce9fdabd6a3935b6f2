@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "c5dadb10_fac48480",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 16185
+      },
+      "writtenOn": "2022-10-02T00:34:39Z",
+      "side": 1,
+      "message": "wlan interfaces commit doesn\u0027t even come close to applying after refactor. ",
+      "revId": "a495df50589e1e643b75a6ce9fdabd6a3935b6f2",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    }
+  ]
+}
