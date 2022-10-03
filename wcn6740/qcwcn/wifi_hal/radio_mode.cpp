@@ -24,6 +24,11 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+
+ *  Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include "sync.h"
@@ -136,7 +141,7 @@ RADIOModeCommand* RADIOModeCommand::instance(wifi_handle handle,
  */
 int RADIOModeCommand::handleEvent(WifiEvent &event)
 {
-    wifi_error ret = WIFI_SUCCESS;
+    wifi_error ret = WIFI_ERROR_UNKNOWN;
     int num_of_mac = 0;
     wifi_mac_info mode_info;
     memset(&mode_info, 0, sizeof(mode_info));
@@ -169,7 +174,8 @@ int RADIOModeCommand::handleEvent(WifiEvent &event)
                      {
                         ALOGE("%s: QCA_WLAN_VENDOR_ATTR_MAC_INFO_MAC_ID"
                                " not found", __FUNCTION__);
-                        return WIFI_ERROR_INVALID_ARGS;
+                        ret = WIFI_ERROR_INVALID_ARGS;
+                        goto cleanup;
                      }
                      mode_info.wlan_mac_id = nla_get_u32(tb2[QCA_WLAN_VENDOR_ATTR_MAC_INFO_MAC_ID]);
                      ALOGV("mac_id[%d]: %d ", num_of_mac, mode_info.wlan_mac_id);
@@ -178,7 +184,8 @@ int RADIOModeCommand::handleEvent(WifiEvent &event)
                      {
                          ALOGE("%s: QCA_WLAN_VENDOR_ATTR_MAC_INFO_BAND"
                                " NOT FOUND", __FUNCTION__);
-                         return WIFI_ERROR_INVALID_ARGS;
+                         ret = WIFI_ERROR_INVALID_ARGS;
+                         goto cleanup;
                      }
                      mode_info.mac_band = (wlan_mac_band) nla_get_u32(tb2[QCA_WLAN_VENDOR_ATTR_MAC_INFO_BAND]);
                      ALOGV("mac_band[%d]: %d ", num_of_mac, mode_info.mac_band);
@@ -203,7 +210,8 @@ int RADIOModeCommand::handleEvent(WifiEvent &event)
                             {
                                 ALOGE("%s: QCA_WLAN_VENDOR_ATTR_MAC_IFACE_INFO_IFINDEX"
                                       " NOT FOUND", __FUNCTION__);
-                                return WIFI_ERROR_INVALID_ARGS;
+                                ret = WIFI_ERROR_INVALID_ARGS;
+                                goto cleanup;
                             }
                             if (if_indextoname(nla_get_u32(tb3[QCA_WLAN_VENDOR_ATTR_MAC_IFACE_INFO_IFINDEX]),
                                                miface_info.iface_name) == NULL)
@@ -217,7 +225,8 @@ int RADIOModeCommand::handleEvent(WifiEvent &event)
                             {
                                 ALOGE("%s: QCA_WLAN_VENDOR_ATTR_MAC_IFACE_INFO_FREQ"
                                       " NOT FOUND", __FUNCTION__);
-                                return WIFI_ERROR_INVALID_ARGS;
+                                ret = WIFI_ERROR_INVALID_ARGS;
+                                goto cleanup;
                             }
                             miface_info.channel = nla_get_u32(tb3[QCA_WLAN_VENDOR_ATTR_MAC_IFACE_INFO_FREQ]);
                             ALOGV("channel[%d]: %d ", num_of_iface, miface_info.channel);
@@ -252,20 +261,29 @@ int RADIOModeCommand::handleEvent(WifiEvent &event)
 
             if (mHandler.on_radio_mode_change && num_of_mac) {
                 (*mHandler.on_radio_mode_change)(mreqId, num_of_mac, mwifi_iface_mac_info);
-                free(mwifi_iface_mac_info);
-                mwifi_iface_mac_info = NULL;
             }
             else {
                   ALOGE("No Callback registered: on radio mode change");
-                  free(mwifi_iface_mac_info);
-                  mwifi_iface_mac_info = NULL;
+                  ret = WIFI_ERROR_UNKNOWN;
+                  goto cleanup;
             }
+            ret = WIFI_SUCCESS;
         }
         break;
 
         default:
             /* Error case should not happen print log */
             ALOGE("%s: Wrong subcmd received %d", __FUNCTION__, mSubcmd);
+    }
+
+cleanup:
+    if (mode_info.iface_info != NULL) {
+       free(mode_info.iface_info);
+       mode_info.iface_info = NULL;
+    }
+    if (mwifi_iface_mac_info != NULL) {
+       free(mwifi_iface_mac_info);
+       mwifi_iface_mac_info = NULL;
     }
 
     return ret;
