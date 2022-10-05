@@ -2633,10 +2633,6 @@ static int check_for_twt_cmd(char **cmd)
 static u64 get_u64_from_string(char *cmd_string, int *ret)
 {
 	u64 val = 0;
-	char *cmd = cmd_string;
-
-	while (*cmd != ' ')
-		cmd++;
 
 	*ret = 0;
 	errno = 0;
@@ -2652,10 +2648,6 @@ static u64 get_u64_from_string(char *cmd_string, int *ret)
 static u32 get_u32_from_string(char *cmd_string, int *ret)
 {
 	u32 val = 0;
-	char *cmd = cmd_string;
-
-	while (*cmd != ' ')
-		cmd++;
 
 	*ret = 0;
 	errno = 0;
@@ -2669,11 +2661,7 @@ static u32 get_u32_from_string(char *cmd_string, int *ret)
 
 static u8 get_u8_from_string(char *cmd_string, int *ret)
 {
-	char *cmd = cmd_string;
 	u8 val = 0;
-
-	while (*cmd != ' ')
-		cmd++;
 
 	*ret = 0;
 	errno = 0;
