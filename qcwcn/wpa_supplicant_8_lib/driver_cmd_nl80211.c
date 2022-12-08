@@ -5950,6 +5950,148 @@ nlmsg_fail:
 	return ret;
 }
 
+static int wpa_driver_set_tx_rx_chains(struct i802_bss *bss, char *cmd,
+				       char *buf, size_t buf_len)
+{
+	struct wpa_driver_nl80211_data *drv;
+	struct nl_msg *nlmsg;
+	struct nlattr *attr;
+	u8 tx_chains, rx_chains;
+	int ret;
+
+	if (!bss || !bss->drv || !cmd) {
+		wpa_printf(MSG_ERROR, "%s:Invalid arguments", __func__);
+		return -EINVAL;
+	}
+	drv = bss->drv;
+	cmd = skip_white_space(cmd);
+	if (*cmd == '\0') {
+		wpa_printf(MSG_ERROR, "tx rx chains values missing");
+		return -EINVAL;
+	}
+	tx_chains = get_u8_from_string(cmd, &ret);
+	if (ret < 0) {
+		wpa_printf(MSG_ERROR, "Invalid tx_chains value");
+		return -EINVAL;
+	}
+	cmd = move_to_next_str(cmd);
+	if (*cmd == '\0') {
+		wpa_printf(MSG_ERROR, "rx chains value missing");
+		return -EINVAL;
+	}
+	rx_chains = get_u8_from_string(cmd, &ret);
+	if (ret < 0) {
+		wpa_printf(MSG_ERROR, "Invalid rx_chains value");
+		return -EINVAL;
+	}
+
+	nlmsg = prepare_vendor_nlmsg(drv, bss->ifname,
+				     QCA_NL80211_VENDOR_SUBCMD_SET_WIFI_CONFIGURATION);
+	if (!nlmsg) {
+		wpa_printf(MSG_ERROR, "Fail to allocate nlmsg for set_tx_rx_chains cmd");
+		return -ENOMEM;
+	}
+
+	attr = nla_nest_start(nlmsg, NL80211_ATTR_VENDOR_DATA);
+	if (!attr) {
+		ret = -ENOMEM;
+		wpa_printf(MSG_ERROR, "Fail to create nl attributes for set_tx_rx_chains cmd");
+		goto nlmsg_fail;
+	}
+	if (nla_put_u8(nlmsg, QCA_WLAN_VENDOR_ATTR_CONFIG_NUM_TX_CHAINS, tx_chains)) {
+		ret = -ENOMEM;
+		wpa_printf(MSG_ERROR, "Fail to put tx_chains value");
+		goto nlmsg_fail;
+	}
+	if (nla_put_u8(nlmsg, QCA_WLAN_VENDOR_ATTR_CONFIG_NUM_RX_CHAINS, rx_chains)) {
+		ret = -ENOMEM;
+		wpa_printf(MSG_ERROR, "Fail to put rx_chains value");
+		goto nlmsg_fail;
+	}
+	nla_nest_end(nlmsg, attr);
+
+	ret = send_nlmsg((struct nl_sock *)drv->global->nl, nlmsg, NULL, NULL);
+	if (ret) {
+		wpa_printf(MSG_ERROR, "Fail to send set_tx_rx_chains nlmsg, error:%d", ret);
+		return ret;
+	}
+	return 0;
+nlmsg_fail:
+	nlmsg_free(nlmsg);
+	return ret;
+}
+
+static int wpa_driver_set_tx_rx_nss(struct i802_bss *bss, char *cmd,
+				    char *buf, size_t buf_len)
+{
+	struct wpa_driver_nl80211_data *drv;
+	struct nl_msg *nlmsg;
+	struct nlattr *attr;
+	u8 tx_nss, rx_nss;
+	int ret;
+
+	if (!bss || !bss->drv || !cmd) {
+		wpa_printf(MSG_ERROR, "%s:Invalid arguments", __func__);
+		return -EINVAL;
+	}
+	drv = bss->drv;
+	cmd = skip_white_space(cmd);
+	if (*cmd == '\0') {
+		wpa_printf(MSG_ERROR, "tx_nss rx_nss values missing");
+		return -EINVAL;
+	}
+	tx_nss = get_u8_from_string(cmd, &ret);
+	if (ret < 0) {
+		wpa_printf(MSG_ERROR, "Invalid tx_nss value");
+		return -EINVAL;
+	}
+	cmd = move_to_next_str(cmd);
+	if (*cmd == '\0') {
+		wpa_printf(MSG_ERROR, "rx_nss value missing");
+		return -EINVAL;
+	}
+	rx_nss = get_u8_from_string(cmd, &ret);
+	if (ret < 0) {
+		wpa_printf(MSG_ERROR, "Invalid rx_nss value");
+		return -EINVAL;
+	}
+
+	nlmsg = prepare_vendor_nlmsg(drv, bss->ifname,
+				     QCA_NL80211_VENDOR_SUBCMD_SET_WIFI_CONFIGURATION);
+	if (!nlmsg) {
+		wpa_printf(MSG_ERROR, "Fail to allocate nlmsg for set_tx_rx_nss cmd");
+		return -ENOMEM;
+	}
+
+	attr = nla_nest_start(nlmsg, NL80211_ATTR_VENDOR_DATA);
+	if (!attr) {
+		ret = -ENOMEM;
+		wpa_printf(MSG_ERROR, "Fail to create nl attributes for set_tx_rx_nss cmd");
+		goto nlmsg_fail;
+	}
+	if (nla_put_u8(nlmsg, QCA_WLAN_VENDOR_ATTR_CONFIG_TX_NSS, tx_nss)) {
+		ret = -ENOMEM;
+		wpa_printf(MSG_ERROR, "Fail to put tx_nss value");
+		goto nlmsg_fail;
+	}
+	if (nla_put_u8(nlmsg, QCA_WLAN_VENDOR_ATTR_CONFIG_RX_NSS, rx_nss)) {
+		ret = -ENOMEM;
+		wpa_printf(MSG_ERROR, "Fail to put rx_nss value");
+		goto nlmsg_fail;
+	}
+	nla_nest_end(nlmsg, attr);
+
+	ret = send_nlmsg((struct nl_sock *)drv->global->nl, nlmsg, NULL, NULL);
+	if (ret) {
+		wpa_printf(MSG_ERROR, "Fail to send set_tx_rx_nss nlmsg, error:%d", ret);
+		return ret;
+	}
+	return 0;
+nlmsg_fail:
+	nlmsg_free(nlmsg);
+	return ret;
+}
+
 int wpa_driver_nl80211_driver_cmd(void *priv, char *cmd, char *buf,
 				  size_t buf_len )
 {
@@ -6256,6 +6398,14 @@ int wpa_driver_nl80211_driver_cmd(void *priv, char *cmd, char *buf,
 		/* Move cmd by string len and space */
 		cmd += 19;
 		return wpa_driver_cmd_send_peer_flush_queue_config(priv, cmd);
+	} else if (os_strncasecmp(cmd, "SET_TX_RX_CHAIN ", 16) == 0) {
+		/* DRIVER SET_TX_RX_CHAIN <TX_CHAINS> <RX_CHAINS> */
+		cmd += 16;
+		return wpa_driver_set_tx_rx_chains(priv, cmd, buf, buf_len);
+	} else if (os_strncasecmp(cmd, "SET_TX_RX_NSS ", 14) == 0) {
+		/* DRIVER SET_TX_RX_NSS <TX_NSS> <RX_NSS> */
+		cmd += 14;
+		return wpa_driver_set_tx_rx_nss(priv, cmd, buf, buf_len);
 	} else if (os_strncasecmp(cmd, "SPATIAL_REUSE ", 14) == 0) {
 		cmd += 14;
 		return wpa_driver_sr_cmd(priv, cmd, buf, buf_len);
