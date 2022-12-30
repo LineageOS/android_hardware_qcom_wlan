@@ -27,7 +27,7 @@
 
  * Changes from Qualcomm Innovation Center are provided under the following license:
 
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -51,6 +51,7 @@ TdlsCommand::TdlsCommand(wifi_handle handle, int id, u32 vendor_id, u32 subcmd)
     memset(&mHandler, 0, sizeof(mHandler));
     memset(&mTDLSgetStatusRspParams, 0, sizeof(wifi_tdls_status));
     mRequestId = 0;
+    memset(&mTDLSgetCaps, 0, sizeof(wifiTdlsCapabilities));
 }
 
 TdlsCommand::~TdlsCommand()

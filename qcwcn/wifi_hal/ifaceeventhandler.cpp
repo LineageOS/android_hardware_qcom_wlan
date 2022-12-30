@@ -27,7 +27,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -203,6 +203,7 @@ wifiEventHandler::wifiEventHandler(wifi_handle handle, int id, u32 subcmd)
     mRequestId = id;
     mSubcmd = subcmd;
     registerHandler(mSubcmd);
+    memset(tb, 0, sizeof(struct nlattr *) * (NL80211_ATTR_MAX + 1));
     ALOGV("wifiEventHandler %p constructed", this);
 }
 
