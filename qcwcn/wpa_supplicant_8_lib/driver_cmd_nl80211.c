@@ -4859,35 +4859,34 @@ static int wpa_driver_twt_cmd_handler(struct wpa_driver_nl80211_data *drv,
 	twt_nl_msg = prepare_nlmsg(drv, ifname, NL80211_CMD_VENDOR,
 				   QCA_NL80211_VENDOR_SUBCMD_CONFIG_TWT, 0);
 	if (!twt_nl_msg) {
-		ret = -EINVAL;
-		goto err_msg;
+		wpa_printf(MSG_ERROR, "Fail to allocate nlmsg for TWT cmd");
+		return -ENOMEM;
 	}
 
 	ret = pack_nlmsg_twt_params(twt_nl_msg, param, twt_oper);
 	if (ret) {
+		ret = -EINVAL;
 		goto err_msg;
 	}
 
-	switch(twt_oper) {
+	switch (twt_oper) {
 	case QCA_WLAN_TWT_GET:
 	case QCA_WLAN_TWT_GET_CAPABILITIES:
 	case QCA_WLAN_TWT_GET_STATS:
 		*status = send_nlmsg((struct nl_sock *)drv->global->nl,
 				     twt_nl_msg, twt_response_handler,
 				     &reply_info);
-		if (*status != 0) {
+		if (*status) {
 			wpa_printf(MSG_ERROR, "Failed to send nlmsg - err %d", *status);
-			ret = -EINVAL;
-			goto err_msg;
+			return -EINVAL;
 		}
 		break;
 	case QCA_WLAN_TWT_CLEAR_STATS:
 		*status = send_nlmsg((struct nl_sock *)drv->global->nl,
 				      twt_nl_msg, NULL, NULL);
-		if (*status != 0) {
+		if (*status) {
 			wpa_printf(MSG_ERROR, "Failed to send nlmsg - err %d", *status);
-			ret = -EINVAL;
-			goto err_msg;
+			return -EINVAL;
 		}
 		break;
 	case QCA_WLAN_TWT_SET:
@@ -4896,17 +4895,16 @@ static int wpa_driver_twt_cmd_handler(struct wpa_driver_nl80211_data *drv,
 	case QCA_WLAN_TWT_RESUME:
 	case QCA_WLAN_TWT_NUDGE:
 	case QCA_WLAN_TWT_SET_PARAM:
-		if(check_wifi_twt_async_feature(drv, ifname) == 0) {
+		if (check_wifi_twt_async_feature(drv, ifname) == 0) {
 			wpa_printf(MSG_ERROR, "Asynchronous TWT Feature is missing");
 			ret = -EINVAL;
 			goto err_msg;
 		} else {
 			*status = send_nlmsg((struct nl_sock *)drv->global->nl,
 					     twt_nl_msg, NULL, NULL);
-			if (*status != 0) {
+			if (*status) {
 				wpa_printf(MSG_ERROR, "Failed to send nlmsg - err %d", *status);
-				ret = -EINVAL;
-				goto err_msg;
+				return -EINVAL;
 			}
 		}
 		break;
@@ -4918,7 +4916,7 @@ static int wpa_driver_twt_cmd_handler(struct wpa_driver_nl80211_data *drv,
 	return ret;
 
 err_msg:
-	wpa_printf(MSG_ERROR, "sent nlmsg - status %d", *status);
+	wpa_printf(MSG_ERROR, "sent nlmsg - status %d", ret);
 	nlmsg_free(twt_nl_msg);
 	return ret;
 }
