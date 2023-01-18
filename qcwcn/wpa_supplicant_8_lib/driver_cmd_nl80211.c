@@ -2693,31 +2693,35 @@ static int check_for_twt_cmd(char **cmd)
 
 static u64 get_u64_from_string(char *cmd_string, int *ret)
 {
-	u64 val = 0;
+	long long val = 0;
+	char *endptr = NULL;
 
 	*ret = 0;
 	errno = 0;
-	val = strtoll(cmd_string, NULL, 10);
-	if (errno == ERANGE || (errno != 0 && val == 0)) {
+	val = strtoll(cmd_string, &endptr, 10);
+	if (errno == ERANGE || (errno != 0 && val == 0) ||
+	    *cmd_string == *endptr || val < 0) {
 		wpa_printf(MSG_ERROR, "invalid value");
 		*ret = -EINVAL;
-        }
-	return val;
+	}
+	return (u64)val;
 }
 
 
 static u32 get_u32_from_string(char *cmd_string, int *ret)
 {
-	u32 val = 0;
+	long val = 0;
+	char *endptr = NULL;
 
 	*ret = 0;
 	errno = 0;
-	val = strtol(cmd_string, NULL, 10);
-	if (errno == ERANGE || (errno != 0 && val == 0)) {
+	val = strtol(cmd_string, &endptr, 10);
+	if (errno == ERANGE || (errno != 0 && val == 0) ||
+	    *cmd_string == *endptr || val < 0) {
 		wpa_printf(MSG_ERROR, "invalid value");
 		*ret = -EINVAL;
-        }
-	return val;
+	}
+	return (u32)val;
 }
 
 static s32 get_s32_from_string(char *cmd_string, int *ret)
@@ -2743,30 +2747,34 @@ static s32 get_s32_from_string(char *cmd_string, int *ret)
 
 static u8 get_u8_from_string(char *cmd_string, int *ret)
 {
-	u8 val = 0;
+	long val = 0;
+	char *endptr = NULL;
 
 	*ret = 0;
 	errno = 0;
-	val = strtol(cmd_string, NULL, 10) & 0xFF;
-	if (errno == ERANGE || (errno != 0 && val == 0)) {
+	val = strtol(cmd_string, &endptr, 10);
+	if (errno == ERANGE || (errno != 0 && val == 0) ||
+	    *cmd_string == *endptr || val < 0) {
 		wpa_printf(MSG_ERROR, "invalid value");
 		*ret = -EINVAL;
-        }
-	return val;
+	}
+	return (u8)(val & 0xFF);
 }
 
 static u16 get_u16_from_string(char *cmd_string, int *ret)
 {
-	u16 val = 0;
+	long val = 0;
+	char *endptr = NULL;
 
 	*ret = 0;
 	errno = 0;
-	val = strtol(cmd_string, NULL, 10) & 0xFFFF;
-	if (errno == ERANGE || (errno != 0 && val == 0)) {
+	val = strtol(cmd_string, &endptr, 10);
+	if (errno == ERANGE || (errno != 0 && val == 0) ||
+	    *cmd_string == *endptr || val < 0) {
 		wpa_printf(MSG_ERROR, "Invalid input to get u16 value");
 		*ret = -EINVAL;
 	}
-	return val;
+	return (u16)(val & 0xFFFF);
 }
 
 char *move_to_next_str(char *cmd)
