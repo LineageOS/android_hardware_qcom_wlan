@@ -4811,10 +4811,8 @@ static int check_wifi_twt_async_feature(struct wpa_driver_nl80211_data *drv,
 	ret = send_nlmsg((struct nl_sock *)drv->global->nl, nlmsg,
 			 features_info_handler, &info);
 
-	if (ret || !info.flags) {
-		nlmsg_free(nlmsg);
+	if (ret || !info.flags)
 		return 0;
-	}
 
 	if (check_feature(QCA_WLAN_VENDOR_FEATURE_TWT_ASYNC_SUPPORT, &info)) {
 		twt_async_support = 1;
