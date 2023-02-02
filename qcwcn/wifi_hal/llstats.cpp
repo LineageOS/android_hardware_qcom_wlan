@@ -1091,24 +1091,6 @@ int LLStatsCommand::handleResponse(WifiEvent &reply)
                     {
                         goto cleanup;
                     }
-
-                    /* Driver/firmware might send this attribute when there
-                     * are no peers connected.
-                     * So that, the event
-                     * QCA_NL80211_VENDOR_SUBCMD_LL_STATS_TYPE_PEERS can be
-                     * avoided.
-                     */
-                    if (tb_vendor[
-                        QCA_WLAN_VENDOR_ATTR_LL_STATS_IFACE_NUM_PEERS])
-                    {
-                        mResultsParams.iface_stat->num_peers =
-                            nla_get_u32(tb_vendor[
-                                QCA_WLAN_VENDOR_ATTR_LL_STATS_IFACE_NUM_PEERS]);
-#ifdef QC_HAL_DEBUG
-                        ALOGV("%s: numPeers is %u\n", __FUNCTION__,
-                                mResultsParams.iface_stat->num_peers);
-#endif
-                    }
                 }
                 break;
 
