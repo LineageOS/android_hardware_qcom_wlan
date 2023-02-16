@@ -977,8 +977,8 @@ wifi_error nan_data_interface_delete(transaction_id id,
     wifi_handle handle = getWifiHandle(iface);
     hal_info *info = getHalInfo(handle);
 
-    if (iface_name == NULL) {
-        ALOGE("%s: Invalid Nan Data Interface Name. \n", __FUNCTION__);
+    if (iface_name == NULL || if_nametoindex(iface_name) == 0) {
+        ALOGE("%s: Invalid/Unknown Nan Data Interface Name. \n", __FUNCTION__);
         return WIFI_ERROR_INVALID_ARGS;
     }
 
@@ -988,11 +988,33 @@ wifi_error nan_data_interface_delete(transaction_id id,
         return WIFI_ERROR_UNKNOWN;
     }
 
+    // NL80211_CMD_DEL_INTERFACE internally takes care of NDP cleanup.
+    if ((check_feature(QCA_WLAN_VENDOR_FEATURE_USE_ADD_DEL_VIRTUAL_INTF_FOR_NDI,
+                       &info->driver_supported_features)) &&
+        if_nametoindex(iface_name)) {
+        wifiConfigCommand = new WiFiConfigCommand(handle,
+                                                  get_requestid(), 0, 0);
+        if (wifiConfigCommand == NULL) {
+            ALOGE("%s: Error wifiConfigCommand NULL", __FUNCTION__);
+            return WIFI_ERROR_UNKNOWN;
+        }
+        wifiConfigCommand->create_generic(NL80211_CMD_DEL_INTERFACE);
+        wifiConfigCommand->put_u32(NL80211_ATTR_IFINDEX,
+                                   if_nametoindex(iface_name));
+        /* Send the NL msg. */
+        wifiConfigCommand->waitForRsp(false);
+        if (wifiConfigCommand->requestEvent() != WIFI_SUCCESS) {
+            ALOGE("%s: Delete intf failed", __FUNCTION__);
+        }
+        delete wifiConfigCommand;
+        return WIFI_SUCCESS;
+    }
+
     ret = nan_initialize_vendor_cmd(iface,
                                     &nanCommand);
     if (ret != WIFI_SUCCESS) {
         ALOGE("%s: Initialization failed", __FUNCTION__);
-        goto delete_ndi;
+        return ret;
     }
 
     /* Add the vendor specific attributes for the NL command. */
@@ -1023,28 +1045,6 @@ wifi_error nan_data_interface_delete(transaction_id id,
 
 cleanup:
     delete nanCommand;
-
-delete_ndi:
-    if ((check_feature(QCA_WLAN_VENDOR_FEATURE_USE_ADD_DEL_VIRTUAL_INTF_FOR_NDI,
-                       &info->driver_supported_features)) &&
-        if_nametoindex(iface_name)) {
-        wifiConfigCommand = new WiFiConfigCommand(handle,
-                                                  get_requestid(), 0, 0);
-        if (wifiConfigCommand == NULL) {
-            ALOGE("%s: Error wifiConfigCommand NULL", __FUNCTION__);
-            return WIFI_ERROR_UNKNOWN;
-        }
-        wifiConfigCommand->create_generic(NL80211_CMD_DEL_INTERFACE);
-        wifiConfigCommand->put_u32(NL80211_ATTR_IFINDEX,
-                                   if_nametoindex(iface_name));
-        /* Send the NL msg. */
-        wifiConfigCommand->waitForRsp(false);
-        if (wifiConfigCommand->requestEvent() != WIFI_SUCCESS) {
-            ALOGE("%s: Delete intf failed", __FUNCTION__);
-        }
-        delete wifiConfigCommand;
-    }
-
     return ret;
 }
 
