@@ -6291,6 +6291,65 @@ fail:
 	return ret;
 }
 
+static int wpa_driver_cfg_listen_interval_cmd(struct i802_bss *bss, char *cmd)
+{
+	struct wpa_driver_nl80211_data *drv;
+	struct nl_msg *nlmsg;
+	struct nlattr *attr;
+	int ret;
+	u32 listen_interval = 0;
+
+	if (!bss || !bss->drv || !cmd) {
+		wpa_printf(MSG_ERROR, "%s:Invalid arguments", __func__);
+		return -EINVAL;
+	}
+	cmd = skip_white_space(cmd);
+	if (*cmd == '\0') {
+		wpa_printf(MSG_ERROR, "listen interval values missing");
+		return -EINVAL;
+	}
+	drv = bss->drv;
+	listen_interval = get_u32_from_string(cmd, &ret);
+	if (ret < 0)
+		return ret;
+	if (listen_interval < CONFIG_LISTEN_INTERVAL_MIN ||
+			listen_interval > CONFIG_LISTEN_INTERVAL_MAX) {
+		wpa_printf(MSG_ERROR, "listen interval values to be in range of %d-%d",
+			CONFIG_LISTEN_INTERVAL_MIN, CONFIG_LISTEN_INTERVAL_MAX);
+		return -EINVAL;
+	}
+	nlmsg = prepare_vendor_nlmsg(drv, bss->ifname,
+				     QCA_NL80211_VENDOR_SUBCMD_SET_WIFI_CONFIGURATION);
+	if (!nlmsg) {
+		wpa_printf(MSG_ERROR, "Fail to allocate nlmsg for Listen Interval cmd");
+		return -ENOMEM;
+	}
+
+	attr = nla_nest_start(nlmsg, NL80211_ATTR_VENDOR_DATA);
+	if (!attr) {
+		ret = -ENOMEM;
+		wpa_printf(MSG_ERROR, "Fail to create Listen Interval cmd nl attribute");
+		goto nlmsg_fail;
+	}
+	if (nla_put_u32(nlmsg, QCA_WLAN_VENDOR_ATTR_CONFIG_LISTEN_INTERVAL, listen_interval)) {
+		ret = -ENOMEM;
+		wpa_printf(MSG_ERROR, "Fail to put listen interval value");
+		goto nlmsg_fail;
+	}
+	nla_nest_end(nlmsg, attr);
+
+	ret = send_nlmsg((struct nl_sock *)drv->global->nl, nlmsg, NULL, NULL);
+	if (ret) {
+		wpa_printf(MSG_ERROR, "Fail to send listen_interval nlmsg, error:%d", ret);
+		return ret;
+	}
+	return 0;
+nlmsg_fail:
+	nlmsg_free(nlmsg);
+	return ret;
+}
+
+
 int wpa_driver_nl80211_driver_cmd(void *priv, char *cmd, char *buf,
 				  size_t buf_len )
 {
@@ -6629,6 +6688,10 @@ int wpa_driver_nl80211_driver_cmd(void *priv, char *cmd, char *buf,
 		 */
 		cmd += 16;
 		return wpa_driver_rate_mask_config(bss, cmd);
+	} else if (os_strncasecmp(cmd, "SET_LISTEN_INTERVAL ", 20) == 0) {
+		/* DRIVER SET_LISTEN_INTERVAL <listen_interval> */
+		cmd += 20;
+		return wpa_driver_cfg_listen_interval_cmd(bss, cmd);
 	} else { /* Use private command */
 		memset(&ifr, 0, sizeof(ifr));
 		memset(&priv_cmd, 0, sizeof(priv_cmd));
