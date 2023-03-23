@@ -122,6 +122,8 @@
 #define GET_STA_INFO_MAX \
 	QCA_WLAN_VENDOR_ATTR_GET_STA_INFO_MAX
 
+#define RATEMASK_PARAMS_TYPE_MAX  4
+
 struct bss_info {
 	uint8_t oui[OUI_LEN];
 	char ssid[MAX_SSID_LEN + 1];
