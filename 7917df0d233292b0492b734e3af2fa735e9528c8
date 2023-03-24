@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "ecb58c51_a258e978",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 13648
+      },
+      "writtenOn": "2023-03-24T12:11:32Z",
+      "side": 1,
+      "message": "Needs a fixup: https://review.lineageos.org/c/LineageOS/android_hardware_qcom_wlan/+/352129",
+      "revId": "7917df0d233292b0492b734e3af2fa735e9528c8",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    }
+  ]
+}
