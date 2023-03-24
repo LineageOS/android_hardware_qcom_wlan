@@ -228,6 +228,10 @@ struct twt_resp_info {
 
 static int wpa_driver_twt_async_resp_event(struct wpa_driver_nl80211_data *drv,
 					   u32 vendor_id, u32 subcmd, u8 *data, size_t len);
+static int wpa_driver_elna_resp_handler(struct resp_info *info, struct nlattr *vendata,
+		                        int datalen);
+static int wpa_driver_tsf_cmd_resp_handler(struct resp_info *info,
+		                           struct nlattr *vendata, int datalen);
 
 /* ============ nl80211 driver extensions ===========  */
 enum csi_state {
@@ -802,6 +806,15 @@ static int handle_response(struct resp_info *info, struct nlattr *vendata,
 	case QCA_NL80211_VENDOR_SUBCMD_SR:
 		os_memset(info->reply_buf, 0, info->reply_buf_len);
 		sr_response_handler(info, vendata, datalen);
+		break;
+	case QCA_NL80211_VENDOR_SUBCMD_GET_WIFI_CONFIGURATION:
+		os_memset(info->reply_buf, 0, info->reply_buf_len);
+		if (info->sub_attr == QCA_WLAN_VENDOR_ATTR_CONFIG_ELNA_BYPASS)
+			wpa_driver_elna_resp_handler(info, vendata, datalen);
+		break;
+	case QCA_NL80211_VENDOR_SUBCMD_TSF:
+		os_memset(info->reply_buf, 0, info->reply_buf_len);
+		wpa_driver_tsf_cmd_resp_handler(info, vendata, datalen);
 		break;
 	default:
 		wpa_printf(MSG_ERROR,"Unsupported response type: %d", info->subcmd);
@@ -4798,10 +4811,8 @@ static int check_wifi_twt_async_feature(struct wpa_driver_nl80211_data *drv,
 	ret = send_nlmsg((struct nl_sock *)drv->global->nl, nlmsg,
 			 features_info_handler, &info);
 
-	if (ret || !info.flags) {
-		nlmsg_free(nlmsg);
+	if (ret || !info.flags)
 		return 0;
-	}
 
 	if (check_feature(QCA_WLAN_VENDOR_FEATURE_TWT_ASYNC_SUPPORT, &info)) {
 		twt_async_support = 1;
@@ -4846,34 +4857,34 @@ static int wpa_driver_twt_cmd_handler(struct wpa_driver_nl80211_data *drv,
 	twt_nl_msg = prepare_nlmsg(drv, ifname, NL80211_CMD_VENDOR,
 				   QCA_NL80211_VENDOR_SUBCMD_CONFIG_TWT, 0);
 	if (!twt_nl_msg) {
-		ret = -EINVAL;
-		goto err_msg;
+		wpa_printf(MSG_ERROR, "Fail to allocate nlmsg for TWT cmd");
+		return -ENOMEM;
 	}
 
 	ret = pack_nlmsg_twt_params(twt_nl_msg, param, twt_oper);
 	if (ret) {
-		nlmsg_free(twt_nl_msg);
+		ret = -EINVAL;
 		goto err_msg;
 	}
 
-	switch(twt_oper) {
+	switch (twt_oper) {
 	case QCA_WLAN_TWT_GET:
 	case QCA_WLAN_TWT_GET_CAPABILITIES:
 	case QCA_WLAN_TWT_GET_STATS:
 		*status = send_nlmsg((struct nl_sock *)drv->global->nl,
 				     twt_nl_msg, twt_response_handler,
 				     &reply_info);
-		if (*status != 0) {
+		if (*status) {
 			wpa_printf(MSG_ERROR, "Failed to send nlmsg - err %d", *status);
-			ret = -EINVAL;
+			return -EINVAL;
 		}
 		break;
 	case QCA_WLAN_TWT_CLEAR_STATS:
 		*status = send_nlmsg((struct nl_sock *)drv->global->nl,
 				      twt_nl_msg, NULL, NULL);
-		if (*status != 0) {
+		if (*status) {
 			wpa_printf(MSG_ERROR, "Failed to send nlmsg - err %d", *status);
-			ret = -EINVAL;
+			return -EINVAL;
 		}
 		break;
 	case QCA_WLAN_TWT_SET:
@@ -4882,15 +4893,16 @@ static int wpa_driver_twt_cmd_handler(struct wpa_driver_nl80211_data *drv,
 	case QCA_WLAN_TWT_RESUME:
 	case QCA_WLAN_TWT_NUDGE:
 	case QCA_WLAN_TWT_SET_PARAM:
-		if(check_wifi_twt_async_feature(drv, ifname) == 0) {
+		if (check_wifi_twt_async_feature(drv, ifname) == 0) {
 			wpa_printf(MSG_ERROR, "Asynchronous TWT Feature is missing");
 			ret = -EINVAL;
+			goto err_msg;
 		} else {
 			*status = send_nlmsg((struct nl_sock *)drv->global->nl,
 					     twt_nl_msg, NULL, NULL);
-			if (*status != 0) {
+			if (*status) {
 				wpa_printf(MSG_ERROR, "Failed to send nlmsg - err %d", *status);
-				ret = -EINVAL;
+				return -EINVAL;
 			}
 		}
 		break;
@@ -4899,9 +4911,11 @@ static int wpa_driver_twt_cmd_handler(struct wpa_driver_nl80211_data *drv,
 		ret = -EINVAL;
 		goto err_msg;
 	}
+	return ret;
 
 err_msg:
-	wpa_printf(MSG_ERROR, "sent nlmsg - status %d", *status);
+	wpa_printf(MSG_ERROR, "sent nlmsg - status %d", ret);
+	nlmsg_free(twt_nl_msg);
 	return ret;
 }
 
@@ -5601,6 +5615,480 @@ int wpa_driver_cmd_send_peer_flush_queue_config(struct i802_bss *bss, char *cmd)
 	return -EINVAL;
 }
 
+static int wpa_driver_check_for_tsf_cmd(char *cmd, enum qca_tsf_cmd *tsf_cmd, u32 *interval)
+{
+	int ret;
+	if (os_strlen(cmd) == 7 &&
+	    os_strncasecmp(cmd, "TSF_GET", 7) == 0) {
+		*tsf_cmd = QCA_TSF_GET;
+		cmd += 7;
+	} else if (os_strncasecmp(cmd, "TSF_SYNC_START", 14) == 0) {
+		cmd += 14;
+		if (*cmd != ' ' && *cmd != '\0')
+			return -EINVAL;
+
+		*tsf_cmd = QCA_TSF_SYNC_START;
+		cmd = skip_white_space(cmd);
+		if (*cmd != '\0') {
+			*interval = get_u32_from_string(cmd, &ret);
+			if (ret < 0) {
+				wpa_printf(MSG_ERROR, "Invalid TSF sync interval");
+				return -EINVAL;
+			}
+		}
+	} else if (os_strlen(cmd) == 13 &&
+		   os_strncasecmp(cmd, "TSF_SYNC_STOP", 13) == 0) {
+		*tsf_cmd = QCA_TSF_SYNC_STOP;
+		cmd += 13;
+	} else
+		return -EINVAL;
+
+	return 0;
+}
+
+static int wpa_driver_tsf_cmd_resp_handler(struct resp_info *info,
+		                           struct nlattr *vendata, int datalen)
+{
+	int ret;
+	struct wpa_driver_nl80211_data *drv;
+	struct nlattr *tsf_attr[QCA_WLAN_VENDOR_ATTR_TSF_MAX + 1];
+	u64 tsf_value = 0, host_time = 0;
+
+	if (!info || !info->drv || !vendata || !datalen) {
+		wpa_printf(MSG_ERROR, "%s:Invalid arguments", __func__);
+		return NL_SKIP;
+	}
+	drv = info->drv;
+	if (nla_parse(tsf_attr, QCA_WLAN_VENDOR_ATTR_TSF_MAX, vendata, datalen, NULL)) {
+		wpa_printf(MSG_ERROR, "TSF response:nla_parse fail");
+		return NL_SKIP;
+	}
+	if (tsf_attr[QCA_WLAN_VENDOR_ATTR_TSF_TIMER_VALUE])
+		tsf_value = nla_get_u64(tsf_attr[QCA_WLAN_VENDOR_ATTR_TSF_TIMER_VALUE]);
+	else {
+		wpa_printf(MSG_ERROR, "TSF response:tsf_value missing");
+		return NL_SKIP;
+	}
+	if (tsf_attr[QCA_WLAN_VENDOR_ATTR_TSF_SOC_TIMER_VALUE])
+		host_time = nla_get_u64(tsf_attr[QCA_WLAN_VENDOR_ATTR_TSF_SOC_TIMER_VALUE]);
+	else {
+		wpa_printf(MSG_ERROR, "TSF response:host_time missing");
+		return NL_SKIP;
+	}
+	ret = os_snprintf(info->reply_buf, info->reply_buf_len,
+			  "tsf_value:%llu host_time:%llu", tsf_value, host_time);
+	if (os_snprintf_error(info->reply_buf_len, ret)) {
+		wpa_printf(MSG_ERROR, "%s:Fail to print buffer", __func__);
+		return -ENOMEM;
+	}
+	wpa_msg(drv->ctx, MSG_INFO, "%s", info->reply_buf);
+	return 0;
+}
+
+static int wpa_driver_tsf_cmd(struct i802_bss *bss, char *cmd, char *buf, size_t buf_len)
+{
+	struct wpa_driver_nl80211_data *drv;
+	struct nl_msg *tsf_nlmsg;
+	struct nlattr *tsf_attr;
+	struct resp_info info;
+	enum qca_tsf_cmd tsf_cmd;
+	int ret;
+	u32 interval = 0;
+
+	if (!bss || !bss->drv || !buf || !buf_len || !cmd) {
+		wpa_printf(MSG_ERROR, "%s:Invalid arguments", __func__);
+		return -EINVAL;
+	}
+	cmd = skip_white_space(cmd);
+	ret = wpa_driver_check_for_tsf_cmd(cmd, &tsf_cmd, &interval);
+	if (ret == -EINVAL) {
+		wpa_printf(MSG_ERROR, "Invalid TSF command:%s", cmd);
+		return ret;
+	}
+	drv = bss->drv;
+	os_memset(&info, 0, sizeof(struct resp_info));
+	os_memset(buf, 0, buf_len);
+	info.reply_buf = buf;
+	info.reply_buf_len = buf_len;
+	info.drv = drv;
+	info.subcmd = QCA_NL80211_VENDOR_SUBCMD_TSF;
+	tsf_nlmsg = prepare_vendor_nlmsg(drv, bss->ifname, QCA_NL80211_VENDOR_SUBCMD_TSF);
+	if (!tsf_nlmsg) {
+		wpa_printf(MSG_ERROR, "Fail to allocate nlmsg for TSF cmd");
+		return -ENOMEM;
+	}
+
+	tsf_attr = nla_nest_start(tsf_nlmsg, NL80211_ATTR_VENDOR_DATA);
+	if (!tsf_attr) {
+		ret = -ENOMEM;
+		wpa_printf(MSG_ERROR, "Fail to create TSF cmd nl attribute");
+		goto nlmsg_fail;
+	}
+	if (nla_put_u32(tsf_nlmsg, QCA_WLAN_VENDOR_ATTR_TSF_CMD, tsf_cmd)) {
+		ret = -ENOMEM;
+		wpa_printf(MSG_ERROR, "Fail to put TSF cmd:%d", tsf_cmd);
+		goto nlmsg_fail;
+	}
+	if (interval > 0) {
+		if (nla_put_u32(tsf_nlmsg, QCA_WLAN_VENDOR_ATTR_TSF_SYNC_INTERVAL, interval)) {
+			ret = -ENOMEM;
+			wpa_printf(MSG_ERROR, "Fail to put TSF sync interval");
+			goto nlmsg_fail;
+		}
+	}
+	nla_nest_end(tsf_nlmsg, tsf_attr);
+	if (tsf_cmd == QCA_TSF_GET)
+		ret = send_nlmsg((struct nl_sock *)drv->global->nl, tsf_nlmsg,
+				 response_handler, &info);
+	else
+		ret = send_nlmsg((struct nl_sock *)drv->global->nl, tsf_nlmsg, NULL, NULL);
+	if (ret) {
+		wpa_printf(MSG_ERROR, "Fail to send TSF cmd(%d) nlmsg, error:%d", tsf_cmd, ret);
+		return -EINVAL;
+	}
+	return 0;
+nlmsg_fail:
+	nlmsg_free(tsf_nlmsg);
+	return ret;
+}
+
+static int wpa_driver_elna_resp_handler(struct resp_info *info, struct nlattr *vendata, int datalen)
+{
+	int ret;
+	u8 mode_status;
+	struct wpa_driver_nl80211_data *drv;
+	struct nlattr *elna_attr[QCA_WLAN_VENDOR_ATTR_CONFIG_MAX + 1];
+	static struct nla_policy config_policy[QCA_WLAN_VENDOR_ATTR_CONFIG_MAX + 1] = {
+		[QCA_WLAN_VENDOR_ATTR_CONFIG_ELNA_BYPASS] = {.type = NLA_U8 },
+	};
+
+	if (!info || !info->reply_buf || !info->drv) {
+		wpa_printf(MSG_ERROR, "%s:Invalid arguments\n", __func__);
+		return -EINVAL;
+	}
+
+	drv = info->drv;
+	if (nla_parse(elna_attr, QCA_WLAN_VENDOR_ATTR_CONFIG_MAX,
+		      vendata, datalen, config_policy)) {
+		wpa_printf(MSG_ERROR, "elna mode parse fail\n");
+		return -EINVAL;
+	}
+
+	if (elna_attr[QCA_WLAN_VENDOR_ATTR_CONFIG_ELNA_BYPASS]) {
+		mode_status = nla_get_u8(elna_attr[QCA_WLAN_VENDOR_ATTR_CONFIG_ELNA_BYPASS]);
+		ret = os_snprintf(info->reply_buf, info->reply_buf_len, "%d", mode_status);
+		if (os_snprintf_error(info->reply_buf_len, ret)) {
+			wpa_printf(MSG_ERROR, "%s:Fail to print buffer\n", __func__);
+			return -EINVAL;
+		}
+		wpa_msg(drv->ctx, MSG_INFO, "%s", info->reply_buf);
+	} else {
+		wpa_printf(MSG_ERROR, "elna mode not found\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int wpa_driver_set_elnabypass_cmd(struct i802_bss *bss, char *cmd, char *buf, size_t buf_len)
+{
+	struct wpa_driver_nl80211_data *drv;
+	struct nl_msg *nlmsg;
+	struct nlattr *attr;
+	int mode, if_index, ret;
+	char *iface;
+
+	if (!bss || !bss->drv || !buf || !buf_len) {
+		wpa_printf(MSG_ERROR, "%s:Invalid arguments\n", __func__);
+		return -EINVAL;
+	}
+
+	drv = bss->drv;
+	cmd = skip_white_space(cmd);
+	if (!cmd) {
+		wpa_printf(MSG_ERROR, "Invalid elna command\n");
+		return -EINVAL;
+	}
+
+	iface = strchr(cmd, ' ');
+	if (!iface) {
+		wpa_printf(MSG_ERROR, "Invalid elna command\n");
+		return -EINVAL;
+	} else {
+		*iface = '\0';
+		iface = cmd;
+	}
+
+	if_index = if_nametoindex(iface);
+	if (if_index == 0) {
+		wpa_printf(MSG_ERROR, "%s:iface not found\n", __func__);
+		return -EINVAL;
+	}
+
+	cmd += strlen(iface) + 1;
+	if (!cmd) {
+		wpa_printf(MSG_ERROR, "Invalid elna command\n");
+		return -EINVAL;
+	}
+
+	cmd = skip_white_space(cmd);
+	mode = atoi(cmd);
+	if (mode < 0 || mode > 2) {
+		wpa_printf(MSG_ERROR, "Invalid elna mode:%d\n", mode);
+		return -EINVAL;
+	}
+
+	nlmsg = prepare_vendor_nlmsg(drv, iface,
+			             QCA_NL80211_VENDOR_SUBCMD_SET_WIFI_CONFIGURATION);
+	if (!nlmsg) {
+		ret = -ENOMEM;
+		wpa_printf(MSG_ERROR, "Fail to allocate nl msg for elna cmd, error:%d\n", ret);
+		return ret;
+	}
+
+	attr = nla_nest_start(nlmsg, NL80211_ATTR_VENDOR_DATA);
+	if (!attr) {
+		ret = -ENOMEM;
+		wpa_printf(MSG_ERROR, "Fail to create elna nl attribute, error:%d\n", ret);
+		goto nlmsg_fail;
+	}
+
+	if (nla_put_u8(nlmsg, QCA_WLAN_VENDOR_ATTR_CONFIG_ELNA_BYPASS, mode)) {
+		ret = -EINVAL;
+		wpa_printf(MSG_ERROR, "Fail to put elna mode\n");
+		goto nlmsg_fail;
+	}
+	nla_nest_end(nlmsg, attr);
+	ret = send_nlmsg((struct nl_sock *)drv->global->nl, nlmsg, NULL, NULL);
+	if (ret) {
+		wpa_printf(MSG_ERROR, "Fail to send elna cmd nlmsg to driver, error:%d\n", ret);
+		return -EINVAL;
+	}
+
+	return 0;
+
+nlmsg_fail:
+	nlmsg_free(nlmsg);
+	return ret;
+}
+
+static int wpa_driver_get_elnabypass_cmd(struct i802_bss *bss, char *cmd, char *buf, size_t buf_len)
+{
+	struct wpa_driver_nl80211_data *drv;
+	struct nl_msg *nlmsg;
+	struct nlattr *attr;
+	struct resp_info info;
+	int if_index, ret;
+	char *iface;
+
+	if (!bss || !bss->drv || !buf || !buf_len) {
+		wpa_printf(MSG_ERROR, "%s:Invalid arguments\n", __func__);
+		return -EINVAL;
+	}
+
+	drv = bss->drv;
+	memset(&info, 0, sizeof(info));
+	info.reply_buf = buf;
+	info.reply_buf_len = buf_len;
+	info.drv = drv;
+	info.subcmd = QCA_NL80211_VENDOR_SUBCMD_GET_WIFI_CONFIGURATION;
+	info.sub_attr = QCA_WLAN_VENDOR_ATTR_CONFIG_ELNA_BYPASS;
+	cmd = skip_white_space(cmd);
+	if (!cmd) {
+		wpa_printf(MSG_ERROR, "Invalid elna command\n");
+		return -EINVAL;
+	}
+
+	iface = strchr(cmd, ' ');
+	if (!iface)
+		iface = cmd;
+	else {
+		*iface = '\0';
+		iface = cmd;
+	}
+
+	if_index = if_nametoindex(iface);
+	if (if_index == 0) {
+		wpa_printf(MSG_ERROR, "%s:iface not found\n", __func__);
+		return -EINVAL;
+	}
+
+	nlmsg = prepare_vendor_nlmsg(drv, iface,
+			             QCA_NL80211_VENDOR_SUBCMD_GET_WIFI_CONFIGURATION);
+	if (!nlmsg) {
+		ret = -ENOMEM;
+		wpa_printf(MSG_ERROR, "Fail to allocate nlmsg for elna cmd, error:%d\n", ret);
+		return ret;
+	}
+
+	attr = nla_nest_start(nlmsg, NL80211_ATTR_VENDOR_DATA);
+	if (!attr) {
+		ret = -ENOMEM;
+		wpa_printf(MSG_ERROR, "Fail to create elna nl attribute, error:%d\n", ret);
+		goto nlmsg_fail;
+	}
+
+	if (nla_put_u8(nlmsg, QCA_WLAN_VENDOR_ATTR_CONFIG_ELNA_BYPASS, 1)) {
+		ret = -EINVAL;
+		wpa_printf(MSG_ERROR, "Fail to put elna mode\n");
+		goto nlmsg_fail;
+	}
+	nla_nest_end(nlmsg, attr);
+	ret = send_nlmsg((struct nl_sock *)drv->global->nl, nlmsg, response_handler, &info);
+	if (ret) {
+		wpa_printf(MSG_ERROR, "Fail to send elna cmd nlmsg to driver, error:%d\n", ret);
+		return -EINVAL;
+	}
+
+	return 0;
+
+nlmsg_fail:
+	nlmsg_free(nlmsg);
+	return ret;
+}
+
+static int wpa_driver_set_tx_rx_chains(struct i802_bss *bss, char *cmd,
+				       char *buf, size_t buf_len)
+{
+	struct wpa_driver_nl80211_data *drv;
+	struct nl_msg *nlmsg;
+	struct nlattr *attr;
+	u8 tx_chains, rx_chains;
+	int ret;
+
+	if (!bss || !bss->drv || !cmd) {
+		wpa_printf(MSG_ERROR, "%s:Invalid arguments", __func__);
+		return -EINVAL;
+	}
+	drv = bss->drv;
+	cmd = skip_white_space(cmd);
+	if (*cmd == '\0') {
+		wpa_printf(MSG_ERROR, "tx rx chains values missing");
+		return -EINVAL;
+	}
+	tx_chains = get_u8_from_string(cmd, &ret);
+	if (ret < 0) {
+		wpa_printf(MSG_ERROR, "Invalid tx_chains value");
+		return -EINVAL;
+	}
+	cmd = move_to_next_str(cmd);
+	if (*cmd == '\0') {
+		wpa_printf(MSG_ERROR, "rx chains value missing");
+		return -EINVAL;
+	}
+	rx_chains = get_u8_from_string(cmd, &ret);
+	if (ret < 0) {
+		wpa_printf(MSG_ERROR, "Invalid rx_chains value");
+		return -EINVAL;
+	}
+
+	nlmsg = prepare_vendor_nlmsg(drv, bss->ifname,
+				     QCA_NL80211_VENDOR_SUBCMD_SET_WIFI_CONFIGURATION);
+	if (!nlmsg) {
+		wpa_printf(MSG_ERROR, "Fail to allocate nlmsg for set_tx_rx_chains cmd");
+		return -ENOMEM;
+	}
+
+	attr = nla_nest_start(nlmsg, NL80211_ATTR_VENDOR_DATA);
+	if (!attr) {
+		ret = -ENOMEM;
+		wpa_printf(MSG_ERROR, "Fail to create nl attributes for set_tx_rx_chains cmd");
+		goto nlmsg_fail;
+	}
+	if (nla_put_u8(nlmsg, QCA_WLAN_VENDOR_ATTR_CONFIG_NUM_TX_CHAINS, tx_chains)) {
+		ret = -ENOMEM;
+		wpa_printf(MSG_ERROR, "Fail to put tx_chains value");
+		goto nlmsg_fail;
+	}
+	if (nla_put_u8(nlmsg, QCA_WLAN_VENDOR_ATTR_CONFIG_NUM_RX_CHAINS, rx_chains)) {
+		ret = -ENOMEM;
+		wpa_printf(MSG_ERROR, "Fail to put rx_chains value");
+		goto nlmsg_fail;
+	}
+	nla_nest_end(nlmsg, attr);
+
+	ret = send_nlmsg((struct nl_sock *)drv->global->nl, nlmsg, NULL, NULL);
+	if (ret) {
+		wpa_printf(MSG_ERROR, "Fail to send set_tx_rx_chains nlmsg, error:%d", ret);
+		return ret;
+	}
+	return 0;
+nlmsg_fail:
+	nlmsg_free(nlmsg);
+	return ret;
+}
+
+static int wpa_driver_set_tx_rx_nss(struct i802_bss *bss, char *cmd,
+				    char *buf, size_t buf_len)
+{
+	struct wpa_driver_nl80211_data *drv;
+	struct nl_msg *nlmsg;
+	struct nlattr *attr;
+	u8 tx_nss, rx_nss;
+	int ret;
+
+	if (!bss || !bss->drv || !cmd) {
+		wpa_printf(MSG_ERROR, "%s:Invalid arguments", __func__);
+		return -EINVAL;
+	}
+	drv = bss->drv;
+	cmd = skip_white_space(cmd);
+	if (*cmd == '\0') {
+		wpa_printf(MSG_ERROR, "tx_nss rx_nss values missing");
+		return -EINVAL;
+	}
+	tx_nss = get_u8_from_string(cmd, &ret);
+	if (ret < 0) {
+		wpa_printf(MSG_ERROR, "Invalid tx_nss value");
+		return -EINVAL;
+	}
+	cmd = move_to_next_str(cmd);
+	if (*cmd == '\0') {
+		wpa_printf(MSG_ERROR, "rx_nss value missing");
+		return -EINVAL;
+	}
+	rx_nss = get_u8_from_string(cmd, &ret);
+	if (ret < 0) {
+		wpa_printf(MSG_ERROR, "Invalid rx_nss value");
+		return -EINVAL;
+	}
+
+	nlmsg = prepare_vendor_nlmsg(drv, bss->ifname,
+				     QCA_NL80211_VENDOR_SUBCMD_SET_WIFI_CONFIGURATION);
+	if (!nlmsg) {
+		wpa_printf(MSG_ERROR, "Fail to allocate nlmsg for set_tx_rx_nss cmd");
+		return -ENOMEM;
+	}
+
+	attr = nla_nest_start(nlmsg, NL80211_ATTR_VENDOR_DATA);
+	if (!attr) {
+		ret = -ENOMEM;
+		wpa_printf(MSG_ERROR, "Fail to create nl attributes for set_tx_rx_nss cmd");
+		goto nlmsg_fail;
+	}
+	if (nla_put_u8(nlmsg, QCA_WLAN_VENDOR_ATTR_CONFIG_TX_NSS, tx_nss)) {
+		ret = -ENOMEM;
+		wpa_printf(MSG_ERROR, "Fail to put tx_nss value");
+		goto nlmsg_fail;
+	}
+	if (nla_put_u8(nlmsg, QCA_WLAN_VENDOR_ATTR_CONFIG_RX_NSS, rx_nss)) {
+		ret = -ENOMEM;
+		wpa_printf(MSG_ERROR, "Fail to put rx_nss value");
+		goto nlmsg_fail;
+	}
+	nla_nest_end(nlmsg, attr);
+
+	ret = send_nlmsg((struct nl_sock *)drv->global->nl, nlmsg, NULL, NULL);
+	if (ret) {
+		wpa_printf(MSG_ERROR, "Fail to send set_tx_rx_nss nlmsg, error:%d", ret);
+		return ret;
+	}
+	return 0;
+nlmsg_fail:
+	nlmsg_free(nlmsg);
+	return ret;
+}
+
 int wpa_driver_nl80211_driver_cmd(void *priv, char *cmd, char *buf,
 				  size_t buf_len )
 {
@@ -5907,9 +6395,31 @@ int wpa_driver_nl80211_driver_cmd(void *priv, char *cmd, char *buf,
 		/* Move cmd by string len and space */
 		cmd += 19;
 		return wpa_driver_cmd_send_peer_flush_queue_config(priv, cmd);
+	} else if (os_strncasecmp(cmd, "SET_TX_RX_CHAIN ", 16) == 0) {
+		/* DRIVER SET_TX_RX_CHAIN <TX_CHAINS> <RX_CHAINS> */
+		cmd += 16;
+		return wpa_driver_set_tx_rx_chains(priv, cmd, buf, buf_len);
+	} else if (os_strncasecmp(cmd, "SET_TX_RX_NSS ", 14) == 0) {
+		/* DRIVER SET_TX_RX_NSS <TX_NSS> <RX_NSS> */
+		cmd += 14;
+		return wpa_driver_set_tx_rx_nss(priv, cmd, buf, buf_len);
 	} else if (os_strncasecmp(cmd, "SPATIAL_REUSE ", 14) == 0) {
 		cmd += 14;
 		return wpa_driver_sr_cmd(priv, cmd, buf, buf_len);
+	} else if (os_strncasecmp(cmd, "SET_ELNABYPASS_MODE ", 20) == 0) {
+		cmd += 20;
+		return wpa_driver_set_elnabypass_cmd(priv, cmd, buf, buf_len);
+	} else if (os_strncasecmp(cmd, "GET_ELNABYPASS_MODE ", 20) == 0) {
+		cmd += 20;
+		return wpa_driver_get_elnabypass_cmd(priv, cmd, buf, buf_len);
+	} else if (os_strncasecmp(cmd, "TSF_CONFIG ", 11) == 0) {
+		/* DRIVER TSF_CONFIG TSF_SYNC_START (DEFAULT SYNC INTERVAL)
+		 * DRIVER TSF_CONFIG TSF_SYNC_START <SYNC INTERVAL>
+		 * DRIVER TSF_CONFIG TSF_SYNC_STOP
+		 * DRIVER TSF_CONFIG TSF_GET
+		 */
+		cmd += 11;
+		return wpa_driver_tsf_cmd(priv, cmd, buf, buf_len);
 	} else { /* Use private command */
 		memset(&ifr, 0, sizeof(ifr));
 		memset(&priv_cmd, 0, sizeof(priv_cmd));
