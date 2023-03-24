@@ -5676,7 +5676,7 @@ static int wpa_driver_tsf_cmd_resp_handler(struct resp_info *info,
 		return NL_SKIP;
 	}
 	ret = os_snprintf(info->reply_buf, info->reply_buf_len,
-			  "tsf_value:%llu host_time:%llu", tsf_value, host_time);
+			  "tsf_value:%lul host_time:%lul", tsf_value, host_time);
 	if (os_snprintf_error(info->reply_buf_len, ret)) {
 		wpa_printf(MSG_ERROR, "%s:Fail to print buffer", __func__);
 		return -ENOMEM;
