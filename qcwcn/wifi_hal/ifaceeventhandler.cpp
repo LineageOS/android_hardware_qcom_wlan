@@ -762,9 +762,14 @@ wifi_error WifihalGeneric::wifi_parse_radio_combinations_matrix() {
     u8 *buff_ptr;
 
     static struct nla_policy
-        policy[QCA_WLAN_VENDOR_ATTR_RADIO_MATRIX_MAX + 1] = {
-            [QCA_WLAN_VENDOR_ATTR_RADIO_MATRIX_SUPPORTED_CFGS] =
-                                                { .type = NLA_NESTED},
+        radio_combination_policy[QCA_WLAN_VENDOR_ATTR_RADIO_COMBINATIONS_MAX + 1] = {
+            [QCA_WLAN_VENDOR_ATTR_RADIO_COMBINATIONS_CFGS] = { .type = NLA_NESTED },
+        };
+
+    static struct nla_policy
+        radio_cfg_policy[QCA_WLAN_VENDOR_ATTR_SUPPORTED_RADIO_CFG_MAX + 1] = {
+            [QCA_WLAN_VENDOR_ATTR_SUPPORTED_RADIO_CFG_BAND] = { .type = NLA_U32 },
+            [QCA_WLAN_VENDOR_ATTR_SUPPORTED_RADIO_CFG_ANTENNA] = { .type = NLA_U8 },
         };
 
     if (nla_parse(tbVendor, QCA_WLAN_VENDOR_ATTR_RADIO_MATRIX_MAX,
@@ -790,7 +795,7 @@ wifi_error WifihalGeneric::wifi_parse_radio_combinations_matrix() {
             rem) {
         if (nla_parse_nested(radio_combination,
                     QCA_WLAN_VENDOR_ATTR_RADIO_COMBINATIONS_MAX,
-                    attr, policy)) {
+                    attr, radio_combination_policy)) {
             ALOGI("%s: nla_parse_nested radio combination fail", __FUNCTION__);
             continue;
         }
@@ -803,7 +808,7 @@ wifi_error WifihalGeneric::wifi_parse_radio_combinations_matrix() {
                 rem_radio) {
             if (nla_parse_nested(radio_cfg,
                         QCA_WLAN_VENDOR_ATTR_SUPPORTED_RADIO_CFG_MAX,
-                        attr_cfg, policy)) {
+                        attr_cfg, radio_cfg_policy)) {
                 ALOGI("%s: nla_parse_nested radio cfg attr fail", __FUNCTION__);
                 continue;
             }
