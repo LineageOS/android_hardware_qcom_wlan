@@ -79,7 +79,8 @@ void wpa_msg_handler(struct wpa_driver_nl80211_data *drv,
 {
 	if (subcmd == QCA_NL80211_VENDOR_SUBCMD_CONFIG_TWT ||
 	    subcmd == QCA_NL80211_VENDOR_SUBCMD_OEM_DATA ||
-	    subcmd == QCA_NL80211_VENDOR_SUBCMD_SR) {
+	    subcmd == QCA_NL80211_VENDOR_SUBCMD_SR ||
+	    subcmd == QCA_NL80211_VENDOR_SUBCMD_LL_STATS_GET) {
 		wpa_msg(drv->ctx, MSG_INFO, "%s", msg);
 	}
 }
