@@ -6089,6 +6089,267 @@ nlmsg_fail:
 	return ret;
 }
 
+static int string_to_bitmap(u32 *dest, size_t dlen, char *src)
+{
+	int i, idx;
+	u8 rem;
+	size_t slen = 0;
+	size_t max_len_per_idx = sizeof(u32) * 2;
+	char buff[(sizeof(u32) * 2) + 1] = {0};
+	char *sptr;
+	char *endptr = NULL;
+
+	if (strncasecmp(src, "0X", 2) == 0)
+		src += 2;
+
+	sptr = src;
+
+	while (*sptr && *sptr != ' ') {
+		sptr++;
+		slen++;
+	}
+
+	idx = (slen / max_len_per_idx) + ((slen % max_len_per_idx) > 0 ? 1 : 0);
+
+	if (idx > dlen) {
+		wpa_printf(MSG_ERROR, "rate_mask : src is too long");
+		return -EINVAL;
+	}
+
+	for (i = (idx - 1); i >= 0 ; i--) {
+		rem = (slen % max_len_per_idx);
+
+		if (rem > 0) {
+			memcpy(buff, src, rem);
+			src += rem;
+			slen -= rem;
+		} else if ((slen / max_len_per_idx) > 0) {
+			memcpy(buff, src, max_len_per_idx);
+			src += max_len_per_idx;
+			slen -= max_len_per_idx;
+		}
+
+		dest[i] = strtol(buff, &endptr, 16);
+		if (errno == ERANGE || (errno != 0 && dest[i] == 0) ||
+		    *buff == *endptr) {
+			wpa_printf(MSG_ERROR,
+				   "rate_mask:invalid value\n");
+			return -EINVAL;
+		}
+
+		memset(buff, 0, sizeof(buff));
+	}
+
+	return 0;
+}
+
+/**
+ *wpa_driver_rate_mask_config()- Sends the ratemask params to the driver.
+ *
+ * @bss: nl data
+ * @cmd: Ratemask vendor command
+ *
+ * Return: returns 0 on Success, error code on invalid response.
+ */
+static int wpa_driver_rate_mask_config(struct i802_bss *bss, char *cmd)
+{
+	struct wpa_driver_nl80211_data *drv = bss->drv;
+	struct nl_msg *nlmsg = NULL;
+	struct nlattr *attr, *mask_attr_list;
+	struct nlattr *mask_list;
+	int ret = -EINVAL, status = 0;
+	u32 buffer[RATEMASK_PARAMS_TYPE_MAX] = {0};
+	u8 type, value;
+	int i = 0;
+
+	cmd = skip_white_space(cmd);
+
+	nlmsg = prepare_vendor_nlmsg(drv, bss->ifname,
+				     QCA_NL80211_VENDOR_SUBCMD_RATEMASK_CONFIG);
+	if (!nlmsg) {
+		wpa_printf(MSG_ERROR,
+			   "rate_mask: Failed to allocate nl message");
+		return -ENOMEM;
+	}
+
+	attr = nla_nest_start(nlmsg, NL80211_ATTR_VENDOR_DATA);
+	if (!attr) {
+		wpa_printf(MSG_ERROR, "rate_mask: Failed to alloc nlattr");
+		ret = -ENOMEM;
+		goto fail;
+	}
+
+	mask_attr_list =
+	       nla_nest_start(nlmsg, QCA_WLAN_VENDOR_ATTR_RATEMASK_PARAMS_LIST);
+	if (!mask_attr_list) {
+		wpa_printf(MSG_ERROR, "rate_mask: Failed alloc mask_attr_list");
+		ret = -ENOMEM;
+		goto fail;
+	}
+
+	do {
+		mask_list =
+		      nla_nest_start(nlmsg, i++);
+		if (!mask_list) {
+			wpa_printf(MSG_ERROR,
+				   "rate_mask: Failed alloc mask_list");
+			ret = -ENOMEM;
+			goto fail;
+		}
+
+		if (os_strncasecmp(cmd, "phymode ", 8) == 0) {
+			cmd += 8;
+			cmd = skip_white_space(cmd);
+		} else {
+			wpa_printf(MSG_ERROR, "rate_mask:Invalid phymode");
+			ret = -EINVAL;
+			goto fail;
+		}
+
+		value = get_u8_from_string(cmd, &status);
+
+		if (status < 0) {
+			wpa_printf(MSG_ERROR, "rate_mask: Invalid type");
+			ret = -EINVAL;
+			goto fail;
+		}
+
+		switch (value) {
+		case 0:
+			type = QCA_WLAN_RATEMASK_PARAMS_TYPE_CCK_OFDM;
+			break;
+		case 1:
+			type = QCA_WLAN_RATEMASK_PARAMS_TYPE_HT;
+			break;
+		case 2:
+			type = QCA_WLAN_RATEMASK_PARAMS_TYPE_VHT;
+			break;
+		case 3:
+			type = QCA_WLAN_RATEMASK_PARAMS_TYPE_HE;
+			break;
+		default:
+			wpa_printf(MSG_ERROR,
+				   "rate_mask: Invalid rate_mask type");
+			ret = -EINVAL;
+			goto fail;
+		}
+
+		cmd = move_to_next_str(cmd);
+
+		if (os_strncasecmp(cmd, "ratemask ", 9) == 0) {
+			cmd += 9;
+			cmd = skip_white_space(cmd);
+			ret = string_to_bitmap(buffer, RATEMASK_PARAMS_TYPE_MAX,
+					       cmd);
+			if (ret != 0) {
+				wpa_printf(MSG_ERROR,
+					   "rate_mask:str to bitmap conv fail");
+				goto fail;
+			}
+		} else {
+			wpa_printf(MSG_ERROR, "rate_mask:Invalid ratemask");
+			ret = -EINVAL;
+			goto fail;
+		}
+
+		ret = nla_put_u8(nlmsg,
+				 QCA_WLAN_VENDOR_ATTR_RATEMASK_PARAMS_TYPE,
+				 type);
+		if (ret) {
+			wpa_printf(MSG_ERROR,
+				   "Failed to add rate_mask_type attr %d", ret);
+			goto fail;
+		}
+
+		ret = nla_put(nlmsg,
+			      QCA_WLAN_VENDOR_ATTR_RATEMASK_PARAMS_BITMAP,
+			      sizeof(buffer), buffer);
+		if (ret) {
+			wpa_printf(MSG_ERROR,
+				   "rate_mask: Failed bitmap attr %d", ret);
+			goto fail;
+		}
+
+		cmd = move_to_next_str(cmd);
+		memset(buffer, 0, sizeof(buffer));
+
+		nla_nest_end(nlmsg, mask_list);
+
+	} while (os_strncasecmp(cmd, "phymode ", 8) == 0);
+
+	nla_nest_end(nlmsg, mask_attr_list);
+	nla_nest_end(nlmsg, attr);
+
+	ret = send_nlmsg((struct nl_sock *)drv->global->nl, nlmsg, NULL, NULL);
+
+	if (ret)
+		wpa_printf(MSG_ERROR, "rate_mask: Error sending nlmsg %d", ret);
+
+	return ret;
+fail:
+	nlmsg_free(nlmsg);
+	return ret;
+}
+
+static int wpa_driver_cfg_listen_interval_cmd(struct i802_bss *bss, char *cmd)
+{
+	struct wpa_driver_nl80211_data *drv;
+	struct nl_msg *nlmsg;
+	struct nlattr *attr;
+	int ret;
+	u32 listen_interval = 0;
+
+	if (!bss || !bss->drv || !cmd) {
+		wpa_printf(MSG_ERROR, "%s:Invalid arguments", __func__);
+		return -EINVAL;
+	}
+	cmd = skip_white_space(cmd);
+	if (*cmd == '\0') {
+		wpa_printf(MSG_ERROR, "listen interval values missing");
+		return -EINVAL;
+	}
+	drv = bss->drv;
+	listen_interval = get_u32_from_string(cmd, &ret);
+	if (ret < 0)
+		return ret;
+	if (listen_interval < CONFIG_LISTEN_INTERVAL_MIN ||
+			listen_interval > CONFIG_LISTEN_INTERVAL_MAX) {
+		wpa_printf(MSG_ERROR, "listen interval values to be in range of %d-%d",
+			CONFIG_LISTEN_INTERVAL_MIN, CONFIG_LISTEN_INTERVAL_MAX);
+		return -EINVAL;
+	}
+	nlmsg = prepare_vendor_nlmsg(drv, bss->ifname,
+				     QCA_NL80211_VENDOR_SUBCMD_SET_WIFI_CONFIGURATION);
+	if (!nlmsg) {
+		wpa_printf(MSG_ERROR, "Fail to allocate nlmsg for Listen Interval cmd");
+		return -ENOMEM;
+	}
+
+	attr = nla_nest_start(nlmsg, NL80211_ATTR_VENDOR_DATA);
+	if (!attr) {
+		ret = -ENOMEM;
+		wpa_printf(MSG_ERROR, "Fail to create Listen Interval cmd nl attribute");
+		goto nlmsg_fail;
+	}
+	if (nla_put_u32(nlmsg, QCA_WLAN_VENDOR_ATTR_CONFIG_LISTEN_INTERVAL, listen_interval)) {
+		ret = -ENOMEM;
+		wpa_printf(MSG_ERROR, "Fail to put listen interval value");
+		goto nlmsg_fail;
+	}
+	nla_nest_end(nlmsg, attr);
+
+	ret = send_nlmsg((struct nl_sock *)drv->global->nl, nlmsg, NULL, NULL);
+	if (ret) {
+		wpa_printf(MSG_ERROR, "Fail to send listen_interval nlmsg, error:%d", ret);
+		return ret;
+	}
+	return 0;
+nlmsg_fail:
+	nlmsg_free(nlmsg);
+	return ret;
+}
+
+
 int wpa_driver_nl80211_driver_cmd(void *priv, char *cmd, char *buf,
 				  size_t buf_len )
 {
@@ -6420,6 +6681,17 @@ int wpa_driver_nl80211_driver_cmd(void *priv, char *cmd, char *buf,
 		 */
 		cmd += 11;
 		return wpa_driver_tsf_cmd(priv, cmd, buf, buf_len);
+	} else if (os_strncasecmp(cmd, "SET_TX_RATEMASK ", 16) == 0) {
+		/*
+		 * DRIVER SET_TX_RATEMASK phymode <phy_mode> ratemask
+		 * <txrate_mask>…phymode <phy_mode> ratemask <tx_rate_mask>
+		 */
+		cmd += 16;
+		return wpa_driver_rate_mask_config(bss, cmd);
+	} else if (os_strncasecmp(cmd, "SET_LISTEN_INTERVAL ", 20) == 0) {
+		/* DRIVER SET_LISTEN_INTERVAL <listen_interval> */
+		cmd += 20;
+		return wpa_driver_cfg_listen_interval_cmd(bss, cmd);
 	} else { /* Use private command */
 		memset(&ifr, 0, sizeof(ifr));
 		memset(&priv_cmd, 0, sizeof(priv_cmd));
