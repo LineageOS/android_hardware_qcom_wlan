@@ -43,7 +43,7 @@
 #include <netlink/object-api.h>
 #include <netlink/netlink.h>
 #include <netlink/socket.h>
-#include "wifi_hal.h"
+#include <hardware_legacy/wifi_hal.h>
 #include <bits/in_addr.h>
 
 #define INET6_ADDRSTRLEN 46
