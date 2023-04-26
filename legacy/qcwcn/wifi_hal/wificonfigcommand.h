@@ -38,7 +38,7 @@
 #define PRINTF_FORMAT(a,b)
 #define STRUCT_PACKED
 #endif
-#include "wifi_config.h"
+#include <hardware_legacy/wifi_config.h>
 
 #ifdef __cplusplus
 extern "C"
