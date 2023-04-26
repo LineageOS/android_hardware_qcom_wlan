@@ -30,7 +30,7 @@
 #define __WIFI_HAL_WIFILOGGER_DIAG_H__
 
 #include "common.h"
-#include "wifi_hal.h"
+#include <hardware_legacy/wifi_hal.h>
 #include "wifilogger_event_defs.h"
 
 #include <netlink/genl/genl.h>

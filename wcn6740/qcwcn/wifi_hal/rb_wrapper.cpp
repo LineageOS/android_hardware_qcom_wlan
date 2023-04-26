@@ -30,7 +30,7 @@
 #include <stdlib.h>
 
 #include "sync.h"
-#include "wifi_hal.h"
+#include <hardware_legacy/wifi_hal.h>
 #include "common.h"
 
 #include "ring_buffer.h"
