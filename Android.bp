@@ -1,0 +1,46 @@
+
+soong_config_module_type {
+    name: "wifihal_qcom_defaults",
+    module_type: "cc_defaults",
+    config_namespace: "qcom_wifi",
+    variables: [
+        "board_wlan_chip", // BOARD_WLAN_CHIP
+    ],
+    properties: [
+        "shared_libs",
+        "whole_static_libs",
+    ],
+}
+
+soong_config_string_variable {
+    name: "board_wlan_chip",
+    values: [
+        "wcn6740",
+    ],
+}
+
+wifihal_qcom_defaults {
+    name: "libwifi-hal-qcom",
+    soong_config_variables: {
+        board_wlan_chip: {
+            wcn6740: {
+                whole_static_libs: [
+                    "//hardware/qcom/wlan/wcn6740:libwifi-hal-qcom",
+                ],
+                shared_libs: [
+                    "//hardware/qcom/wlan/wcn6740:libcld80211",
+                    "libcrypto",
+                ],
+            },
+            conditions_default: {
+                whole_static_libs: [
+                    "//hardware/qcom/wlan/legacy:libwifi-hal-qcom",
+                ],
+                shared_libs: [
+                    "//hardware/qcom/wlan/legacy:libcld80211",
+                    "libcrypto",
+                ],
+            },
+        },
+    },
+}
