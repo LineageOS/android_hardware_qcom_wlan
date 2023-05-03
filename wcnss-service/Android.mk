@@ -11,8 +11,8 @@ LOCAL_SHARED_LIBRARIES := libc libcutils libutils liblog
 ifeq ($(strip $(TARGET_USES_QCOM_WCNSS_QMI)),true)
 LOCAL_CFLAGS += -DWCNSS_QMI
 LOCAL_HEADER_LIBRARIES += libqmi_common_headers
-LOCAL_SRC_FILES += wcnss_qmi_client.c
-LOCAL_SHARED_LIBRARIES += libqmiservices libqmi_cci
+LOCAL_SRC_FILES += wcnss_qmi_client.c device_management_service_v01.c
+LOCAL_SHARED_LIBRARIES += libqmi_cci libqmi_common_so
 LOCAL_HEADER_LIBRARIES += libmdmdetect_headers
 LOCAL_SHARED_LIBRARIES += libmdmdetect
 LOCAL_HEADER_LIBRARIES += libril-qc-qmi-services-headers
