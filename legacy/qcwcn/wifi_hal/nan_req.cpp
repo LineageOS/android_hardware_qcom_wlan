@@ -788,7 +788,7 @@ wifi_error NanCommand::putNanPublish(transaction_id id, const NanPublishRequest 
     if (pReq->publish_id == 0) {
         pFwReq->fwHeader.handle = 0xFFFF;
     } else {
-        pFwReq->fwHeader.handle = pReq->publish_id;
+        pFwReq->fwHeader.handle = (pReq->publish_id & 0xFF);
     }
     pFwReq->fwHeader.transactionId = id;
 
@@ -992,7 +992,7 @@ wifi_error NanCommand::putNanPublishCancel(transaction_id id, const NanPublishCa
     pFwReq->fwHeader.msgVersion = (u16)NAN_MSG_VERSION1;
     pFwReq->fwHeader.msgId = NAN_MSG_ID_PUBLISH_SERVICE_CANCEL_REQ;
     pFwReq->fwHeader.msgLen = message_len;
-    pFwReq->fwHeader.handle = pReq->publish_id;
+    pFwReq->fwHeader.handle = (pReq->publish_id & 0xFF);
     pFwReq->fwHeader.transactionId = id;
 
     mVendorData = (char *)pFwReq;
@@ -1085,7 +1085,7 @@ wifi_error NanCommand::putNanSubscribe(transaction_id id,
     if (pReq->subscribe_id == 0) {
         pFwReq->fwHeader.handle = 0xFFFF;
     } else {
-        pFwReq->fwHeader.handle = pReq->subscribe_id;
+        pFwReq->fwHeader.handle = (pReq->subscribe_id & 0xFF);
     }
     pFwReq->fwHeader.transactionId = id;
 
@@ -1291,7 +1291,7 @@ wifi_error NanCommand::putNanSubscribeCancel(transaction_id id,
     pFwReq->fwHeader.msgVersion = (u16)NAN_MSG_VERSION1;
     pFwReq->fwHeader.msgId = NAN_MSG_ID_SUBSCRIBE_SERVICE_CANCEL_REQ;
     pFwReq->fwHeader.msgLen = message_len;
-    pFwReq->fwHeader.handle = pReq->subscribe_id;
+    pFwReq->fwHeader.handle = (pReq->subscribe_id & 0xFF);
     pFwReq->fwHeader.transactionId = id;
 
     mVendorData = (char *)pFwReq;
@@ -1355,7 +1355,7 @@ wifi_error NanCommand::putNanTransmitFollowup(transaction_id id,
     pFwReq->fwHeader.msgVersion = (u16)NAN_MSG_VERSION1;
     pFwReq->fwHeader.msgId = NAN_MSG_ID_TRANSMIT_FOLLOWUP_REQ;
     pFwReq->fwHeader.msgLen = message_len;
-    pFwReq->fwHeader.handle = pReq->publish_subscribe_id;
+    pFwReq->fwHeader.handle = (pReq->publish_subscribe_id & 0xFF);
     pFwReq->fwHeader.transactionId = id;
 
     pFwReq->transmitFollowupReqParams.matchHandle = pReq->requestor_instance_id;
