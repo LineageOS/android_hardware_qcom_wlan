@@ -596,6 +596,15 @@ wifi_error wifi_set_coex_unsafe_channels(wifi_handle handle, u32 num_channels,
     struct nlattr *nl_attr_unsafe_chan = NULL;
     struct nlattr *unsafe_channels_attr = NULL;
     hal_info *info = NULL;
+    int freq_cnt = 0;
+    u32 *freq = (u32 *) malloc(sizeof(u32) * num_channels);
+    u32 *power_cap_dbm = (u32 *) malloc(sizeof(u32) * num_channels);
+
+    if (!freq || !power_cap_dbm) {
+        ALOGE("%s: Failed to allocate memory", __FUNCTION__);
+        ret = WIFI_ERROR_OUT_OF_MEMORY;
+        goto cleanup;
+    }
 
     if (!handle) {
          ALOGE("%s: Error, wifi_handle NULL", __FUNCTION__);
@@ -644,6 +653,25 @@ wifi_error wifi_set_coex_unsafe_channels(wifi_handle handle, u32 num_channels,
     }
     ALOGD("%s: num_channels:%d, restrictions:%x", __FUNCTION__, num_channels,
           restrictions);
+    for (int i = 0; i < num_channels; i++)
+    {
+        u32 frequency = get_frequency_from_channel(unsafeChannels[i].channel,
+                unsafeChannels[i].band);
+        if (frequency != 0)
+        {
+          freq[freq_cnt] = frequency;
+          power_cap_dbm[freq_cnt] = unsafeChannels[i].power_cap_dbm;
+          freq_cnt++;
+          ALOGV("%s: channel:%d, freq:%d, power_cap_dbm:%d, band:%d",
+               __FUNCTION__, unsafeChannels[i].channel, frequency,
+               unsafeChannels[i].power_cap_dbm, unsafeChannels[i].band);
+        }
+        else {
+            ALOGV("%s: Invalid channel found, channel:%d, power_cap_dbm:%d, band:%d",
+               __FUNCTION__, unsafeChannels[i].channel,
+               unsafeChannels[i].power_cap_dbm, unsafeChannels[i].band);
+        }
+    }
     if (num_channels == 0) {
          unsafe_channels_attr = cmd->attr_start(0);
          if (!unsafe_channels_attr) {
@@ -675,61 +703,59 @@ wifi_error wifi_set_coex_unsafe_channels(wifi_handle handle, u32 num_channels,
             ret = WIFI_ERROR_INVALID_ARGS;
             goto cleanup;
         }
-    }
-    for (int i = 0; i < num_channels; i++) {
-         unsafe_channels_attr = cmd->attr_start(i);
-         if (!unsafe_channels_attr) {
-              ALOGE("%s: failed attr_start for unsafe_channels_attr of"
+
+        if(freq_cnt == 0)
+        {
+            ALOGE("%s: No valid frequency, ignore channel list", __FUNCTION__);
+            ret = WIFI_ERROR_INVALID_ARGS;
+            goto cleanup;
+        }
+        for (int i = 0; i < freq_cnt; i++) {
+            unsafe_channels_attr = cmd->attr_start(i);
+            if (!unsafe_channels_attr) {
+                ALOGE("%s: failed attr_start for unsafe_channels_attr of"
                     " index:%d", __FUNCTION__, i);
-              ret = WIFI_ERROR_OUT_OF_MEMORY;
-              goto cleanup;
-         }
-         u32 freq = get_frequency_from_channel(unsafeChannels[i].channel,
-               unsafeChannels[i].band);
-         if (!freq) {
-              ALOGE("%s: Failed to get frequency of band:%d, channel:%d",
-                        __FUNCTION__, (int)unsafeChannels[i].band,
-                        unsafeChannels[i].channel);
-              ret = WIFI_ERROR_INVALID_ARGS;
-              goto cleanup;
-         }
-         ret = cmd->put_u32(
-               QCA_WLAN_VENDOR_ATTR_AVOID_FREQUENCY_START, freq);
-         if (ret != WIFI_SUCCESS) {
-              ALOGE("%s: Failed to put frequency start, ret:%d",
+                ret = WIFI_ERROR_OUT_OF_MEMORY;
+                goto cleanup;
+            }
+
+            ret = cmd->put_u32(
+                  QCA_WLAN_VENDOR_ATTR_AVOID_FREQUENCY_START, freq[i]);
+            if (ret != WIFI_SUCCESS) {
+                ALOGE("%s: Failed to put frequency start, ret:%d",
+                      __FUNCTION__, ret);
+                goto cleanup;
+            }
+            ret = cmd->put_u32(
+                QCA_WLAN_VENDOR_ATTR_AVOID_FREQUENCY_END, freq[i]);
+            if (ret != WIFI_SUCCESS) {
+                ALOGE("%s: Failed to put frequency end, ret:%d",
                     __FUNCTION__, ret);
-              goto cleanup;
-         }
-         ret = cmd->put_u32(
-               QCA_WLAN_VENDOR_ATTR_AVOID_FREQUENCY_END, freq);
-         if (ret != WIFI_SUCCESS) {
-              ALOGE("%s: Failed to put frequency end, ret:%d",
-                    __FUNCTION__, ret);
-              goto cleanup;
-         }
-         /**
-          * WIFI_COEX_NO_POWER_CAP (0x7FFFFFF) is specific to android
-          * framework, this value denotes that framework/wifihal is not
-          * providing any power cap and allow driver/firmware to operate on
-          * current power cap dbm. As driver is supposed to work on with
-          * LA/LE etc, we are skipping to send 0x7FFFFFF down to driver,
-          * hence driver will be operating as per current power cap calculated
-          * based on regulatory or other constraints.
-          */
-         if (unsafeChannels[i].power_cap_dbm != WIFI_COEX_NO_POWER_CAP) {
-             ret = cmd->put_s32(
-                   QCA_WLAN_VENDOR_ATTR_AVOID_FREQUENCY_POWER_CAP_DBM,
-                   unsafeChannels[i].power_cap_dbm);
-             if (ret != WIFI_SUCCESS) {
-                 ALOGE("%s: Failed to put power_cap_dbm, ret:%d",
-                       __FUNCTION__, ret);
-                 goto cleanup;
-             }
-         }
-         cmd->attr_end(unsafe_channels_attr);
-         ALOGD("%s: channel:%d, freq:%d, power_cap_dbm:%d, band:%d",
-               __FUNCTION__, unsafeChannels[i].channel, freq,
-               unsafeChannels[i].power_cap_dbm, unsafeChannels[i].band);
+                goto cleanup;
+            }
+            /**
+             * WIFI_COEX_NO_POWER_CAP (0x7FFFFFF) is specific to android
+             * framework, this value denotes that framework/wifihal is not
+             * providing any power cap and allow driver/firmware to operate on
+             * current power cap dbm. As driver is supposed to work on with
+             * LA/LE etc, we are skipping to send 0x7FFFFFF down to driver,
+             * hence driver will be operating as per current power cap calculated
+             * based on regulatory or other constraints.
+             */
+            if (power_cap_dbm[i] != WIFI_COEX_NO_POWER_CAP) {
+                ret = cmd->put_s32(
+                      QCA_WLAN_VENDOR_ATTR_AVOID_FREQUENCY_POWER_CAP_DBM,
+                      power_cap_dbm[i]);
+                if (ret != WIFI_SUCCESS) {
+                    ALOGE("%s: Failed to put power_cap_dbm, ret:%d",
+                          __FUNCTION__, ret);
+                    goto cleanup;
+                }
+            }
+            ALOGD("%s: freq:%d, power_cap_dbm:%d",
+                   __FUNCTION__, freq[i], power_cap_dbm[i]);
+            cmd->attr_end(unsafe_channels_attr);
+        }
     }
     cmd->attr_end(nl_attr_unsafe_chan);
     if (num_channels > 0) {
@@ -753,6 +779,10 @@ wifi_error wifi_set_coex_unsafe_channels(wifi_handle handle, u32 num_channels,
 cleanup:
     if (cmd)
         delete cmd;
+    if (freq)
+        free (freq);
+    if (power_cap_dbm)
+        free (power_cap_dbm);
     return ret;
 }
 
