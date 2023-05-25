@@ -47,6 +47,7 @@ struct cld80211_ctx {
 	int exit_sockets[2];
 	int sock_buf_size;
 	int nlctrl_familyid;
+	bool is_terminating;
 };
 
 /**
@@ -150,6 +151,12 @@ int cld80211_recv(struct cld80211_ctx *ctx, int timeout, bool recv_multi_msg,
  * first to exit gracefully.
  */
 void exit_cld80211_recv(struct cld80211_ctx *ctx);
+
+/**
+ * Client has to inform to exit gracefully during polling and reset the flag
+ * accordingly.
+ */
+void cld80211_stop_recv(struct cld80211_ctx *ctx, bool is_terminating);
 #ifdef __cplusplus
 }
 #endif
