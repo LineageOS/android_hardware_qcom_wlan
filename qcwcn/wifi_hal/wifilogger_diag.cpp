@@ -1317,7 +1317,7 @@ static void process_wlan_log_complete_event(hal_info *info,
     push_out_all_ring_buffers(info);
 
     if (lfd_event->is_fatal == WLAN_LOG_TYPE_FATAL) {
-        ALOGE("Received fatal event, sending alert");
+        ALOGE("Received log complete event, sending alert");
         send_alert(info, lfd_event->reason_code);
     }
 }
