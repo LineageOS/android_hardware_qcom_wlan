@@ -450,6 +450,11 @@ int cld80211_recv(struct cld80211_ctx *ctx, int timeout, bool recv_multi_msg,
 			ALOGI("%s: Exiting poll", getprogname());
 			break;
 		}
+		if (ctx->is_terminating) {
+			ALOGI("Exiting poll as program:%s is terminating",
+			      getprogname());
+			break;
+		}
 	} while (1);
 
 	nl_cb_put(cb);
@@ -520,4 +525,14 @@ void cld80211_deinit(struct cld80211_ctx *ctx)
 	nl_socket_free(ctx->sock);
 	cleanup_exit_sockets(ctx);
 	free (ctx);
+}
+
+void cld80211_stop_recv(struct cld80211_ctx *ctx, bool is_terminating)
+{
+	if (!ctx || !ctx->sock) {
+		ALOGE("%s: ctx/sock is NULL", getprogname());
+		return;
+	}
+	ALOGE("%s: Program is terminating:%d", getprogname(), is_terminating);
+	ctx->is_terminating = is_terminating;
 }
