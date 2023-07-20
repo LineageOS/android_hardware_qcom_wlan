@@ -34,7 +34,7 @@ cc_library_shared {
         "-Wall",
         "-Werror",
     ],
-    local_include_dirs: ["wifi_hal_ctrl"],
+    local_include_dirs: ["wifi_hal_ctrl", "vendor_nan"],
     srcs: ["wifi_hal_ctrl/wifi_hal_ctrl.c"],
     header_libs: ["libcutils_headers"],
 }
@@ -96,6 +96,7 @@ cc_library {
         "-Werror",
         // gscan.cpp: address of array 'cached_results[i].results' will always evaluate to 'true'
         "-Wno-pointer-bool-conversion",
+        "-DCONFIG_NAN_VENDOR_AIDL",
     ],
     product_variables: {
         debuggable: {
@@ -110,7 +111,7 @@ cc_library {
         "libutils_headers",
         "libwifi-hal-ctrl_headers",
     ],
-    local_include_dirs: ["."],
+    local_include_dirs: [".", "vendor_nan"],
     srcs: [
         "common.cpp",
         "cpp_bindings.cpp",
@@ -139,6 +140,7 @@ cc_library {
         "wificonfig.cpp",
         "wifilogger_diag.cpp",
         "wifilogger.cpp",
+	"vendor_nan/vendor_nan.cpp",
     ],
     shared_libs: [
         "libcld80211",

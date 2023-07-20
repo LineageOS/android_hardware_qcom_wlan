@@ -193,6 +193,9 @@ typedef enum
     NAN_MSG_ID_IDENTITY_RESOLUTION_IND      = 38,
     NAN_MSG_ID_PAIRING_IND                  = 39,
     NAN_MSG_ID_UNPAIRING_IND                = 40,
+    NAN_MSG_ID_OEM_REQ                      = 41,
+    NAN_MSG_ID_OEM_RSP                      = 42,
+    NAN_MSG_ID_OEM_IND                      = 43,
     NAN_MSG_ID_TESTMODE_REQ                 = 1025,
     NAN_MSG_ID_TESTMODE_RSP                 = 1026
 } NanMsgId;
@@ -344,6 +347,11 @@ typedef enum
     NAN_TLV_TYPE_SEC_BIGTK_KDE,
     NAN_TLV_TYPE_SEC_NM_TK,
     NAN_TLV_TYPE_SEC_LAST = 37100,
+
+    /* NAN OEM Configuration types */
+    NAN_TLV_TYPE_OEM_DATA_FIRST = 37101,
+    NAN_TLV_TYPE_OEM1_DATA = NAN_TLV_TYPE_OEM_DATA_FIRST,
+    NAN_TLV_TYPE_OEM_DATA_LAST  = 37150,
 
     NAN_TLV_TYPE_LAST = 65535
 } NanTlvType;
@@ -1217,6 +1225,7 @@ typedef enum {
     NAN_INDICATION_RANGING_REQUEST_RECEIVED =11,
     NAN_INDICATION_RANGING_RESULT           =12,
     NAN_INDICATION_IDENTITY_RESOLUTION      =13,
+    NAN_INDICATION_VENDOR_EVENT             =14,
     NAN_INDICATION_UNKNOWN                 =0xFFFF
 } NanIndicationType;
 
@@ -1791,6 +1800,40 @@ struct wpa_secure_nan {
     /* pointer to rsnxe buffer */
     struct wpabuf *rsnxe;
 };
+
+/***************************************************
+ * Wi-Fi HAL and Firmware interface for oem data
+ ***************************************************/
+
+#define NAN_OEM1_DATA_MAX_LEN  1024
+
+/* NAN Command request */
+typedef struct PACKED
+{
+    NanMsgHeader fwHeader;
+    /* TLVs Required:
+       MANDATORY
+       1. command in byte format
+    */
+    u8 ptlv[];
+} NanFWOemReqMsg, *pNanFWOemReqMsg;
+
+/* NAN Command Rsp */
+typedef struct PACKED
+{
+    NanMsgHeader fwHeader;
+    u16 status;
+    u16 value;
+    u8 ptlv[];
+} NanFWOemRspMsg, *pNanFWOemRspMsg;
+
+/* NAN Event Ind */
+typedef struct PACKED
+{
+    NanMsgHeader fwHeader;
+    u16 reserved[2];
+    u8 ptlv[];
+} NanFWOemIndMsg, *pNanFWOemIndMsg;
 
 /* Function for NAN error translation
    For NanResponse, NanPublishTerminatedInd, NanSubscribeTerminatedInd,

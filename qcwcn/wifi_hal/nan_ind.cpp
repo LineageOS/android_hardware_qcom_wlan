@@ -210,7 +210,16 @@ int NanCommand::handleNanIndication()
             (*mHandler.EventRangeReport)(&rangeReportInd);
         }
         break;
-
+#ifdef CONFIG_NAN_VENDOR_AIDL
+    case NAN_INDICATION_VENDOR_EVENT:
+        NanVendorEventInd EventInd;
+        memset(&EventInd, 0, sizeof(EventInd));
+        res = getNanVendorEventInd(&EventInd);
+        if (!res && mVendorHandler.VendorEventIndication) {
+            (*mVendorHandler.VendorEventIndication)(&EventInd);
+        }
+        break;
+#endif
     default:
         ALOGE("handleNanIndication error invalid msg_id:%u", msg_id);
         res = (int)WIFI_ERROR_INVALID_REQUEST_ID;
@@ -260,6 +269,8 @@ NanIndicationType NanCommand::getIndicationType()
         return NAN_INDICATION_RANGING_RESULT;
     case NAN_MSG_ID_IDENTITY_RESOLUTION_IND:
         return NAN_INDICATION_IDENTITY_RESOLUTION;
+    case NAN_MSG_ID_OEM_IND:
+        return NAN_INDICATION_VENDOR_EVENT;
     default:
         return NAN_INDICATION_UNKNOWN;
     }

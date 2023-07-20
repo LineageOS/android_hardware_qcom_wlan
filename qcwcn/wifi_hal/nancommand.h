@@ -54,6 +54,7 @@
 #include "common.h"
 #include "cpp_bindings.h"
 #include <hardware_legacy/wifi_hal.h>
+#include "vendor_nan_hal.h"
 #include "nan_cert.h"
 #include <queue>
 #include <utility>
@@ -112,6 +113,7 @@ private:
     bool mNanDiscAddrIndDisabled;
     std::queue<transaction_id> mNdiTransactionId;
     std::vector<std::pair<transaction_id, NanResponseMsg> > mNanResponseMsgVec;
+    VendorNanCallbackHandler mVendorHandler;
 
     //Function to check the initial few bytes of data to
     //determine whether NanResponse or NanEvent
@@ -191,6 +193,10 @@ private:
     int getNanRangeRequestReceivedInd(NanRangeRequestInd *event);
     int getNanRangeReportInd(NanRangeReportInd *event);
     int getNdpScheduleUpdate(struct nlattr **tb_vendor, NanDataPathScheduleUpdateInd *event);
+
+    // Function used for vendor nan
+    int getNanVendorResponse(transaction_id *id, NanVendorResponseMsg *pRsp);
+    int getNanVendorEventInd(NanVendorEventInd *event);
 public:
     NanCommand(wifi_handle handle, int id, u32 vendor_id, u32 subcmd);
     static NanCommand* instance(wifi_handle handle);
@@ -268,6 +274,10 @@ public:
     int handleNanPairingConfirm(NanPairingConfirmInd *evt);
     void notifyPairingInitiatorResponse(transaction_id id, u32 pairing_id);
     void notifyPairingResponderResponse(transaction_id id, u32 pairing_id);
+
+    /* Functions for Vendor Nan commands and events */
+    vendor_nan_error setVendorCallbackHandler(VendorNanCallbackHandler nHandler);
+    vendor_nan_error putNanCommandData(transaction_id id, NanVendorCmdData *pReq);
 };
 #endif /* __WIFI_HAL_NAN_COMMAND_H__ */
 

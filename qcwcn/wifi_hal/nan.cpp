@@ -2003,6 +2003,7 @@ NanCommand::NanCommand(wifi_handle handle, int id, u32 vendor_id, u32 subcmd)
         : WifiVendorCommand(handle, id, vendor_id, subcmd)
 {
     memset(&mHandler, 0,sizeof(mHandler));
+    memset(&mVendorHandler, 0,sizeof(mVendorHandler));
     mNanVendorEvent = NULL;
     mNanDataLen = 0;
     mStaParam = NULL;
