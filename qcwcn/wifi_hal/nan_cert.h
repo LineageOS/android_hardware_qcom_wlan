@@ -39,7 +39,7 @@ extern "C"
 #ifndef PACKED
 #define PACKED  __attribute__((packed))
 #endif
-#define NAN_CERT_VERSION                        6
+#define NAN_CERT_VERSION                        7
 #define NAN_MAX_DEBUG_MESSAGE_DATA_LEN          100
 #define NAN_MAX_ALLOWED_DW_AWAKE_INTERVAL       16
 #define NAN_MAX_TK_LENGTH                       16

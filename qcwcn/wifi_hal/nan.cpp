@@ -1671,6 +1671,19 @@ wifi_error nan_data_request_initiator(transaction_id id,
             goto cleanup;
         }
     }
+    if (msg->csia_capabilities) {
+        if (nanCommand->put_u8(QCA_WLAN_VENDOR_ATTR_NDP_CSIA_CAPABILITIES,
+                msg->csia_capabilities)) {
+            ret = WIFI_ERROR_UNKNOWN;
+            goto cleanup;
+        }
+    }
+    if (msg->gtk_protection) {
+        if (nanCommand->put_flag(QCA_WLAN_VENDOR_ATTR_NDP_GTK_REQUIRED)) {
+            ret = WIFI_ERROR_UNKNOWN;
+            goto cleanup;
+        }
+    }
     if (msg->key_info.key_type == NAN_SECURITY_KEY_INPUT_PMK) {
         if (msg->key_info.body.pmk_info.pmk_len != NAN_PMK_INFO_LEN) {
             ret = WIFI_ERROR_UNKNOWN;
@@ -1857,6 +1870,19 @@ wifi_error nan_data_indication_response(transaction_id id,
     if (msg->cipher_type != NAN_CIPHER_SUITE_SHARED_KEY_NONE) {
         if (nanCommand->put_u32(QCA_WLAN_VENDOR_ATTR_NDP_CSID,
                 msg->cipher_type)){
+            ret = WIFI_ERROR_UNKNOWN;
+            goto cleanup;
+        }
+    }
+    if (msg->csia_capabilities) {
+        if (nanCommand->put_u8(QCA_WLAN_VENDOR_ATTR_NDP_CSIA_CAPABILITIES,
+                msg->csia_capabilities)) {
+            ret = WIFI_ERROR_UNKNOWN;
+            goto cleanup;
+        }
+    }
+    if (msg->gtk_protection) {
+        if (nanCommand->put_flag(QCA_WLAN_VENDOR_ATTR_NDP_GTK_REQUIRED)) {
             ret = WIFI_ERROR_UNKNOWN;
             goto cleanup;
         }
