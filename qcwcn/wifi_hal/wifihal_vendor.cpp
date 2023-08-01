@@ -28,7 +28,7 @@
 
  * Changes from Qualcomm Innovation Center are provided under the following license:
 
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -74,6 +74,7 @@ NUDStatsCommand::NUDStatsCommand(wifi_handle handle, int id, u32 vendor_id, u32 
     memset(&mStats, 0,sizeof(nud_stats));
     mpktInfo = NULL;
     mnumStats = 0;
+    memset(&mHandler, 0, sizeof(pkt_stats_result_handler));
 }
 
 NUDStatsCommand::~NUDStatsCommand()

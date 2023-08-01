@@ -15,7 +15,7 @@
 
  * Changes from Qualcomm Innovation Center are provided under the following license:
 
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -60,6 +60,7 @@ LLStatsCommand::LLStatsCommand(wifi_handle handle, int id, u32 vendor_id, u32 su
     mRadioStatsSize = 0;
     mNumRadios = 0;
     mNumRadiosAllocated = 0;
+    mRequestId = 0;
 }
 
 LLStatsCommand::~LLStatsCommand()
@@ -1089,22 +1090,6 @@ int LLStatsCommand::handleResponse(WifiEvent &reply)
                     if(status != WIFI_SUCCESS)
                     {
                         goto cleanup;
-                    }
-
-                    /* Driver/firmware might send this attribute when there
-                     * are no peers connected.
-                     * So that, the event
-                     * QCA_NL80211_VENDOR_SUBCMD_LL_STATS_TYPE_PEERS can be
-                     * avoided.
-                     */
-                    if (tb_vendor[
-                        QCA_WLAN_VENDOR_ATTR_LL_STATS_IFACE_NUM_PEERS])
-                    {
-#ifdef QC_HAL_DEBUG
-                        ALOGV("%s: numPeers is %u\n", __FUNCTION__,
-                                nla_get_u32(tb_vendor[
-                                    QCA_WLAN_VENDOR_ATTR_LL_STATS_IFACE_NUM_PEERS]));
-#endif
                     }
                 }
                 break;

@@ -164,6 +164,9 @@
 #define AP_AC_VALUE_STR_LEN             strlen(AP_AC_VALUE_STR)
 #define MAC_ADDR_STR_LEN             	strlen(MAC_ADDRESS_STR)
 
+// Module defined MAC ADDR macros to print full mac address.
+// This is in order to remove dependency from MAC2STR definitions
+// in common.h from wpa_supplicant.
 #define MAC_ADDR_STR "%02x:%02x:%02x:%02x:%02x:%02x"
 #define MAC_ADDR_ARRAY(a) (a)[0], (a)[1], (a)[2], (a)[3], (a)[4], (a)[5]
 
@@ -1221,7 +1224,6 @@ static void parse_ext_ie(const u8 *ie, int ie_len)
 	}
 
 	ext_id = *ie++;
-	ie_len--;
 
 	switch (ext_id) {
 	case WLAN_EID_EXT_HE_CAPABILITIES:
@@ -2681,7 +2683,6 @@ static int check_for_twt_cmd(char **cmd)
 		*cmd += (TWT_SET_PARAM_STR_LEN + 1);
 		return QCA_WLAN_TWT_SET_PARAM;
 	} else {
-		wpa_printf(MSG_DEBUG, "Not a TWT command");
 		return TWT_CMD_NOT_EXIST;
 	}
 }
@@ -2804,7 +2805,7 @@ void print_setup_cmd_values(struct twt_setup_parameters *twt_setup_params)
 		   twt_setup_params->min_wake_duration);
 	wpa_printf(MSG_DEBUG, "TWT: max wake duration: %d ",
 		   twt_setup_params->max_wake_duration);
-	wpa_printf(MSG_DEBUG, "TWT: wake tsf: 0x%lx ",
+	wpa_printf(MSG_DEBUG, "TWT: wake tsf: 0x%llx ",
 		   twt_setup_params->wake_tsf);
 	wpa_printf(MSG_DEBUG, "TWT: announce timeout(in us): %u",
 		   twt_setup_params->announce_timeout_us);
@@ -3029,7 +3030,6 @@ int process_twt_setup_cmd_string(char *cmd,
 					get_u32_from_string(cmd, &ret);
 		if (ret < 0)
 			return ret;
-		cmd = move_to_next_str(cmd);
 	}
 
 	print_setup_cmd_values(twt_setup_params);
@@ -5252,7 +5252,6 @@ static int wpa_driver_form_clear_mcc_quota_msg(struct i802_bss *bss,
 			return -EINVAL;
 		}
 		wpa_printf(MSG_INFO, "mcc_quota: ifindex %u", if_index);
-		cmd += strlen(iface) + 1;
 	}
 
 	nlmsg = prepare_vendor_nlmsg(drv, bss->ifname,
@@ -6410,7 +6409,7 @@ int wpa_driver_nl80211_driver_cmd(void *priv, char *cmd, char *buf,
 		ret = linux_get_ifhwaddr(drv->global->ioctl_sock, bss->ifname, macaddr);
 		if (!ret)
 			ret = os_snprintf(buf, buf_len,
-					  "Macaddr = " MACSTR "\n", MAC2STR(macaddr));
+					  "Macaddr = " MAC_ADDR_STR "\n", MAC_ADDR_ARRAY(macaddr));
 	} else if (os_strncasecmp(cmd, "SET_CONGESTION_REPORT ", 22) == 0) {
 		return wpa_driver_cmd_set_congestion_report(priv, cmd + 22);
 	} else if (os_strncasecmp(cmd, "SET_TXPOWER ", 12) == 0) {

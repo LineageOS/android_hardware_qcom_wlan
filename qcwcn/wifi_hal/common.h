@@ -91,6 +91,14 @@
 
 #define WIFI_HAL_CTRL_IFACE     "/dev/socket/wifihal/wifihal_ctrlsock"
 
+#ifdef CONFIG_MAC_PRIVACY_LOGGING
+#define MAC2STR(a) (a)[0], (a)[1], (a)[2], (a)[5]
+#define MACSTR "%02x:%02x:%02x:**:**:%02x"
+#else
+#define MAC2STR(a) (a)[0], (a)[1], (a)[2], (a)[3], (a)[4], (a)[5]
+#define MACSTR "%02x:%02x:%02x:%02x:%02x:%02x"
+#endif
+
 #define MAC_ADDR_ARRAY(a) (a)[0], (a)[1], (a)[2], (a)[3], (a)[4], (a)[5]
 #define MAC_ADDR_STR "%02x:%02x:%02x:%02x:%02x:%02x"
 #ifndef BIT
@@ -213,6 +221,10 @@ typedef struct hal_info_s {
     bool apf_enabled;
     bool support_nan_ext_cmd;
     pkt_log_version  pkt_log_ver;
+#ifndef TARGET_SUPPORTS_WEARABLES
+    /* Interface combination matrix */
+    wifi_iface_concurrency_matrix iface_comb_matrix;
+#endif /* TARGET_SUPPORTS_WEARABLES */
     qca_wlan_vendor_sar_version sar_version;
 } hal_info;
 
@@ -267,6 +279,10 @@ wifi_error wifi_virtual_interface_delete(wifi_handle handle, const char* ifname)
 wifi_error wifi_get_radar_history(wifi_interface_handle handle,
         radar_history_result *resultBuf, int resultBufSize, int *numResults);
 wifi_error wifi_disable_next_cac(wifi_interface_handle handle);
+
+wifi_error wifi_get_supported_radio_combinations_matrix(
+        wifi_handle handle, u32 max_size, u32 *size,
+        wifi_radio_combination_matrix *radio_combination_matrix);
 // some common macros
 
 #define min(x, y)       ((x) < (y) ? (x) : (y))

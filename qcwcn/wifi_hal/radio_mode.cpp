@@ -27,8 +27,8 @@
 
  * Changes from Qualcomm Innovation Center are provided under the following license:
 
- *  Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
- *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include "sync.h"
@@ -95,6 +95,7 @@ RADIOModeCommand::RADIOModeCommand(wifi_handle handle, int id,
         : WifiVendorCommand(handle, id, vendor_id, subcmd)
 {
     memset(&mHandler, 0, sizeof(mHandler));
+    mwifi_iface_mac_info = NULL;
     if (registerVendorHandler(vendor_id, subcmd)) {
         /* Error case should not happen print log */
         ALOGE("%s: Unable to register Vendor Handler Vendor Id=0x%x subcmd=%u",
