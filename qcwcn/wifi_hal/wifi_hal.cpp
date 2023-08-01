@@ -3436,7 +3436,7 @@ static int wifi_is_nan_ext_cmd_supported(wifi_interface_handle iface_handle)
 #ifndef TARGET_SUPPORTS_WEARABLES
 char *get_iface_mask_str(u32 mask, char *buf, size_t buflen) {
     char * pos, *end;
-    int res;
+    int res, length;
 
     pos = buf;
     end = buf + buflen;
@@ -3478,7 +3478,8 @@ char *get_iface_mask_str(u32 mask, char *buf, size_t buflen) {
     return buf;
 
 error:
-    ALOGE("snprintf() error res=%d, write length=%d", res, end - pos);
+    length = end - pos;
+    ALOGE("snprintf() error res=%d, write length=%d", res, length);
     return NULL;
 }
 
