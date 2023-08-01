@@ -103,6 +103,10 @@ private:
     RadarHistoryResultsParams mRadarResultParams;
     virtual wifi_error wifiParseCapabilities(struct nlattr **tbVendor);
     virtual wifi_error wifiParseRadarHistory();
+    u32 mRadio_matrix_max_size;
+    u32 *mRadio_matrix_size;
+    wifi_radio_combination_matrix *mRadio_matrix;
+    virtual wifi_error wifi_parse_radio_combinations_matrix();
 
 public:
     WifihalGeneric(wifi_handle handle, int id, u32 vendor_id, u32 subcmd);
@@ -126,6 +130,9 @@ public:
     virtual wifi_error copyCachedRadarHistory(radar_history_result *resultBuf,
             int resultBufSize, int *numResults);
     virtual void freeCachedRadarHistory();
+    virtual void set_radio_matrix_max_size(u32 max_size);
+    virtual void set_radio_matrix_size(u32 *size);
+    virtual void set_radio_matrix(wifi_radio_combination_matrix *radio_combination_matrix);
     virtual wifi_error getSarVersion(wifi_interface_handle handle);
 };
 

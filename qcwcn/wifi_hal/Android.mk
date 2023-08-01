@@ -46,6 +46,10 @@ ifneq ($(TARGET_USES_AOSP_FOR_WLAN), true)
 LOCAL_CFLAGS += -DWCNSS_QTI_AOSP
 endif
 
+ifeq ($(strip $(CONFIG_MAC_PRIVACY_LOGGING)),true)
+LOCAL_CFLAGS += -DCONFIG_MAC_PRIVACY_LOGGING
+endif
+
 # gscan.cpp: address of array 'cached_results[i].results' will always evaluate to 'true'
 LOCAL_CLANG_CFLAGS := -Wno-pointer-bool-conversion
 
@@ -113,6 +117,10 @@ endif
 LOCAL_HEADER_LIBRARIES := libcutils_headers libutils_headers libwifi-hal-ctrl_headers libcld80211_headers
 LOCAL_SANITIZE := cfi signed-integer-overflow unsigned-integer-overflow
 
+ifeq ($(TARGET_SUPPORTS_WEARABLES), true)
+LOCAL_CFLAGS += -DTARGET_SUPPORTS_WEARABLES
+endif
+
 include $(BUILD_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
@@ -123,6 +131,10 @@ LOCAL_CFLAGS += -Wno-unused-parameter -Wall -Werror
 LOCAL_CPPFLAGS += -Wno-conversion-null
 ifeq ($(TARGET_BUILD_VARIANT),userdebug)
 LOCAL_CFLAGS += "-DLOG_NDEBUG=0"
+endif
+
+ifeq ($(strip $(CONFIG_MAC_PRIVACY_LOGGING)),true)
+LOCAL_CFLAGS += -DCONFIG_MAC_PRIVACY_LOGGING
 endif
 
 # gscan.cpp: address of array 'cached_results[i].results' will always evaluate to 'true'
@@ -192,4 +204,9 @@ endif
 
 LOCAL_HEADER_LIBRARIES := libcutils_headers libutils_headers libwifi-hal-ctrl_headers libcld80211_headers
 LOCAL_SANITIZE := cfi integer_overflow
+
+ifeq ($(TARGET_SUPPORTS_WEARABLES), true)
+LOCAL_CFLAGS += -DTARGET_SUPPORTS_WEARABLES
+endif
+
 include $(BUILD_SHARED_LIBRARY)
