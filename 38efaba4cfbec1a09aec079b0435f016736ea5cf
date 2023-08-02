@@ -22,6 +22,30 @@
       },
       "revId": "38efaba4cfbec1a09aec079b0435f016736ea5cf",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "9d1f6f88_62b880e3",
+        "filename": "qcwcn/wpa_supplicant_8_lib/driver_cmd_nl80211.c",
+        "patchSetId": 2
+      },
+      "lineNbr": 2808,
+      "author": {
+        "id": 13648
+      },
+      "writtenOn": "2023-08-02T10:13:52Z",
+      "side": 1,
+      "message": "Like prior to the merge.",
+      "parentUuid": "aceca4af_e7abf627",
+      "range": {
+        "startLine": 2808,
+        "startChar": 39,
+        "endLine": 2808,
+        "endChar": 44
+      },
+      "revId": "38efaba4cfbec1a09aec079b0435f016736ea5cf",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
