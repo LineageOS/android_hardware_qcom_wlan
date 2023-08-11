@@ -12,6 +12,10 @@ ifeq ($(strip $(TARGET_USES_QCOM_WCNSS_QMI)),true)
 ifeq ($(TARGET_USES_WCNSS_MAC_ADDR_REV),true)
 LOCAL_CFLAGS += -DWCNSS_QMI_MAC_ADDR_REV
 endif
+ifeq ($(TARGET_PROVIDES_WCNSS_QMI),true)
+LOCAL_CFLAGS += -DWCNSS_QMI_OSS
+LOCAL_SHARED_LIBRARIES += libdl
+else
 LOCAL_CFLAGS += -DWCNSS_QMI -DMDM_DETECT
 LOCAL_HEADER_LIBRARIES += libmdmdetect_headers
 ifeq ($(filter 10% Q% q%,$(TARGET_PLATFORM_VERSION)),)
@@ -25,6 +29,7 @@ LOCAL_SHARED_LIBRARIES += libqmiservices libqmi_cci
 LOCAL_HEADER_LIBRARIES += libmdmdetect_headers
 LOCAL_SHARED_LIBRARIES += libmdmdetect
 LOCAL_HEADER_LIBRARIES += libril-qc-qmi-services-headers
+endif #TARGET_PROVIDES_WCNSS_QMI
 endif #TARGET_USES_QCOM_WCNSS_QMI
 LOCAL_MODULE_TAGS := optional
 LOCAL_CFLAGS += -Wall -Werror
