@@ -956,6 +956,11 @@ wifi_error WiFiConfigCommand::requestEvent()
         res = WIFI_ERROR_OUT_OF_MEMORY;
         goto out;
     }
+    if (mInfo == NULL || mInfo->cmd_sock == NULL) {
+        ALOGE("%s: Wifi is turned of or socket is Null",__FUNCTION__);
+        res = WIFI_ERROR_UNKNOWN;
+        goto out;
+    }
 
     status = nl_send_auto_complete(mInfo->cmd_sock, mMsg.getMessage());
     if (status < 0) {
