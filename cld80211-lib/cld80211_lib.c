@@ -31,6 +31,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
  *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include <errno.h>
@@ -112,8 +115,10 @@ static void cleanup_exit_sockets(struct cld80211_ctx *ctx)
 }
 
 
-void exit_cld80211_recv(struct cld80211_ctx *ctx)
+void exit_cld80211_recv(void *cldctx)
 {
+	struct cld80211_ctx *ctx = (struct cld80211_ctx *) cldctx;
+
 	if (!ctx) {
 		ALOGE("%s: ctx is NULL: %s", getprogname(), __func__);
 		return;
@@ -257,8 +262,10 @@ static int get_multicast_id(struct cld80211_ctx *ctx, const char *group)
 }
 
 
-int cld80211_add_mcast_group(struct cld80211_ctx *ctx, const char* mcgroup)
+int cld80211_add_mcast_group(void *cldctx, const char* mcgroup)
 {
+	struct cld80211_ctx *ctx = (struct cld80211_ctx *) cldctx;
+
 	if (!ctx || !mcgroup) {
 		ALOGE("%s: ctx/mcgroup is NULL: %s", getprogname(), __func__);
 		return 0;
@@ -280,7 +287,7 @@ int cld80211_add_mcast_group(struct cld80211_ctx *ctx, const char* mcgroup)
 }
 
 
-int cld80211_remove_mcast_group(struct cld80211_ctx *ctx, const char* mcgroup)
+int cld80211_remove_mcast_group(void *cldctx, const char* mcgroup)
 {
 	// Drop membership is not a necessary cleanup action so comment it out.
 #if 0
@@ -306,10 +313,11 @@ int cld80211_remove_mcast_group(struct cld80211_ctx *ctx, const char* mcgroup)
 }
 
 
-struct nl_msg *cld80211_msg_alloc(struct cld80211_ctx *ctx, int cmd,
-				  struct nlattr **nla_data, int pid)
+struct nl_msg *cld80211_msg_alloc(void *cldctx, int cmd, struct nlattr **nla_data,
+				  int pid)
 {
 	struct nl_msg *nlmsg;
+	struct cld80211_ctx *ctx = (struct cld80211_ctx *) cldctx;
 
 	if (!ctx || !nla_data) {
 		ALOGE("%s: ctx is null: %s", getprogname(), __func__);
@@ -338,9 +346,10 @@ cleanup:
 }
 
 
-int cld80211_send_msg(struct cld80211_ctx *ctx, struct nl_msg *nlmsg)
+int cld80211_send_msg(void *cldctx, struct nl_msg *nlmsg)
 {
 	int err;
+	struct cld80211_ctx *ctx = (struct cld80211_ctx *) cldctx;
 
 	if (!ctx || !ctx->sock || !nlmsg) {
 		ALOGE("%s: Invalid data from client", getprogname());
@@ -357,11 +366,12 @@ int cld80211_send_msg(struct cld80211_ctx *ctx, struct nl_msg *nlmsg)
 }
 
 
-int cld80211_send_recv_msg(struct cld80211_ctx *ctx, struct nl_msg *nlmsg,
+int cld80211_send_recv_msg(void *cldctx, struct nl_msg *nlmsg,
 			   int (*valid_handler)(struct nl_msg *, void *),
 			   void *valid_data)
 {
 	int err;
+	struct cld80211_ctx *ctx = (struct cld80211_ctx *) cldctx;
 
 	if (!ctx || !ctx->sock || !nlmsg) {
 		ALOGE("%s: Invalid data from client", getprogname());
@@ -403,13 +413,14 @@ out:
 }
 
 
-int cld80211_recv(struct cld80211_ctx *ctx, int timeout, bool recv_multi_msg,
+int cld80211_recv(void *cldctx, int timeout, bool recv_multi_msg,
 		  int (*valid_handler)(struct nl_msg *, void *),
 		  void *cbctx)
 {
 	struct pollfd pfd[2];
 	struct nl_cb *cb;
 	int err;
+	struct cld80211_ctx *ctx = (struct cld80211_ctx *) cldctx;
 
 	if (!ctx || !ctx->sock || !valid_handler) {
 		ALOGE("%s: Invalid data from client", getprogname());
@@ -516,8 +527,10 @@ cleanup:
 }
 
 
-void cld80211_deinit(struct cld80211_ctx *ctx)
+void cld80211_deinit(void *cldctx)
 {
+	struct cld80211_ctx *ctx = (struct cld80211_ctx *) cldctx;
+
 	if (!ctx || !ctx->sock) {
 		ALOGE("%s: ctx/sock is NULL", getprogname());
 		return;
@@ -527,12 +540,36 @@ void cld80211_deinit(struct cld80211_ctx *ctx)
 	free (ctx);
 }
 
-void cld80211_stop_recv(struct cld80211_ctx *ctx, bool is_terminating)
+void cld80211_stop_recv(void *cldctx, bool is_terminating)
 {
+	struct cld80211_ctx *ctx = (struct cld80211_ctx *) cldctx;
+
 	if (!ctx || !ctx->sock) {
 		ALOGE("%s: ctx/sock is NULL", getprogname());
 		return;
 	}
 	ALOGE("%s: Program is terminating:%d", getprogname(), is_terminating);
 	ctx->is_terminating = is_terminating;
+}
+
+struct nl_sock *cld80211_get_nl_socket_ctx(void *cldctx)
+{
+	struct cld80211_ctx *ctx = (struct cld80211_ctx *) cldctx;
+
+	if (!ctx || !ctx->sock) {
+		ALOGE("%s: ctx/sock is NULL", getprogname());
+		return NULL;
+	}
+	return ctx->sock;
+}
+
+int *cld80211_get_exit_socket_pair(void *cldctx)
+{
+	struct cld80211_ctx *ctx = (struct cld80211_ctx *) cldctx;
+
+	if (!ctx || !ctx->sock) {
+		ALOGE("%s: ctx/sock is NULL", getprogname());
+		return NULL;
+	}
+	return ctx->exit_sockets;
 }
