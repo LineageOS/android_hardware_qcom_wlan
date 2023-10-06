@@ -417,8 +417,20 @@ int WifihalGeneric::handleResponse(WifiEvent &reply)
                         memcpy(mDriverFeatures.flags, nla_data(attr), len);
                         mDriverFeatures.flags_len = len;
                     }
+                }
+#define QCA_MLO_ASSOC_CNT QCA_WLAN_VENDOR_ATTR_MLO_CAPABILITY_MAX_ASSOCIATION_COUNT
+#define QCA_MLO_STR_CNT QCA_WLAN_VENDOR_ATTR_MLO_CAPABILITY_MAX_STR_LINK_COUNT
+                if (tb_vendor[QCA_MLO_ASSOC_CNT]) {
+                    mInfo->capa.max_mlo_association_link_count =
+                        nla_get_u8(tb_vendor[QCA_MLO_ASSOC_CNT]);
                  }
-                 break;
+                if (tb_vendor[QCA_MLO_STR_CNT]) {
+                    mInfo->capa.max_mlo_str_link_count =
+                        nla_get_u8(tb_vendor[QCA_MLO_STR_CNT]);
+                }
+#undef QCA_MLO_ASSOC_CNT
+#undef QCA_MLO_STR_CNT
+                break;
             }
         case QCA_NL80211_VENDOR_SUBCMD_GET_CONCURRENCY_MATRIX:
             {

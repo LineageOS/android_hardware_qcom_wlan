@@ -889,6 +889,60 @@ static u32 get_vendor_filter_mask(u32 in_mask)
     return op_mask;
 }
 
+wifi_error wifi_get_chip_capabilities(wifi_handle handle,
+                 wifi_chip_capabilities *chip_capabilities)
+{
+    wifi_tdls_capabilities tdls_caps;
+    hal_info *info;
+    wifi_interface_handle iface_handle;
+
+    if (!handle) {
+         ALOGE("%s: Error, wifi_handle NULL", __FUNCTION__);
+         return WIFI_ERROR_INVALID_ARGS;
+    }
+
+    info = getHalInfo(handle);
+    if (!info || info->num_interfaces < 1) {
+         ALOGE("%s: Error, wifi_handle NULL or base wlan interface not present",
+               __FUNCTION__);
+         return WIFI_ERROR_INVALID_ARGS;
+    }
+
+    /* Below are the boot time caps so by this time it must be filled */
+    if (info->capa.max_mlo_association_link_count < 0 ||
+        info->capa.max_mlo_str_link_count < 0 )
+    {
+        ALOGE("%s wifihal does not have req mlo caps", __func__);
+        return WIFI_ERROR_NOT_SUPPORTED;
+    }
+
+    iface_handle = wifi_get_iface_handle(handle, "wlan0");
+    if (!iface_handle) {
+        ALOGE("%s no iface with wlan0", __func__);
+        return WIFI_ERROR_UNKNOWN;
+    }
+
+    memset(&tdls_caps, 0, sizeof(wifi_tdls_capabilities));
+    tdls_caps.max_concurrent_tdls_session_num = -1;
+    wifi_get_tdls_capabilities(iface_handle, &tdls_caps);
+    if (tdls_caps.max_concurrent_tdls_session_num < 0)
+    {
+        ALOGE("%s wifihal does not have req tdls caps", __func__);
+        return WIFI_ERROR_NOT_SUPPORTED;
+    }
+    chip_capabilities->max_concurrent_tdls_session_count =
+        tdls_caps.max_concurrent_tdls_session_num;
+    chip_capabilities->max_mlo_association_link_count =
+        info->capa.max_mlo_association_link_count;
+    chip_capabilities->max_mlo_str_link_count =
+        info->capa.max_mlo_str_link_count;
+
+    ALOGD("%s: max mlo assoc link cnt: %d str link cnt %d",
+                      __func__, info->capa.max_mlo_association_link_count,
+                      info->capa.max_mlo_str_link_count);
+    return WIFI_SUCCESS;
+}
+
 wifi_error wifi_get_usable_channels(wifi_handle handle, u32 band_mask,
                                     u32 iface_mode_mask, u32 filter_mask,
                                     u32 max_size, u32* size,
@@ -1116,6 +1170,7 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn) {
     fn->wifi_nan_bootstrapping_request = nan_bootstrapping_request;
     fn->wifi_nan_bootstrapping_indication_response =
                                 nan_bootstrapping_indication_response;
+    fn->wifi_get_chip_capabilities = wifi_get_chip_capabilities;
 
     return WIFI_SUCCESS;
 }
@@ -1164,6 +1219,8 @@ wifi_error wifi_initialize(wifi_handle *handle)
     }
 
     memset(info, 0, sizeof(*info));
+    info->capa.max_mlo_association_link_count = -1;
+    info->capa.max_mlo_str_link_count = -1;
 
     cmd_sock = wifi_create_nl_socket(WIFI_HAL_CMD_SOCK_PORT,
                                                      NETLINK_GENERIC);

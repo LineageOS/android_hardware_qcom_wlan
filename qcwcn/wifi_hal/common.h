@@ -138,6 +138,8 @@ typedef struct {
 typedef struct {
     wifi_gscan_capabilities gscan_capa;
     wifi_roaming_capabilities roaming_capa;
+    int max_mlo_association_link_count;
+    int max_mlo_str_link_count;
 } wifi_capa;
 
 typedef struct {
