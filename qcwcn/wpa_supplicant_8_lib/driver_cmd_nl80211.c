@@ -6537,6 +6537,63 @@ nlmsg_fail:
 	return ret;
 }
 
+static int wpa_driver_cfg_coex_traffic_shaping(struct i802_bss *bss, char *cmd)
+{
+	struct wpa_driver_nl80211_data *drv;
+	struct nl_msg *nlmsg;
+	struct nlattr *attr;
+	int ret;
+	u8 traffic_shaping_mode;
+
+	cmd = skip_white_space(cmd);
+	if (*cmd == '\0') {
+		wpa_printf(MSG_ERROR, "traffic shaping mode is missing");
+		return -EINVAL;
+	}
+
+	drv = bss->drv;
+	traffic_shaping_mode = get_u8_from_string(cmd, &ret);
+	if (ret < 0) {
+		wpa_printf(MSG_ERROR, "traffic shaping mode is invalid");
+		return ret;
+	}
+
+	if (traffic_shaping_mode > 1) {
+		wpa_printf(MSG_ERROR, "Invalid traffic_shaping_mode %d",
+			   traffic_shaping_mode);
+		return -EINVAL;
+	}
+
+	nlmsg = prepare_vendor_nlmsg(drv, bss->ifname,
+				     QCA_NL80211_VENDOR_SUBCMD_SET_WIFI_CONFIGURATION);
+	if (!nlmsg) {
+		wpa_printf(MSG_ERROR, "Failed to allocate nlmsg for traffic_shaping_mode cmd");
+		return -ENOMEM;
+	}
+
+	attr = nla_nest_start(nlmsg, NL80211_ATTR_VENDOR_DATA);
+	if (!attr) {
+		ret = -ENOMEM;
+		wpa_printf(MSG_ERROR, "Failed to create traffic_shaping_mode cmd nl attribute");
+		goto nlmsg_fail;
+	}
+	if (nla_put_u8(nlmsg, QCA_WLAN_VENDOR_ATTR_CONFIG_COEX_TRAFFIC_SHAPING_MODE,
+		       traffic_shaping_mode)) {
+		ret = -ENOMEM;
+		wpa_printf(MSG_ERROR, "Failed to put traffic_shaping_mode value");
+		goto nlmsg_fail;
+	}
+	nla_nest_end(nlmsg, attr);
+
+	ret = send_nlmsg((struct nl_sock *)drv->global->nl, nlmsg, NULL, NULL);
+	if (ret)
+		wpa_printf(MSG_ERROR, "Failed to send traffic_shaping_mode nlmsg, error:%d", ret);
+	return ret;
+nlmsg_fail:
+	nlmsg_free(nlmsg);
+	return ret;
+}
+
 int wpa_driver_nl80211_driver_cmd(void *priv, char *cmd, char *buf,
 				  size_t buf_len )
 {
@@ -6897,6 +6954,13 @@ int wpa_driver_nl80211_driver_cmd(void *priv, char *cmd, char *buf,
 		 */
 		cmd += 14;
 		return wpa_driver_ps_config_cmd(bss, cmd);
+	} else if (os_strncasecmp(cmd, "COEX_TRAFFIC_SHAPING_MODE ", 26) == 0) {
+		/* DRIVER COEX_TRAFFIC_SHAPING_MODE <mode>
+		 * <mode> = 0 (All traffic shaping disabled and fixed arbitration config)
+		 * <mode> = 1 (enable coex algos)
+		 */
+		cmd += 26;
+		return wpa_driver_cfg_coex_traffic_shaping(bss, cmd);
 	} else { /* Use private command */
 		memset(&ifr, 0, sizeof(ifr));
 		memset(&priv_cmd, 0, sizeof(priv_cmd));
