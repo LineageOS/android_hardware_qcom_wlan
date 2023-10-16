@@ -601,6 +601,8 @@ wifi_error WifiCommand::requestResponse(WifiRequest& request)
 {
     int err = 0;
 
+    pthread_mutex_lock(&mInfo->cb_lock);
+
     struct nl_cb *cb = nl_cb_alloc(NL_CB_DEFAULT);
     if (!cb)
         goto out;
@@ -626,6 +628,7 @@ wifi_error WifiCommand::requestResponse(WifiRequest& request)
 out:
     nl_cb_put(cb);
     mMsg.destroy();
+    pthread_mutex_unlock(&mInfo->cb_lock);
     return mapKernelErrortoWifiHalError(err);
 }
 

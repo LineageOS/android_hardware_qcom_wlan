@@ -1152,6 +1152,8 @@ wifi_error WiFiConfigCommand::requestEvent()
     wifi_error res = WIFI_SUCCESS;
     struct nl_cb *cb = NULL;
 
+    pthread_mutex_lock(&mInfo->cb_lock);
+
     cb = nl_cb_alloc(NL_CB_DEFAULT);
     if (!cb) {
         ALOGE("%s: Callback allocation failed",__FUNCTION__);
@@ -1201,6 +1203,7 @@ out:
     nl_cb_put(cb);
     /* Cleanup the mMsg */
     mMsg.destroy();
+    pthread_mutex_unlock(&mInfo->cb_lock);
     return res;
 }
 

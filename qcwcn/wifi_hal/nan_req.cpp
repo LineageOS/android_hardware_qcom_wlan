@@ -2222,6 +2222,8 @@ wifi_error NanCommand::requestEvent()
     int status;
     struct nl_cb * cb = NULL;
 
+    pthread_mutex_lock(&mInfo->cb_lock);
+
     cb = nl_cb_alloc(NL_CB_DEFAULT);
     if (!cb) {
         ALOGE("%s: Callback allocation failed",__func__);
@@ -2263,6 +2265,7 @@ out:
     mVendorData = NULL;
     //cleanup the mMsg
     mMsg.destroy();
+    pthread_mutex_unlock(&mInfo->cb_lock);
     return res;
 }
 

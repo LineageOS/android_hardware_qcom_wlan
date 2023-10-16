@@ -246,6 +246,8 @@ static int nan_send_nl_msg(hal_info *info, struct nl_msg *msg)
     int res = 0;
     struct nl_cb * cb = NULL;
 
+    pthread_mutex_lock(&info->cb_lock);
+
     cb = nl_cb_alloc(NL_CB_DEFAULT);
     if (!cb) {
         ALOGE("%s: Callback allocation failed",__func__);
@@ -278,6 +280,7 @@ static int nan_send_nl_msg(hal_info *info, struct nl_msg *msg)
 
 out:
     nl_cb_put(cb);
+    pthread_mutex_unlock(&info->cb_lock);
     return res;
 }
 
