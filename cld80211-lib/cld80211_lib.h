@@ -25,6 +25,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #ifndef CLD80211_LIB_H
@@ -87,37 +90,37 @@ struct cld80211_ctx *cld80211_init(void);
 /**
  * free the socket created in cld80211_init()
  */
-void cld80211_deinit(struct cld80211_ctx *ctx);
+void cld80211_deinit(void *cldctx);
 
 /**
  * Allocate nl_msg and populate family and genl header details
  */
-struct nl_msg *cld80211_msg_alloc(struct cld80211_ctx *ctx, int cmd,
-				  struct nlattr **nla_data, int pid);
+struct nl_msg *cld80211_msg_alloc(void *cldctx, int cmd, struct nlattr **nla_data,
+				  int pid);
 
 /**
  * Send nlmsg to driver and return; It doesn't wait for response
  */
-int cld80211_send_msg(struct cld80211_ctx *ctx, struct nl_msg *nlmsg);
+int cld80211_send_msg(void *cldctx, struct nl_msg *nlmsg);
 
 /**
  * Send nlmsg to driver and get response, if any
  */
-int cld80211_send_recv_msg(struct cld80211_ctx *ctx, struct nl_msg *nlmsg,
-		      int (*valid_handler)(struct nl_msg *, void *),
-		      void *valid_data);
+int cld80211_send_recv_msg(void *cldctx, struct nl_msg *nlmsg,
+			   int (*valid_handler)(struct nl_msg *, void *),
+			   void *valid_data);
 
 /**
  * Add membership for multicast group "mcgroup" to receive the messages
  * sent to this group from driver
  */
-int cld80211_add_mcast_group(struct cld80211_ctx *ctx, const char* mcgroup);
+int cld80211_add_mcast_group(void *cldctx, const char* mcgroup);
 
 /**
  * Remove membership of multicast group "mcgroup" to stop receiving messages
  * sent to this group from driver
  */
-int cld80211_remove_mcast_group(struct cld80211_ctx *ctx, const char* mcgroup);
+int cld80211_remove_mcast_group(void *cldctx, const char* mcgroup);
 
 /**
  * Receive messages from driver on cld80211 family. Client can do
@@ -142,7 +145,7 @@ int cld80211_recv_msg(struct nl_sock *sock, struct nl_cb *cb);
  *        nlmsg is received
  * Returns corresponding errno when a failure happens while receiving nl msg
  */
-int cld80211_recv(struct cld80211_ctx *ctx, int timeout, bool recv_multi_msg,
+int cld80211_recv(void *cldctx, int timeout, bool recv_multi_msg,
 		  int (*valid_handler)(struct nl_msg *, void *),
 		  void *cbctx);
 
@@ -150,13 +153,23 @@ int cld80211_recv(struct cld80211_ctx *ctx, int timeout, bool recv_multi_msg,
  * poll() is a blocking call on sock. Client has to unblock the poll()
  * first to exit gracefully.
  */
-void exit_cld80211_recv(struct cld80211_ctx *ctx);
+void exit_cld80211_recv(void *cldctx);
 
 /**
  * Client has to inform to exit gracefully during polling and reset the flag
  * accordingly.
  */
-void cld80211_stop_recv(struct cld80211_ctx *ctx, bool is_terminating);
+void cld80211_stop_recv(void *cldctx, bool is_terminating);
+
+/**
+ * Get the nl socket context to listen to driver events.
+ */
+struct nl_sock *cld80211_get_nl_socket_ctx(void *cldctx);
+
+/**
+ * Get the exit socket pair for clients to stop listening to driver events.
+ */
+int *cld80211_get_exit_socket_pair(void *cldctx);
 #ifdef __cplusplus
 }
 #endif
