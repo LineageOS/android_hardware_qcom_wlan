@@ -80,7 +80,14 @@ static int wpa_driver_check_for_sr_cmd(char *cmd, enum qca_wlan_sr_operation *sr
 		*sr_cmd = QCA_WLAN_SR_OPERATION_GET_STATS;
 	else if (os_strncasecmp(cmd, "clearstats", 10) == 0)
 		*sr_cmd = QCA_WLAN_SR_OPERATION_CLEAR_STATS;
-	else {
+	else if (os_strncasecmp(cmd, "getparams", 9) == 0) {
+		cmd += 9;
+		cmd = skip_white_space(cmd);
+		if (*cmd != '\0')
+			return -EINVAL;
+		else
+			*sr_cmd = QCA_WLAN_SR_OPERATION_GET_PARAMS;
+	} else {
 		wpa_printf(MSG_ERROR, "Unknown SR command:%s\n", cmd);
 		return -EINVAL;
 	}
@@ -159,6 +166,65 @@ static int parse_sr_get_stats_response(struct resp_info *info, struct nlattr *ve
 	return 0;
 }
 
+static int parse_sr_get_params_response(struct resp_info *info,
+					struct nlattr *vendata, int datalen)
+{
+	int cmd_id, ret;
+	u8 srg_pd_offset_min = 0, srg_pd_offset_max = 0,
+	non_srg_pd_offset_max = 0, hesiga_val15_enable = 1,
+	non_srg_pd_disallow = 1;
+	struct nlattr *sr_attr[QCA_WLAN_VENDOR_ATTR_SR_PARAMS_MAX + 1];
+
+	ret = nla_parse_nested(sr_attr, QCA_WLAN_VENDOR_ATTR_SR_PARAMS_MAX,
+			       vendata, NULL);
+	if (ret) {
+		wpa_printf(MSG_ERROR, "SR params: nla_parse fail, error: %d", ret);
+		return ret;
+	}
+
+	cmd_id = QCA_WLAN_VENDOR_ATTR_SR_PARAMS_SRG_OBSS_PD_MIN_OFFSET;
+	if (sr_attr[cmd_id])
+		srg_pd_offset_min = nla_get_u8(sr_attr[cmd_id]);
+	else
+		wpa_printf(MSG_INFO, "SR params: SRG PD min offset not found");
+
+	cmd_id = QCA_WLAN_VENDOR_ATTR_SR_PARAMS_SRG_OBSS_PD_MAX_OFFSET;
+	if (sr_attr[cmd_id])
+		srg_pd_offset_max = nla_get_u8(sr_attr[cmd_id]);
+	else
+		wpa_printf(MSG_INFO, "SR params: SRG PD max offset not found");
+
+	cmd_id = QCA_WLAN_VENDOR_ATTR_SR_PARAMS_NON_SRG_OBSS_PD_MAX_OFFSET;
+	if (sr_attr[cmd_id])
+		non_srg_pd_offset_max = nla_get_u8(sr_attr[cmd_id]);
+	else
+		wpa_printf(MSG_INFO, "SR params: Non SRG PD max offset not found");
+
+	cmd_id = QCA_WLAN_VENDOR_ATTR_SR_PARAMS_HESIGA_VAL15_ENABLE;
+	if (!sr_attr[cmd_id]) {
+		wpa_printf(MSG_INFO, "SR params: Hesiga Val15 is not enabled by AP");
+		hesiga_val15_enable = 0;
+	}
+
+	cmd_id = QCA_WLAN_VENDOR_ATTR_SR_PARAMS_NON_SRG_OBSS_PD_DISALLOW;
+	if (!sr_attr[cmd_id]) {
+		wpa_printf(MSG_INFO, "SR params: non SRG PD is not allowed by AP");
+		non_srg_pd_disallow = 0;
+	}
+
+	ret = os_snprintf(info->reply_buf, info->reply_buf_len,
+			"srg_obss_pd_min_offset: %u\nsrg_obss_pd_max_offset: %u\n"
+			"non_srg_obss_pd_max_offset: %u\nhesiga_val15_enable: %u\n"
+			"non_srg_pd_disallow: %u", srg_pd_offset_min,
+			srg_pd_offset_max, non_srg_pd_offset_max,
+			hesiga_val15_enable, non_srg_pd_disallow);
+	if (os_snprintf_error(info->reply_buf_len, ret)) {
+		wpa_printf(MSG_ERROR, "SR params: Failed to put in buffer, error: %d", ret);
+		return ret;
+	}
+	return 0;
+}
+
 /**
  * sr_response_unpack() - unpack the spatial reuse command response received from driver
  *
@@ -179,16 +245,19 @@ static int sr_response_unpack(struct resp_info *info, struct nlattr *vendata, in
 	switch (info->cmd_oper) {
 	case QCA_WLAN_SR_OPERATION_GET_STATS:
 		ret = parse_sr_get_stats_response(info, vendata, datalen);
-		if (ret) {
-			wpa_printf(MSG_ERROR, "Unpacking SR stats failed, error:%d\n",ret);
-			return ret;
-		}
+		if (ret)
+			wpa_printf(MSG_ERROR, "Unpacking SR stats failed, error:%d", ret);
+		break;
+	case QCA_WLAN_SR_OPERATION_GET_PARAMS:
+		ret = parse_sr_get_params_response(info, vendata, datalen);
+		if (ret)
+			wpa_printf(MSG_ERROR, "Unpacking SR params failed, error:%d", ret);
 		break;
 	default:
 		ret = -EINVAL;
-		wpa_printf(MSG_ERROR, "Unsupported SR command:%d, error:%d\n",
+		wpa_printf(MSG_ERROR, "Unsupported SR command:%d, error:%d",
 			   info->cmd_oper, ret);
-		return ret;
+		break;
 	}
 	return ret;
 }
@@ -216,13 +285,92 @@ int sr_response_handler(struct resp_info *info, struct nlattr *vendata, int data
 	drv = info->drv;
 
 	ret = sr_response_unpack(info, vendata, datalen);
-	if (!ret)
-		wpa_msg(drv->ctx, MSG_INFO, "CTRL-EVENT-SR STATS RESPONSE\n" "%s", info->reply_buf);
-	else
-		wpa_msg(drv->ctx, MSG_INFO, "CTRL-EVENT-SR STATS RESPONSE\n" " %s : Error = %d",
-			info->reply_buf, ret);
-
+	switch (info->cmd_oper) {
+	case QCA_WLAN_SR_OPERATION_GET_STATS:
+		if (!ret)
+			wpa_msg(drv->ctx, MSG_INFO, "CTRL-EVENT-SR STATS RESPONSE\n"
+				"%s", info->reply_buf);
+		else
+			wpa_msg(drv->ctx, MSG_ERROR, "CTRL-EVENT-SR STATS RESPONSE\n"
+				" %s : Error = %d", info->reply_buf, ret);
+		break;
+	case QCA_WLAN_SR_OPERATION_GET_PARAMS:
+		if (!ret)
+			wpa_msg(drv->ctx, MSG_INFO, "CTRL-EVENT-SR PARAMS RESPONSE\n"
+				"%s", info->reply_buf);
+		else
+			wpa_msg(drv->ctx, MSG_ERROR, "CTRL-EVENT-SR PARAMS RESPONSE\n"
+				" %s : Error = %d", info->reply_buf, ret);
+		break;
+	}
 	return ret;
+}
+
+static int pack_sr_enable_nlmsg(struct nl_msg *nlmsg, char *cmd)
+{
+
+	struct nlattr *sr_attr;
+	s8 is_srg_pd_cmd = 0, is_non_srg_pd_cmd = 0;
+	s32 pd_thres = 0, cmd_id;
+	int ret;
+
+	cmd += 6;
+	cmd = skip_white_space(cmd);
+	if (*cmd == '\0')
+		return 0;
+
+	sr_attr = nla_nest_start(nlmsg, QCA_WLAN_VENDOR_ATTR_SR_PARAMS);
+	if (!sr_attr)
+		return -ENOMEM;
+
+	for (int i = 0; i < 2; i++) {
+		if (os_strncasecmp(cmd, "srg_pd_threshold ", 17) == 0) {
+			cmd += 17;
+			cmd = skip_white_space(cmd);
+			pd_thres = get_s32_from_string(cmd, &ret);
+			if (ret < 0 || pd_thres < OBSS_PD_THRESHOLD_MIN ||
+			    pd_thres > OBSS_PD_THRESHOLD_MAX) {
+				wpa_printf(MSG_ERROR, "Invalid SRG PD threshold: %d", pd_thres);
+				return -EINVAL;
+			}
+			cmd_id = QCA_WLAN_VENDOR_ATTR_SR_PARAMS_SRG_PD_THRESHOLD;
+			if (nla_put_s32(nlmsg, cmd_id, pd_thres)) {
+				wpa_printf(MSG_ERROR, "Failed to put SRG PD threshold");
+				return -ENOMEM;
+			}
+			is_srg_pd_cmd++;
+		} else if (os_strncasecmp(cmd, "non_srg_pd_threshold ", 21) == 0) {
+			cmd += 21;
+			cmd = skip_white_space(cmd);
+			pd_thres = get_s32_from_string(cmd, &ret);
+			/**
+			 * For non-SRG OBSS, allowed range for PD threshold
+			 * is -62 to -81 as -82 is fixed as min offset.
+			 **/
+			if (ret < 0 || pd_thres <= OBSS_PD_THRESHOLD_MIN ||
+			    pd_thres > OBSS_PD_THRESHOLD_MAX) {
+				wpa_printf(MSG_ERROR, "Invalid Non-SRG PD threshold: %d", pd_thres);
+				return -EINVAL;
+			}
+			cmd_id = QCA_WLAN_VENDOR_ATTR_SR_PARAMS_NON_SRG_PD_THRESHOLD;
+			if (nla_put_s32(nlmsg, cmd_id, pd_thres)) {
+				wpa_printf(MSG_ERROR, "Failed to put Non-SRG PD threshold");
+				return -ENOMEM;
+			}
+			is_non_srg_pd_cmd++;
+		} else if (*cmd == '\0')
+			break;
+		else
+			return -EINVAL;
+
+		if (is_srg_pd_cmd > 1 || is_non_srg_pd_cmd > 1)
+			return -EINVAL;
+
+		cmd = get_next_arg(cmd);
+		cmd = skip_white_space(cmd);
+	}
+	nla_nest_end(nlmsg, sr_attr);
+	return 0;
 }
 
 /**
@@ -288,11 +436,18 @@ int wpa_driver_sr_cmd(struct i802_bss *bss, char *cmd, char *buf, size_t buf_len
 	}
 	switch (sr_cmd) {
 		case QCA_WLAN_SR_OPERATION_SR_ENABLE:
+			status = pack_sr_enable_nlmsg(nlmsg, cmd);
+			if (status < 0) {
+				wpa_printf(MSG_ERROR, "SR enable command failed: %d,"
+					   "error:%d", sr_cmd, status);
+				goto nlmsg_fail;
+			}
 		case QCA_WLAN_SR_OPERATION_SR_DISABLE:
 		case QCA_WLAN_SR_OPERATION_PSR_AND_NON_SRG_OBSS_PD_PROHIBIT:
 		case QCA_WLAN_SR_OPERATION_PSR_AND_NON_SRG_OBSS_PD_ALLOW:
 		case QCA_WLAN_SR_OPERATION_GET_STATS:
 		case QCA_WLAN_SR_OPERATION_CLEAR_STATS:
+		case QCA_WLAN_SR_OPERATION_GET_PARAMS:
 			status = nla_put_u8(nlmsg, QCA_WLAN_VENDOR_ATTR_SR_OPERATION, sr_cmd);
 			if (status) {
 				wpa_printf(MSG_ERROR, "Fail to put SR command:%d, error:%d\n",
@@ -307,9 +462,14 @@ int wpa_driver_sr_cmd(struct i802_bss *bss, char *cmd, char *buf, size_t buf_len
 				   sr_cmd, status);
 			goto nlmsg_fail;
 	}
-	status = send_nlmsg((struct nl_sock *)drv->global->nl, nlmsg,
-			    (sr_cmd == QCA_WLAN_SR_OPERATION_GET_STATS) ? response_handler : NULL,
-			    (sr_cmd == QCA_WLAN_SR_OPERATION_GET_STATS) ? &info : NULL);
+	if (sr_cmd == QCA_WLAN_SR_OPERATION_GET_STATS ||
+	    sr_cmd == QCA_WLAN_SR_OPERATION_GET_PARAMS)
+		status = send_nlmsg((struct nl_sock *)drv->global->nl,
+				    nlmsg, response_handler, &info);
+	else
+		status = send_nlmsg((struct nl_sock *)drv->global->nl,
+				    nlmsg, NULL, NULL);
+
 	if (status) {
 		wpa_printf(MSG_ERROR, "Fail to send nlmsg SR command:%d to driver, error:%d\n",
 			   sr_cmd, status);

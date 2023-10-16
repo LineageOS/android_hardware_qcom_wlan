@@ -49,6 +49,9 @@
 #include <netlink/object-api.h>
 #include <linux/pkt_sched.h>
 
+#define OBSS_PD_THRESHOLD_MIN -82
+#define OBSS_PD_THRESHOLD_MAX -62
+
 struct wpa_driver_nl80211_data *drv;
 struct i802_bss *bss;
 struct nl_msg *prepare_vendor_nlmsg(struct wpa_driver_nl80211_data *drv,
@@ -64,3 +67,5 @@ int response_handler(struct nl_msg *msg, void *arg);
 int wpa_driver_sr_event(struct wpa_driver_nl80211_data *drv,
 		        u32 vendor_id, u32 subcmd, u8 *data, size_t len);
 char *skip_white_space(char *cmd);
+char *get_next_arg(char *cmd);
+s32 get_s32_from_string(char *cmd_string, int *ret);
