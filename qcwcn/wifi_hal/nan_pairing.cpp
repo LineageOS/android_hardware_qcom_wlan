@@ -316,15 +316,48 @@ int nan_send_tx_mgmt(void *ctx, const u8 *frame_buf, size_t frame_len,
 {
     wifi_handle handle = (wifi_handle)ctx;
     hal_info *info = getHalInfo(handle);
+    const struct ieee80211_mgmt *mgmt;
+    u16 auth_transaction, status_code;
+    struct nan_pairing_peer_info *peer;
+    struct pasn_data *pasn;
     struct nl_msg * msg;
     int err = 0, l = 0;
     u32 i, idx;
+
+    mgmt = (struct ieee80211_mgmt *)frame_buf;
+    if (!mgmt || frame_len < offsetof(struct ieee80211_mgmt, u.auth.variable)) {
+        ALOGE("%s: Invalid frame buf: len=%d \n", __FUNCTION__, frame_len);
+        return -1;
+    }
 
     msg = nlmsg_alloc();
 
     if (!msg) {
         ALOGE("%s: Memory allocation failed \n", __FUNCTION__);
         return -1;
+    }
+
+    /* After sending M2 frame, responder is expected to receive M3 and an
+       encrypted followup frames from the initiator. Some times followup frame
+       is received before the session keys are installed resulting in frame
+       drop. Hence to avoid the race condition, install session keys immediately
+       before sending M2 frame
+    */
+
+    status_code = le_to_host16(mgmt->u.auth.status_code);
+    auth_transaction = le_to_host16(mgmt->u.auth.auth_transaction);
+
+    peer = nan_pairing_get_peer_from_list(info->secure_nan, (u8 *)mgmt->da);
+    if (peer && peer->peer_role == SECURE_NAN_PAIRING_INITIATOR &&
+        auth_transaction == 2 && status_code == WLAN_STATUS_SUCCESS) {
+        pasn = &peer->pasn;
+        ptksa_cache_add(info->secure_nan->ptksa, pasn->own_addr,
+                        pasn->peer_addr, pasn->cipher, 43200,
+                        &pasn->ptk, NULL, NULL,
+                        pasn->akmp);
+        nan_pairing_set_keys_from_cache(handle, pasn->own_addr,
+                                        (u8 *)pasn->peer_addr, pasn->cipher,
+                                        pasn->akmp, peer->peer_role);
     }
 
     genlmsg_put(msg, 0, 0, info->nl80211_family_id, 0, 0, NL80211_CMD_FRAME, 0);
