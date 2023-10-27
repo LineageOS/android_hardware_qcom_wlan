@@ -6216,6 +6216,9 @@ static int wpa_driver_rate_mask_config(struct i802_bss *bss, char *cmd)
 		case 3:
 			type = QCA_WLAN_RATEMASK_PARAMS_TYPE_HE;
 			break;
+		case 4:
+			type = QCA_WLAN_RATEMASK_PARAMS_TYPE_EHT;
+			break;
 		default:
 			wpa_printf(MSG_ERROR,
 				   "rate_mask: Invalid rate_mask type");
