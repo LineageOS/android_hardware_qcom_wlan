@@ -197,6 +197,10 @@ nan_pairing_initialize_peer_for_verification(struct wpa_secure_nan *secure_nan,
   struct nan_pairing_peer_info* entry;
 
   entry = nan_pairing_add_peer_to_list(secure_nan, mac);
+  if (entry == NULL) {
+      ALOGE("%s: peer not available", __FUNCTION__);
+      return NULL;
+  }
   entry->peer_role = SECURE_NAN_PAIRING_INITIATOR;
   entry->pub_sub_id = secure_nan->pub_sub_id;
   entry->is_paired = true;
