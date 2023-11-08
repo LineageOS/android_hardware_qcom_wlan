@@ -10,7 +10,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022,2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -71,11 +71,11 @@
 #endif
 #include "driver_cmd_nl80211_extn.h"
 #include "driver_cmd_nl80211_common.h"
+#include "driver_cmd_nl80211_mlo.h"
 
 #define WPA_PS_ENABLED		0
 #define WPA_PS_DISABLED		1
 #define UNUSED(x)	(void)(x)
-#define NL80211_ATTR_MAX_INTERNAL 256
 #define CSI_STATUS_REJECTED      -1
 #define CSI_STATUS_SUCCESS        0
 #define ENHANCED_CFR_VER          2
@@ -2853,7 +2853,7 @@ s32 get_s32_from_string(char *cmd_string, int *ret)
 	return val;
 }
 
-static u8 get_u8_from_string(char *cmd_string, int *ret)
+u8 get_u8_from_string(char *cmd_string, int *ret)
 {
 	long val = 0;
 	char *endptr = NULL;
@@ -7198,6 +7198,25 @@ int wpa_driver_nl80211_driver_cmd(void *priv, char *cmd, char *buf,
 	} else if (os_strncasecmp(cmd, "ISMONITORRUNNING ", 17) == 0) {
 		cmd += 17;
 		return wpa_driver_get_mon_status(bss, cmd, buf, buf_len);
+	} else if (os_strncasecmp(cmd, "GET_ML_LINK_CONTROL_MODE", 24) == 0) {
+		/**
+		 * Driver command to get ML configurations
+		 * Syntax: DRIVER GET_ML_LINK_CONTROL_MODE
+		 */
+		cmd += 24;
+		return wpa_driver_get_mlo_links_control_mode(bss, buf, buf_len);
+	} else if (os_strncasecmp(cmd, "SET_ML_LINK_CONTROL_MODE ", 25) == 0) {
+		/**
+		 * Driver command to set ML configurations
+		 * Syntax: DRIVER SET_ML_LINK_CONTROL_MODE config_mode
+		 * <mode> [link_id <id> link_state <state>..]
+		 * <mode> 0 for default, 1 for user configured
+		 * <id> id is link id
+		 * <state> 0 for inactive, 1 for active
+		 */
+		cmd += 25;
+		return wpa_driver_set_mlo_links_control_mode(bss, cmd, buf,
+							     buf_len);
 	} else { /* Use private command */
 		memset(&ifr, 0, sizeof(ifr));
 		memset(&priv_cmd, 0, sizeof(priv_cmd));

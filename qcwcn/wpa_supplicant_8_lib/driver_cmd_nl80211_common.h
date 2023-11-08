@@ -10,7 +10,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022,2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -52,6 +52,7 @@
 #define OBSS_PD_THRESHOLD_MIN -82
 #define OBSS_PD_THRESHOLD_MAX -62
 #define MAX_NUM_MLO_LINKS      15
+#define NL80211_ATTR_MAX_INTERNAL 256
 
 struct wpa_driver_nl80211_data *drv;
 struct i802_bss *bss;
@@ -77,3 +78,5 @@ int wpa_driver_start_mon(struct i802_bss *bss, char *cmd);
 int wpa_driver_stop_mon(struct i802_bss *bss, char *cmd);
 int wpa_driver_get_mon_status(struct i802_bss *bss, char *cmd, char *buf, size_t buf_len);
 void mon_response_handler(struct resp_info *info, struct nlattr *vendata, int datalen);
+char *move_to_next_str(char *cmd);
+u8 get_u8_from_string(char *cmd_string, int *ret);
