@@ -1,0 +1,38 @@
+// See: http://go/android-license-faq
+package {
+    default_applicable_licenses: ["wlan_cld80211_license"],
+}
+
+license {
+    name: "wlan_cld80211_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-BSD",
+    ],
+}
+
+cc_library_headers {
+    name: "libcld80211_headers",
+    vendor: true,
+    export_include_dirs: ["."],
+}
+
+cc_library_shared {
+    name: "libcld80211",
+    vendor: true,
+    shared_libs: [
+        "libcutils",
+        "libnl",
+        "liblog",
+    ],
+    srcs: ["cld80211_lib.c"],
+    cflags: [
+        "-Wall",
+        "-Werror",
+        "-Wno-unused-parameter",
+    ],
+    export_include_dirs: ["."],
+    header_libs: [
+        "libcld80211_headers",
+    ],
+}
