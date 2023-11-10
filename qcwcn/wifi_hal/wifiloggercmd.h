@@ -31,7 +31,7 @@
 
 #include "common.h"
 #include "cpp_bindings.h"
-#include "wifi_logger.h"
+#include <hardware_legacy/wifi_logger.h>
 #include "wifilogger_diag.h"
 
 #ifdef __cplusplus

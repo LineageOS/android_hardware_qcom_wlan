@@ -49,7 +49,7 @@
 #include "nl80211_copy.h"
 #include "common.h"
 #include "cpp_bindings.h"
-#include "tdls.h"
+#include <hardware_legacy/tdls.h>
 
 #ifdef __GNUC__
 #define PRINTF_FORMAT(a,b) __attribute__ ((format (printf, (a), (b))))

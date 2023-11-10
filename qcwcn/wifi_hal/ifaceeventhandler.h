@@ -73,7 +73,7 @@
 #define STRUCT_PACKED
 #endif
 #include "vendor_definitions.h"
-#include "wifi_hal.h"
+#include <hardware_legacy/wifi_hal.h>
 
 #ifdef __cplusplus
 extern "C"
