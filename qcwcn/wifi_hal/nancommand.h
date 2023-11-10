@@ -81,7 +81,9 @@
  * First bit of discovery_indication_cfg in NanEnableRequest indicates
  * disableDiscoveryAddressChangeIndication
  */
-#define NAN_DISC_ADDR_IND_DISABLED 0x01
+#define NAN_DISC_ADDR_IND_DISABLED             0x01
+#define NAN_STARTED_CLUSTER_IND_DISABLED       0x02
+#define NAN_JOINED_CLUSTER_IND_DISABLED        0x04
 
 typedef struct PACKED
 {
@@ -110,7 +112,7 @@ private:
     u32 mNanMaxSubscribes;
     NanStoreSvcParams *mStorePubParams;
     NanStoreSvcParams *mStoreSubParams;
-    bool mNanDiscAddrIndDisabled;
+    u32 mConfigDiscoveryIndications;
     std::queue<transaction_id> mNdiTransactionId;
     std::vector<std::pair<transaction_id, NanResponseMsg> > mNanResponseMsgVec;
     VendorNanCallbackHandler mVendorHandler;

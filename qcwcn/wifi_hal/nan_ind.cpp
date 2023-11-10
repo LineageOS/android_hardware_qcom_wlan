@@ -126,11 +126,20 @@ int NanCommand::handleNanIndication()
             ((discEngEventInd.event_type == NAN_EVENT_ID_STARTED_CLUSTER) ||
             (discEngEventInd.event_type == NAN_EVENT_ID_JOINED_CLUSTER))) {
             mNanCommandInstance->saveClusterAddr(discEngEventInd.data.cluster.addr);
+            if (discEngEventInd.event_type == NAN_EVENT_ID_STARTED_CLUSTER &&
+                (mNanCommandInstance->mConfigDiscoveryIndications &
+                 NAN_STARTED_CLUSTER_IND_DISABLED))
+                break;
+            if (discEngEventInd.event_type == NAN_EVENT_ID_JOINED_CLUSTER &&
+                (mNanCommandInstance->mConfigDiscoveryIndications &
+                 NAN_JOINED_CLUSTER_IND_DISABLED))
+                break;
         }
         if (!res &&
             (discEngEventInd.event_type == NAN_EVENT_ID_DISC_MAC_ADDR)) {
             mNanCommandInstance->saveNmi(discEngEventInd.data.mac_addr.addr);
-            if (mNanCommandInstance->mNanDiscAddrIndDisabled)
+            if (mNanCommandInstance->mConfigDiscoveryIndications &
+                NAN_DISC_ADDR_IND_DISABLED)
                 break;
         }
         if (!res && mHandler.EventDiscEngEvent) {

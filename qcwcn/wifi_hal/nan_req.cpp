@@ -354,17 +354,21 @@ wifi_error NanCommand::putNanEnable(transaction_id id, const NanEnableRequest *p
 
     u32 config_discovery_indications;
     config_discovery_indications = (u32)pReq->discovery_indication_cfg;
-    /* Save the discovery MAC indication config if it is disabled from the
-     * framework and use it later to decide if the framework to be notified of
-     * the response. And enable the self MAC discovery indication from firmware
-     * by resetting the bit in config to get the Self MAC.
+
+    /* Save the indication configs such as Disable Discovery MAC indication,
+     * Disable cluster started and Disable cluster joined indications from the
+     * framework. Always enable indications from firmware to wifihal, so that
+     * wifihal will manage to forward the indications based on the framework
+     * configuration. Indications are required in wifihal to know nmi address,
+     * cluster address etc for nan pairing.
      */
-    if (config_discovery_indications & NAN_DISC_ADDR_IND_DISABLED) {
-        mNanCommandInstance->mNanDiscAddrIndDisabled = true;
-        config_discovery_indications &= ~NAN_DISC_ADDR_IND_DISABLED;
-    } else {
-        mNanCommandInstance->mNanDiscAddrIndDisabled = false;
-    }
+    mNanCommandInstance->mConfigDiscoveryIndications =
+                                                  config_discovery_indications;
+
+    config_discovery_indications &= ~(NAN_DISC_ADDR_IND_DISABLED |
+                                      NAN_STARTED_CLUSTER_IND_DISABLED |
+                                      NAN_JOINED_CLUSTER_IND_DISABLED);
+
     tlvs = addTlv(NAN_TLV_TYPE_CONFIG_DISCOVERY_INDICATIONS,
                   sizeof(u32),
                   (const u8*)&config_discovery_indications, tlvs);
@@ -718,17 +722,21 @@ wifi_error NanCommand::putNanConfig(transaction_id id, const NanConfigRequest *p
 
     u32 config_discovery_indications;
     config_discovery_indications = (u32)(pReq->discovery_indication_cfg);
-    /* Save the discovery MAC indication config if it is disabled from the
-     * framework and use it later to decide if the framework to be notified of
-     * the response. And enable the self MAC discovery indication from firmware
-     * by resetting the bit in config to get the Self MAC.
+
+    /* Save the indication configs such as Disable Discovery MAC indication,
+     * Disable cluster started and Disable cluster joined indications from the
+     * framework. Always enable indications from firmware to wifihal, so that
+     * wifihal will manage to forward the indications based on the framework
+     * configuration. Indications are required in wifihal to know nmi address,
+     * cluster address etc for nan pairing.
      */
-    if (config_discovery_indications & NAN_DISC_ADDR_IND_DISABLED) {
-        mNanCommandInstance->mNanDiscAddrIndDisabled = true;
-        config_discovery_indications &= ~NAN_DISC_ADDR_IND_DISABLED;
-    } else {
-        mNanCommandInstance->mNanDiscAddrIndDisabled = false;
-    }
+    mNanCommandInstance->mConfigDiscoveryIndications =
+                                                  config_discovery_indications;
+
+    config_discovery_indications &= ~(NAN_DISC_ADDR_IND_DISABLED |
+                                      NAN_STARTED_CLUSTER_IND_DISABLED |
+                                      NAN_JOINED_CLUSTER_IND_DISABLED);
+
     /* Always include the discovery cfg TLV as there is no cfg flag */
     tlvs = addTlv(NAN_TLV_TYPE_CONFIG_DISCOVERY_INDICATIONS,
                   sizeof(u32),
