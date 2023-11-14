@@ -113,25 +113,50 @@ nan_pairing_get_peer_from_ndp_id(struct wpa_secure_nan *secure_nan,
     return NULL;
 }
 
+static void nan_pairing_delete_peer(struct nan_pairing_peer_info *peer)
+{
+    del_from_list(&peer->list);
+
+    if (peer->passphrase)
+        free(peer->passphrase);
+
+    if (peer->pasn.extra_ies) {
+        free((u8 *)peer->pasn.extra_ies);
+        peer->pasn.extra_ies = NULL;
+    }
+
+    wpa_pasn_reset(&peer->pasn);
+
+    if (peer->frame)
+        free(peer->frame);
+
+    free(peer);
+}
+
+void nan_pairing_remove_peers_with_nik(hal_info *info, u8 *nik, u8 *skip_mac)
+{
+    struct nan_pairing_peer_info *entry, *tmp;
+
+    list_for_each_entry_safe(entry, tmp, &info->secure_nan->peers, list) {
+
+       if (memcmp(entry->peer_nik, nik, NAN_IDENTITY_KEY_LEN) == 0) {
+
+           if (skip_mac && memcmp(entry->bssid, skip_mac, ETH_ALEN) == 0)
+               continue;
+
+           nan_pairing_set_key(info, WPA_ALG_NONE, entry->bssid, 0, 0, NULL, 0,
+                               NULL, 0, KEY_FLAG_PAIRWISE);
+           nan_pairing_delete_peer(entry);
+       }
+    }
+}
+
 void nan_pairing_delete_list(struct wpa_secure_nan *secure_nan)
 {
     struct nan_pairing_peer_info *entry, *tmp;
 
     list_for_each_entry_safe(entry, tmp, &secure_nan->peers, list) {
-         del_from_list(&entry->list);
-
-         if (entry->passphrase)
-             free(entry->passphrase);
-
-         if (entry->pasn.extra_ies)
-             free((u8 *)entry->pasn.extra_ies);
-
-         wpa_pasn_reset(&entry->pasn);
-
-         if (entry->frame)
-             free(entry->frame);
-
-         free(entry);
+         nan_pairing_delete_peer(entry);
     }
 }
 
@@ -142,21 +167,8 @@ void nan_pairing_delete_peer_from_list(struct wpa_secure_nan *secure_nan,
 
     list_for_each_entry_safe(entry, tmp, &secure_nan->peers, list) {
        if (memcmp(entry->bssid, mac, ETH_ALEN) == 0) {
-                 del_from_list(&entry->list);
-
-                 if (entry->passphrase)
-                     free(entry->passphrase);
-
-                 if (entry->pasn.extra_ies)
-                     free((u8 *)entry->pasn.extra_ies);
-
-                 wpa_pasn_reset(&entry->pasn);
-
-                 if (entry->frame)
-                     free(entry->frame);
-
-                 free(entry);
-                 return;
+           nan_pairing_delete_peer(entry);
+           return;
        }
     }
 }

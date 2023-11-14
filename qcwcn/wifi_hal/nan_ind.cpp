@@ -829,6 +829,8 @@ int NanCommand::handleNanSharedKeyDescIndication()
     memcpy(evt.npk_security_association.peer_nan_identity_key,
            entry->peer_nik, NAN_IDENTITY_KEY_LEN);
 
+    nan_pairing_remove_peers_with_nik(info, entry->peer_nik, entry->bssid);
+
     evt.npk_security_association.npk.pmk_len = pasn->pmk_len;
     if (sizeof(evt.npk_security_association.npk.pmk) >= pasn->pmk_len)
         memcpy(evt.npk_security_association.npk.pmk, pasn->pmk, pasn->pmk_len);

@@ -1868,6 +1868,7 @@ nan_pairing_get_peer_from_bootstrapping_id(struct wpa_secure_nan *secure_nan,
 struct nan_pairing_peer_info*
 nan_pairing_get_peer_from_ndp_id(struct wpa_secure_nan *secure_nan,
                                  u32 ndp_instance_id);
+void nan_pairing_remove_peers_with_nik(hal_info *info, u8 *nik, u8 *skip_mac);
 void nan_pairing_delete_list(struct wpa_secure_nan *secure_nan);
 void nan_pairing_delete_peer_from_list(struct wpa_secure_nan *secure_nan,
                                        u8 *mac);
