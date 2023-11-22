@@ -48,6 +48,7 @@ soong_config_string_variable {
     name: "board_wlan_chip",
     values: [
         "wcn6740",
+        "wcn3990",
     ],
 }
 
@@ -61,6 +62,15 @@ wifihal_qcom_defaults {
                 ],
                 shared_libs: [
                     "//hardware/qcom/wlan/wcn6740:libcld80211",
+                    "libcrypto",
+                ],
+            },
+            wcn3990: {
+                whole_static_libs: [
+                    "//hardware/qcom/sw5100/wlan:libwifi-hal-qcom",
+                ],
+                shared_libs: [
+                    "//hardware/qcom/sw5100/wlan:libcld80211",
                     "libcrypto",
                 ],
             },
