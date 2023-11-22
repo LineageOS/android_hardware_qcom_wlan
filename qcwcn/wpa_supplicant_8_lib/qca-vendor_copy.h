@@ -1241,6 +1241,7 @@ enum qca_nl80211_vendor_subcmds {
 	QCA_NL80211_VENDOR_SUBCMD_TDLS_DISC_RSP_EXT = 231,
 	/* 232 - reserved for QCA */
 	QCA_NL80211_VENDOR_SUBCMD_TX_LATENCY = 233,
+	/* 234 - reserved for QCA */
 };
 
 /* Compatibility defines for previously used subcmd names.
@@ -2178,7 +2179,8 @@ enum qca_access_policy {
  * &enum qca_tsf_cmd.
  * @QCA_WLAN_VENDOR_ATTR_TSF_TIMER_VALUE: Optional (u64)
  * This attribute contains TSF timer value. This attribute is only available
- * in %QCA_TSF_GET or %QCA_TSF_SYNC_GET response.
+ * in %QCA_TSF_GET, %QCA_TSF_SYNC_GET or %QCA_TSF_SYNC_GET_CSA_TIMESTAMP
+ * response.
  * @QCA_WLAN_VENDOR_ATTR_TSF_SOC_TIMER_VALUE: Optional (u64)
  * This attribute contains SOC timer value at TSF capture. This attribute is
  * only available in %QCA_TSF_GET or %QCA_TSF_SYNC_GET response.
@@ -2222,6 +2224,12 @@ enum qca_vendor_attr_tsf_cmd {
  * userspace can query the TSF and host time mapping via the %QCA_TSF_GET
  * command.
  * @QCA_TSF_SYNC_STOP: Stop periodic TSF sync feature.
+ * @QCA_TSF_SYNC_GET_CSA_TIMESTAMP: Get TSF timestamp when AP will move and
+ * starts beaconing on a new channel. The driver synchronously responds with the
+ * TSF value using attribute %QCA_WLAN_VENDOR_ATTR_TSF_TIMER_VALUE. Userspace
+ * gets the valid CSA TSF after receiving %NL80211_CMD_CH_SWITCH_STARTED_NOTIFY
+ * on the AP interface. This TSF can be sent via OOB mechanism to connected
+ * clients.
  */
 enum qca_tsf_cmd {
 	QCA_TSF_CAPTURE,
@@ -2231,6 +2239,7 @@ enum qca_tsf_cmd {
 	QCA_TSF_AUTO_REPORT_DISABLE,
 	QCA_TSF_SYNC_START,
 	QCA_TSF_SYNC_STOP,
+	QCA_TSF_SYNC_GET_CSA_TIMESTAMP,
 };
 
 /**
@@ -3190,8 +3199,11 @@ enum qca_wlan_vendor_attr_config {
 	 */
 	QCA_WLAN_VENDOR_ATTR_CONFIG_EPCS_FUNCTION = 98,
 
-	/* 8-bit unsigned value. Used only for representing MLO link ID of a
-	 * link inside %QCA_WLAN_VENDOR_ATTR_CONFIG_MLO_LINKS.
+	/* 8-bit unsigned value. Used to specify the MLO link ID of a link
+	 * that is being configured. This attribute must be included in each
+	 * record nested inside %QCA_WLAN_VENDOR_ATTR_CONFIG_MLO_LINKS, and
+	 * may be included without nesting to indicate the link that is the
+	 * target of other configuration attributes.
 	 */
 	QCA_WLAN_VENDOR_ATTR_CONFIG_MLO_LINK_ID = 99,
 
@@ -13416,25 +13428,37 @@ enum qca_wlan_vendor_attr_roam_stats_scan_chan_info {
  * enum qca_wlan_roam_stats_frame_subtype - Roam frame subtypes. These values
  * are used by the attribute %QCA_WLAN_VENDOR_ATTR_ROAM_STATS_FRAME_SUBTYPE.
  *
- * @QCA_WLAN_ROAM_STATS_FRAME_SUBTYPE_PREAUTH: Pre-authentication frame
- * @QCA_WLAN_ROAM_STATS_FRAME_SUBTYPE_REASSOC: Reassociation frame
+ * @QCA_WLAN_ROAM_STATS_FRAME_SUBTYPE_AUTH_RESP: Authentication Response frame
+ * @QCA_WLAN_ROAM_STATS_FRAME_SUBTYPE_REASSOC_RESP: Reassociation Response frame
  * @QCA_WLAN_ROAM_STATS_FRAME_SUBTYPE_EAPOL_M1: EAPOL-Key M1 frame
  * @QCA_WLAN_ROAM_STATS_FRAME_SUBTYPE_EAPOL_M2: EAPOL-Key M2 frame
  * @QCA_WLAN_ROAM_STATS_FRAME_SUBTYPE_EAPOL_M3: EAPOL-Key M3 frame
  * @QCA_WLAN_ROAM_STATS_FRAME_SUBTYPE_EAPOL_M4: EAPOL-Key M4 frame
  * @QCA_WLAN_ROAM_STATS_FRAME_SUBTYPE_EAPOL_GTK_M1: EAPOL-Key GTK M1 frame
  * @QCA_WLAN_ROAM_STATS_FRAME_SUBTYPE_EAPOL_GTK_M2: EAPOL-Key GTK M2 frame
+ * @QCA_WLAN_ROAM_STATS_FRAME_SUBTYPE_AUTH_REQ: Authentication Request frame
+ * @QCA_WLAN_ROAM_STATS_FRAME_SUBTYPE_REASSOC_REQ: Reassociation Request frame
  */
 enum qca_wlan_roam_stats_frame_subtype {
-	QCA_WLAN_ROAM_STATS_FRAME_SUBTYPE_PREAUTH = 1,
-	QCA_WLAN_ROAM_STATS_FRAME_SUBTYPE_REASSOC = 2,
+	QCA_WLAN_ROAM_STATS_FRAME_SUBTYPE_AUTH_RESP = 1,
+	QCA_WLAN_ROAM_STATS_FRAME_SUBTYPE_REASSOC_RESP = 2,
 	QCA_WLAN_ROAM_STATS_FRAME_SUBTYPE_EAPOL_M1 = 3,
 	QCA_WLAN_ROAM_STATS_FRAME_SUBTYPE_EAPOL_M2 = 4,
 	QCA_WLAN_ROAM_STATS_FRAME_SUBTYPE_EAPOL_M3 = 5,
 	QCA_WLAN_ROAM_STATS_FRAME_SUBTYPE_EAPOL_M4 = 6,
 	QCA_WLAN_ROAM_STATS_FRAME_SUBTYPE_EAPOL_GTK_M1 = 7,
 	QCA_WLAN_ROAM_STATS_FRAME_SUBTYPE_EAPOL_GTK_M2 = 8,
+	QCA_WLAN_ROAM_STATS_FRAME_SUBTYPE_AUTH_REQ = 9,
+	QCA_WLAN_ROAM_STATS_FRAME_SUBTYPE_REASSOC_REQ = 10,
 };
+
+/* Compatibility defines for previously used names.
+ * These values should not be used in any new implementation.
+ */
+#define QCA_WLAN_ROAM_STATS_FRAME_SUBTYPE_PREAUTH \
+	QCA_WLAN_ROAM_STATS_FRAME_SUBTYPE_AUTH_RESP
+#define QCA_WLAN_ROAM_STATS_FRAME_SUBTYPE_REASSOC \
+	QCA_WLAN_ROAM_STATS_FRAME_SUBTYPE_REASSOC_RESP
 
 /**
  * enum roam_frame_status - Specifies the valid values the vendor roam frame
@@ -13472,6 +13496,13 @@ enum qca_wlan_vendor_attr_roam_stats_frame_info {
 	QCA_WLAN_VENDOR_ATTR_ROAM_STATS_FRAME_TIMESTAMP = 3,
 	/* Attribute used for padding for 64-bit alignment */
 	QCA_WLAN_VENDOR_ATTR_ROAM_STATS_FRAME_PAD = 4,
+	/* This attribute indicates a 6-byte MAC address representing
+	 * the BSSID of the AP.
+	 * For non-MLO scenario, it indicates the AP BSSID.
+	 * For MLO scenario, it indicates the AP BSSID which may be the primary
+	 * link BSSID or a nonprimary link BSSID.
+	 */
+	QCA_WLAN_VENDOR_ATTR_ROAM_STATS_FRAME_BSSID = 5,
 
 	/* keep last */
 	QCA_WLAN_VENDOR_ATTR_ROAM_STATS_FRAME_INFO_AFTER_LAST,
@@ -14146,12 +14177,14 @@ enum qca_wlan_vendor_attr_roam_events {
  * @QCA_WLAN_RATEMASK_PARAMS_TYPE_HT: HT rate mask config
  * @QCA_WLAN_RATEMASK_PARAMS_TYPE_VHT: VHT rate mask config
  * @QCA_WLAN_RATEMASK_PARAMS_TYPE_HE: HE rate mask config
+ * @QCA_WLAN_RATEMASK_PARAMS_TYPE_EHT: EHT rate mask config
  */
 enum qca_wlan_ratemask_params_type {
 	QCA_WLAN_RATEMASK_PARAMS_TYPE_CCK_OFDM = 0,
 	QCA_WLAN_RATEMASK_PARAMS_TYPE_HT = 1,
 	QCA_WLAN_RATEMASK_PARAMS_TYPE_VHT = 2,
 	QCA_WLAN_RATEMASK_PARAMS_TYPE_HE = 3,
+	QCA_WLAN_RATEMASK_PARAMS_TYPE_EHT = 4,
 };
 
 /**
