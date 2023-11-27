@@ -343,11 +343,7 @@ static int pack_sr_enable_nlmsg(struct nl_msg *nlmsg, char *cmd)
 			cmd += 21;
 			cmd = skip_white_space(cmd);
 			pd_thres = get_s32_from_string(cmd, &ret);
-			/**
-			 * For non-SRG OBSS, allowed range for PD threshold
-			 * is -62 to -81 as -82 is fixed as min offset.
-			 **/
-			if (ret < 0 || pd_thres <= OBSS_PD_THRESHOLD_MIN ||
+			if (ret < 0 || pd_thres < OBSS_PD_THRESHOLD_MIN ||
 			    pd_thres > OBSS_PD_THRESHOLD_MAX) {
 				wpa_printf(MSG_ERROR, "Invalid Non-SRG PD threshold: %d", pd_thres);
 				return -EINVAL;
