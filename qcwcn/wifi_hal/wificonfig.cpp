@@ -1720,7 +1720,7 @@ cleanup:
     }
 
     if (wifiConfigCommand->put_u8(QCA_WLAN_VENDOR_ATTR_CONFIG_WFC_STATE,
-        (mode==WIFI_VOIP_MODE_ON) ? 1 : 0)) {
+        (mode==WIFI_VOIP_MODE_VOICE) ? 1 : 0)) {
         ALOGE("%s: failed to put vendor data", __FUNCTION__);
         ret = WIFI_ERROR_UNKNOWN;
         goto cleanup;
