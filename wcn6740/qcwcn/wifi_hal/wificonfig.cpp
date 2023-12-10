@@ -1216,7 +1216,7 @@ wifi_error wifi_set_latency_mode(wifi_interface_handle iface,
         level = QCA_WLAN_VENDOR_ATTR_CONFIG_LATENCY_LEVEL_NORMAL;
         break;
     case WIFI_LATENCY_MODE_LOW:
-        level = QCA_WLAN_VENDOR_ATTR_CONFIG_LATENCY_LEVEL_ULTRALOW;
+        level = QCA_WLAN_VENDOR_ATTR_CONFIG_LATENCY_LEVEL_LOW;
         break;
     default:
         ALOGI("%s: Unsupported latency mode=%d, resetting to NORMAL!", __FUNCTION__, mode);
