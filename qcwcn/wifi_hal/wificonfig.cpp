@@ -1152,6 +1152,13 @@ wifi_error WiFiConfigCommand::requestEvent()
     wifi_error res = WIFI_SUCCESS;
     struct nl_cb *cb = NULL;
 
+    if (mInfo == NULL) {
+       ALOGE("%s: Wifi is turned off",__FUNCTION__);
+       nl_cb_put(NULL);
+       mMsg.destroy();
+       return WIFI_ERROR_UNKNOWN;
+    }
+
     pthread_mutex_lock(&mInfo->cb_lock);
 
     cb = nl_cb_alloc(NL_CB_DEFAULT);
@@ -1160,8 +1167,8 @@ wifi_error WiFiConfigCommand::requestEvent()
         res = WIFI_ERROR_OUT_OF_MEMORY;
         goto out;
     }
-    if (mInfo == NULL || mInfo->cmd_sock == NULL) {
-        ALOGE("%s: Wifi is turned of or socket is Null",__FUNCTION__);
+    if (mInfo->cmd_sock == NULL) {
+        ALOGE("%s: Socket is Null",__FUNCTION__);
         res = WIFI_ERROR_UNKNOWN;
         goto out;
     }
