@@ -3700,7 +3700,7 @@ public:
     virtual int handleResponse(WifiEvent& reply) {
         struct nlattr **tb = reply.attributes();
 
-        if (tb[NL80211_ATTR_INTERFACE_COMBINATIONS]) {
+        if (tb[NL80211_ATTR_SUPPORTED_IFTYPES]  ||  tb[NL80211_ATTR_INTERFACE_COMBINATIONS]) {
             if (halinfo == NULL) {
                 ALOGE("hal_info is NULL. Abort parsing");
                 return NL_SKIP;
@@ -3709,107 +3709,147 @@ public:
             wifi_iface_concurrency_matrix* matrix = &halinfo->iface_comb_matrix;
             wifi_iface_combination *iface_combination;
             wifi_iface_limit *iface_limits;
-            struct nlattr *nl_combi;
-            int rem, i = 0;
+            int rem, i = 1;
+            // The initial value of 'i; is '1' for all concurency.
+            // '0' position is for only single iface.
 
             matrix->num_iface_combinations = 0;
-
-            nla_for_each_nested(nl_combi, tb[NL80211_ATTR_INTERFACE_COMBINATIONS], rem) {
-                struct nlattr *tb_comb[NUM_NL80211_IFACE_COMB];
-                struct nlattr *tb_limit[NUM_NL80211_IFACE_LIMIT];
-                struct nlattr *nl_limit, *nl_mode;
-                int err, rem_limit, rem_mode, j = 0;
-                static struct nla_policy
-                iface_combination_policy[NUM_NL80211_IFACE_COMB] = {
-                    [NL80211_IFACE_COMB_LIMITS] = { .type = NLA_NESTED },
-                    [NL80211_IFACE_COMB_MAXNUM] = { .type = NLA_U32 },
-                    [NL80211_IFACE_COMB_STA_AP_BI_MATCH] = { .type = NLA_FLAG },
-                    [NL80211_IFACE_COMB_NUM_CHANNELS] = { .type = NLA_U32 },
-                    [NL80211_IFACE_COMB_RADAR_DETECT_WIDTHS] = { .type = NLA_U32 },
-                },
-                iface_limit_policy[NUM_NL80211_IFACE_LIMIT] = {
-                    [NL80211_IFACE_LIMIT_TYPES] = { .type = NLA_NESTED },
-                    [NL80211_IFACE_LIMIT_MAX] = { .type = NLA_U32 },
-                };
-
-                err = nla_parse_nested(tb_comb, MAX_NL80211_IFACE_COMB,
-                                       nl_combi, iface_combination_policy);
-                if (err || !tb_comb[NL80211_IFACE_COMB_LIMITS] ||
-                    !tb_comb[NL80211_IFACE_COMB_MAXNUM] ||
-                    !tb_comb[NL80211_IFACE_COMB_NUM_CHANNELS]) {
-                        ALOGE("Broken iface combination detected. skip it");
-                        continue; /* broken combination */
-                }
-
-                iface_combination = &matrix->iface_combinations[i];
-                iface_combination->max_ifaces = nla_get_u32(tb_comb[NL80211_IFACE_COMB_MAXNUM]);
+            if (tb[NL80211_ATTR_SUPPORTED_IFTYPES]) {
+                struct nlattr *nl_combi;
+                iface_combination = &matrix->iface_combinations[0];
+                iface_combination->max_ifaces = 1;
                 iface_limits = iface_combination->iface_limits;
-                nla_for_each_nested(nl_limit, tb_comb[NL80211_IFACE_COMB_LIMITS],
-                                    rem_limit) {
-                    if (j == MAX_IFACE_LIMITS) {
-                        ALOGE("Can't parse more than %d iface limits", MAX_IFACE_LIMITS);
-                        continue;
-                    }
-
-                    err = nla_parse_nested(tb_limit, MAX_NL80211_IFACE_LIMIT,
-                                           nl_limit, iface_limit_policy);
-                    if (err || !tb_limit[NL80211_IFACE_LIMIT_TYPES]) {
-                        ALOGE("Broken iface limt types detected. skip it");
-                        continue; /* broken combination */
-                    }
-
-                    iface_limits[j].iface_mask = 0;
-                    iface_limits[j].max_limit = nla_get_u32(tb_limit[NL80211_IFACE_LIMIT_MAX]);
-                    bool is_p2p_go = false, is_p2p_client = false;
-                    nla_for_each_nested(nl_mode,
-                                        tb_limit[NL80211_IFACE_LIMIT_TYPES],
-                                        rem_mode) {
-                        int ift = nla_type(nl_mode);
-                        switch (ift) {
+                bool is_p2p_client = false;
+                bool is_p2p_go = false;
+                iface_limits[0].max_limit = 1;
+                nla_for_each_nested(nl_combi, tb[NL80211_ATTR_SUPPORTED_IFTYPES], rem) {
+                    int ift = nla_type(nl_combi);
+                    switch (ift) {
                         case NL80211_IFTYPE_STATION:
-                            iface_limits[j].iface_mask |= BIT(WIFI_INTERFACE_TYPE_STA);
+                            iface_limits[0].iface_mask |= BIT(WIFI_INTERFACE_TYPE_STA);
+                            break;
+                        case NL80211_IFTYPE_AP:
+                            iface_limits[0].iface_mask |= BIT(WIFI_INTERFACE_TYPE_AP);
                             break;
                         case NL80211_IFTYPE_P2P_GO:
                             is_p2p_go = true;
-                            iface_limits[j].iface_mask |= BIT(WIFI_INTERFACE_TYPE_P2P);
                             break;
                         case NL80211_IFTYPE_P2P_CLIENT:
                             is_p2p_client = true;
-                            iface_limits[j].iface_mask |= BIT(WIFI_INTERFACE_TYPE_P2P);
-                            break;
-                        case NL80211_IFTYPE_AP:
-                            iface_limits[j].iface_mask |= BIT(WIFI_INTERFACE_TYPE_AP);
                             break;
                         case NL80211_IFTYPE_NAN:
-                            iface_limits[j].iface_mask |= BIT(WIFI_INTERFACE_TYPE_NAN);
-                            break;
-                        case NL80211_IFTYPE_P2P_DEVICE:
-                            ALOGI("Ignore p2p_device iface type");
-                            iface_limits[j].max_limit--;
+                            iface_limits[0].iface_mask |= BIT(WIFI_INTERFACE_TYPE_NAN);
                             break;
                         default:
                             ALOGI("Ignore unsupported iface type: %d", ift);
                             break;
-                        }
                     }
-                    // Remove P2P if both client/Go are not set.
-                    if ((iface_limits[j].iface_mask & BIT(WIFI_INTERFACE_TYPE_P2P))
-                            && (!is_p2p_client || !is_p2p_go))
-                        iface_limits[j].iface_mask &= ~BIT(WIFI_INTERFACE_TYPE_P2P);
-
-                    // Ignore Unsupported Ifaces (ex Monitor interface)
-                    if (iface_limits[j].iface_mask)
-                        j++;
                 }
-                iface_combination->num_iface_limits = j;
-                i++;
-                if (i == MAX_IFACE_COMBINATIONS) {
-                    ALOGE("%s max iface combination %u limit reached. Stop processing further", __func__, i);
-                    break;
+                if (is_p2p_go & is_p2p_client) {
+                    iface_limits[0].iface_mask |= BIT(WIFI_INTERFACE_TYPE_P2P);
+                }
+                iface_combination->num_iface_limits = 1;
+            }
+            if (tb[NL80211_ATTR_INTERFACE_COMBINATIONS]) {
+                struct nlattr *nl_combi;
+                nla_for_each_nested(nl_combi, tb[NL80211_ATTR_INTERFACE_COMBINATIONS], rem) {
+                    struct nlattr *tb_comb[NUM_NL80211_IFACE_COMB];
+                    struct nlattr *tb_limit[NUM_NL80211_IFACE_LIMIT];
+                    struct nlattr *nl_limit, *nl_mode;
+                    int err, rem_limit, rem_mode, j = 0;
+                    static struct nla_policy
+                    iface_combination_policy[NUM_NL80211_IFACE_COMB] = {
+                        [NL80211_IFACE_COMB_LIMITS] = { .type = NLA_NESTED },
+                        [NL80211_IFACE_COMB_MAXNUM] = { .type = NLA_U32 },
+                        [NL80211_IFACE_COMB_STA_AP_BI_MATCH] = { .type = NLA_FLAG },
+                        [NL80211_IFACE_COMB_NUM_CHANNELS] = { .type = NLA_U32 },
+                        [NL80211_IFACE_COMB_RADAR_DETECT_WIDTHS] = { .type = NLA_U32 },
+                    },
+                    iface_limit_policy[NUM_NL80211_IFACE_LIMIT] = {
+                        [NL80211_IFACE_LIMIT_TYPES] = { .type = NLA_NESTED },
+                        [NL80211_IFACE_LIMIT_MAX] = { .type = NLA_U32 },
+                    };
+
+                    err = nla_parse_nested(tb_comb, MAX_NL80211_IFACE_COMB,
+                                           nl_combi, iface_combination_policy);
+                    if (err || !tb_comb[NL80211_IFACE_COMB_LIMITS] ||
+                        !tb_comb[NL80211_IFACE_COMB_MAXNUM] ||
+                        !tb_comb[NL80211_IFACE_COMB_NUM_CHANNELS]) {
+                            ALOGE("Broken iface combination detected. skip it");
+                            continue; /* broken combination */
+                    }
+
+                    iface_combination = &matrix->iface_combinations[i];
+                    iface_combination->max_ifaces = nla_get_u32(tb_comb[NL80211_IFACE_COMB_MAXNUM]);
+                    iface_limits = iface_combination->iface_limits;
+                    nla_for_each_nested(nl_limit, tb_comb[NL80211_IFACE_COMB_LIMITS],
+                                        rem_limit) {
+                        if (j == MAX_IFACE_LIMITS) {
+                            ALOGE("Can't parse more than %d iface limits", MAX_IFACE_LIMITS);
+                            continue;
+                        }
+
+                        err = nla_parse_nested(tb_limit, MAX_NL80211_IFACE_LIMIT,
+                                               nl_limit, iface_limit_policy);
+                        if (err || !tb_limit[NL80211_IFACE_LIMIT_TYPES]) {
+                            ALOGE("Broken iface limt types detected. skip it");
+                            continue; /* broken combination */
+                        }
+
+                        iface_limits[j].iface_mask = 0;
+                        iface_limits[j].max_limit = nla_get_u32(tb_limit[NL80211_IFACE_LIMIT_MAX]);
+                        bool is_p2p_go = false, is_p2p_client = false;
+                        nla_for_each_nested(nl_mode,
+                                            tb_limit[NL80211_IFACE_LIMIT_TYPES],
+                                            rem_mode) {
+                            int ift = nla_type(nl_mode);
+                            switch (ift) {
+                            case NL80211_IFTYPE_STATION:
+                                iface_limits[j].iface_mask |= BIT(WIFI_INTERFACE_TYPE_STA);
+                                break;
+                            case NL80211_IFTYPE_P2P_GO:
+                                is_p2p_go = true;
+                                iface_limits[j].iface_mask |= BIT(WIFI_INTERFACE_TYPE_P2P);
+                                break;
+                            case NL80211_IFTYPE_P2P_CLIENT:
+                                is_p2p_client = true;
+                                iface_limits[j].iface_mask |= BIT(WIFI_INTERFACE_TYPE_P2P);
+                                break;
+                            case NL80211_IFTYPE_AP:
+                                iface_limits[j].iface_mask |= BIT(WIFI_INTERFACE_TYPE_AP);
+                                break;
+                            case NL80211_IFTYPE_NAN:
+                                iface_limits[j].iface_mask |= BIT(WIFI_INTERFACE_TYPE_NAN);
+                                break;
+                            case NL80211_IFTYPE_P2P_DEVICE:
+                                ALOGI("Ignore p2p_device iface type");
+                                iface_limits[j].max_limit--;
+                                break;
+                            default:
+                                ALOGI("Ignore unsupported iface type: %d", ift);
+                                break;
+                            }
+                        }
+                        // Remove P2P if both client/Go are not set.
+                        if ((iface_limits[j].iface_mask & BIT(WIFI_INTERFACE_TYPE_P2P))
+                                && (!is_p2p_client || !is_p2p_go))
+                            iface_limits[j].iface_mask &= ~BIT(WIFI_INTERFACE_TYPE_P2P);
+
+                        // Ignore Unsupported Ifaces (ex Monitor interface)
+                        if (iface_limits[j].iface_mask)
+                            j++;
+                    }
+                    iface_combination->num_iface_limits = j;
+                    i++;
+                    if (i == MAX_IFACE_COMBINATIONS) {
+                        ALOGE("%s max iface combination %u limit reached. Stop processing further", __func__, i);
+                        break;
+                    }
                 }
             }
             matrix->num_iface_combinations = i;
-            derive_bridge_ap_support(matrix);
+            if (i > 1)
+                derive_bridge_ap_support(matrix);
         }
         return NL_SKIP;
     }
