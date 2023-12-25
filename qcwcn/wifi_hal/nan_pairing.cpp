@@ -1156,7 +1156,8 @@ int nan_pairing_set_keys_from_cache(wifi_handle handle, u8 *src_addr, u8 *bssid,
     return WIFI_SUCCESS;
 }
 
-static int nan_pairing_register_pasn_auth_frames(wifi_interface_handle iface)
+static int nan_register_frames(wifi_interface_handle iface, u16 type,
+                               const u8 *frame_match, size_t match_len)
 {
     u32 idx;
     struct nl_msg * msg;
@@ -1175,12 +1176,8 @@ static int nan_pairing_register_pasn_auth_frames(wifi_interface_handle iface)
     idx = if_nametoindex(DEFAULT_NAN_IFACE);
     nla_put_u32(msg, NL80211_ATTR_IFINDEX, idx);
 
-    /* wlan type:mgmt, wlan subtype: auth */
-    u16 type = (WLAN_FC_TYPE_MGMT << 2) | (WLAN_FC_STYPE_AUTH << 4);
-    /* register for PASN Authentication frames */
-    const u8 pasn_auth_match[2] = {7,0};
     nla_put_u16(msg, NL80211_ATTR_FRAME_TYPE, type);
-    nla_put(msg, NL80211_ATTR_FRAME_MATCH, 2, pasn_auth_match);
+    nla_put(msg, NL80211_ATTR_FRAME_MATCH, match_len, frame_match);
 
     nan_send_nl_msg_event_sock(info, msg);
 
@@ -1188,6 +1185,36 @@ static int nan_pairing_register_pasn_auth_frames(wifi_interface_handle iface)
         nlmsg_free(msg);
 
     return 0;
+}
+
+static int nan_pairing_register_pasn_auth_frames(wifi_interface_handle iface)
+{
+    /* wlan type:mgmt, wlan subtype: auth */
+    u16 type = (WLAN_FC_TYPE_MGMT << 2) | (WLAN_FC_STYPE_AUTH << 4);
+    /* register for PASN Authentication frames */
+    const u8 pasn_auth_match[2] = {7,0};
+
+    return nan_register_frames(iface, type, pasn_auth_match, 2);
+}
+
+int nan_register_action_frames(wifi_interface_handle iface)
+{
+    /* wlan type:mgmt, wlan subtype: action */
+    u16 type = (WLAN_FC_TYPE_MGMT << 2) | (WLAN_FC_STYPE_ACTION << 4);
+    /* register for Public Action frames */
+    const u8 nan_action_match[6] = {0x04, 0x09, 0x50, 0x6f, 0x9a, 0x13};
+
+    return nan_register_frames(iface, type, nan_action_match, 6);
+}
+
+int nan_register_action_dual_protected_frames(wifi_interface_handle iface)
+{
+    /* wlan type:mgmt, wlan subtype: action */
+    u16 type = (WLAN_FC_TYPE_MGMT << 2) | (WLAN_FC_STYPE_ACTION << 4);
+    /* register for Public Action Dual Protected frames */
+    const u8 nan_action_dual_match[6] = {0x09, 0x09, 0x50, 0x6f, 0x9a, 0x13};
+
+    return nan_register_frames(iface, type, nan_action_dual_match, 6);
 }
 
 int nan_pasn_kdk_to_ndp_pmk(const u8 *kdk, size_t kdk_len, const u8 *spa,

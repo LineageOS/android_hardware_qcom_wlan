@@ -1510,6 +1510,16 @@ wifi_error wifi_initialize(wifi_handle *handle)
     if (secure_nan_init(iface_handle))
         ALOGE("%s: secure nan init failed", __FUNCTION__);
 
+    if (nan_register_action_frames(iface_handle)) {
+        ALOGE("%s: registering NAN action frame failed", __FUNCTION__);
+        goto unload;
+    }
+
+    if (nan_register_action_dual_protected_frames(iface_handle)) {
+        ALOGE("%s: registering NAN action dual protected frame failed", __FUNCTION__);
+        goto unload;
+    }
+
 #ifndef TARGET_SUPPORTS_WEARABLES
     ret = wifi_get_supported_iface_combination(iface_handle);
     if (ret != WIFI_SUCCESS) {
