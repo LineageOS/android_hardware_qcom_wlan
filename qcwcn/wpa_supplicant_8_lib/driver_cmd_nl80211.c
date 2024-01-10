@@ -5232,17 +5232,7 @@ static int wpa_driver_form_clear_mcc_quota_msg(struct i802_bss *bss,
 
 	/* First comes interface name - optional */
 	if (os_strncasecmp(cmd, "iface", 5) == 0) {
-		char *iface;
 		cmd = move_to_next_str(cmd);
-		/* null terminate the iface name in the cmd string */
-		iface = strchr(cmd, ' ');
-		if (iface == NULL) {
-			wpa_printf(MSG_ERROR, "mcc_quota: iface is not found"
-				   " in cmd string");
-			return -EINVAL;
-		}
-		*iface = '\0';
-		iface = cmd;
 		errno = 0;
 		if_index = if_nametoindex(cmd);
 		if (if_index == 0) {
