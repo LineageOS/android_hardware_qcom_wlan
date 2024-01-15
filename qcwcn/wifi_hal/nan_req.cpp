@@ -60,6 +60,7 @@ wifi_error NanCommand::putNanEnable(transaction_id id, const NanEnableRequest *p
     ALOGV("NAN_ENABLE");
     size_t message_len = NAN_MAX_ENABLE_REQ_SIZE;
     int freq_24g;
+    u8 followup_mgmt_rx_enable = 1;
 
     if (pReq == NULL) {
         cleanup();
@@ -75,6 +76,9 @@ wifi_error NanCommand::putNanEnable(transaction_id id, const NanEnableRequest *p
         (
           pReq->config_support_5g ? (SIZEOF_TLV_HDR + \
           sizeof(pReq->support_5g_val)) : 0 \
+        ) + \
+        (
+           (SIZEOF_TLV_HDR + sizeof(u8))
         ) + \
         (
           pReq->config_sid_beacon ? (SIZEOF_TLV_HDR + \
@@ -228,6 +232,8 @@ wifi_error NanCommand::putNanEnable(transaction_id id, const NanEnableRequest *p
                   (const u8*)&pReq->cluster_high, tlvs);
     tlvs = addTlv(NAN_TLV_TYPE_MASTER_PREFERENCE, sizeof(pReq->master_pref),
                   (const u8*)&pReq->master_pref, tlvs);
+    tlvs = addTlv(NAN_TLV_TYPE_FOLLOWUP_MGMT_RX_ENABLED, sizeof(u8),
+                  (const u8*)&followup_mgmt_rx_enable, tlvs);
     if (pReq->config_support_5g) {
         tlvs = addTlv(NAN_TLV_TYPE_5G_SUPPORT, sizeof(pReq->support_5g_val),
                      (const u8*)&pReq->support_5g_val, tlvs);
