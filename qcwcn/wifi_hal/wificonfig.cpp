@@ -878,7 +878,9 @@ wifi_error wifi_select_tx_power_scenario(wifi_interface_handle handle,
     if  (info->sar_version == QCA_WLAN_VENDOR_SAR_VERSION_1)
         return wifi_select_SARv01_tx_power_scenario(handle,scenario);
     else if(info->sar_version == QCA_WLAN_VENDOR_SAR_VERSION_2 ||
-              info->sar_version == QCA_WLAN_VENDOR_SAR_VERSION_3)
+            info->sar_version == QCA_WLAN_VENDOR_SAR_VERSION_3 ||
+            info->sar_version == QCA_WLAN_VENDOR_SAR_VERSION_4 ||
+            info->sar_version == QCA_WLAN_VENDOR_SAR_VERSION_5)
         return wifi_select_SARv02_tx_power_scenario(handle,scenario);
     else {
       ALOGE("wifi_select_tx_power_scenario %u invalid or not supported", (u32)info->sar_version);
