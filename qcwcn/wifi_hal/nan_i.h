@@ -126,6 +126,64 @@ extern "C"
 #define NAN_CSIA_GRPKEY_LEN_GET(x) NAN_F_MS(x,NAN_CSIA_GRPKEY_LEN)
 #define NAN_CSIA_GRPKEY_LEN_16   16
 #define NAN_CSIA_GRPKEY_LEN_32   32
+#define NAN_MAX_SD_ATTRS_PER_FRAME 20
+#define NAN_SD_ATTR_SERVICE_ID_LEN  6
+#define NAN_SDF_MAX_LEN 750
+#define NAN_SD_ATTR_MAX_LEN         \
+    (NAN_SDF_MAX_LEN -              \
+     24 - /* MAC Header */          \
+      6)  /* PAF header */
+#define NAN_SD_ATTR_MIN_LEN         \
+    (1 + /* Attribute ID     */     \
+     2 + /* Attribute Length */     \
+     NAN_SD_ATTR_SERVICE_ID_LEN +   \
+     1 + /* Instance ID      */     \
+     1 + /* Requestor ID     */     \
+     1)  /* Service Control  */
+#define NAN_SDE_ATTR_MIN_LEN 3
+#define NAN_SDE_ATTR_SERVICE_INFO_HEADER_LEN    \
+    (3 + /* OUI */                              \
+     1 /* Service Protocol Type */ )
+
+/* NAN TLV Maximum Lengths */
+#define NAN_MAX_EXT_SERVICE_SPECIFIC_INFO_LEN 270
+#define NAN_FOLLOWUP_MAX_EXT_SERVICE_SPECIFIC_INFO_LEN 1400
+#define NAN_MAX_BOOTSTRAPPING_COOKIE_LEN 255
+#define NAN_MAX_SHARED_KEY_DESC_ATTR_LEN 256
+#define NAN_MAX_FOLLOWUP_IND_SIZE                                    \
+    (                                                                \
+        sizeof(NanMsgHeader)                                     +   \
+        sizeof(NanFollowupIndParams)                             +   \
+        SIZEOF_TLV_HDR + (sizeof(u8) * NAN_MAC_ADDR_LEN)         +   \
+        SIZEOF_TLV_HDR + NAN_MAX_SERVICE_SPECIFIC_INFO_LEN           \
+    )
+#define NAN_MAX_FOLLOWUP_IND_SIZE_EXT_SSI                                \
+    (                                                                    \
+        sizeof(NanMsgHeader)                                     +       \
+        sizeof(NanFollowupIndParams)                             +       \
+        SIZEOF_TLV_HDR + (sizeof(u8) * NAN_MAC_ADDR_LEN)         +       \
+        SIZEOF_TLV_HDR + NAN_FOLLOWUP_MAX_EXT_SERVICE_SPECIFIC_INFO_LEN  \
+    )
+
+/* Service Descriptor Attribute Constants */
+
+/* Service Control Flags */
+#define NAN_SVC_CTRL_FLAG_MATCH_FILTER          0x04
+#define NAN_SVC_CTRL_FLAG_SERVICE_RSP           0x08
+#define NAN_SVC_CTRL_FLAG_SERVICE_INFO          0x10
+#define NAN_SVC_CTRL_FLAG_BINDING_BITMAP        0x40
+
+#define NAN_SDE_ATTR_LEN_OFFSET 1
+#define NAN_SDE_ATTR_CTRL_RANGE_LIMIT_OFFSET 8
+#define NAN_SDE_ATTR_CTRL_SERVICE_UPDATE_INDI_PRESENT 9
+
+#define NAN_NPBA_ATTR_MIN_LEN       \
+    (1 + /* Attribute ID     */     \
+     2 + /* Attribute Length */     \
+     1 + /* Dialog Token     */     \
+     1 + /* Type and Status  */     \
+     1 + /* Reason code      */     \
+     2 ) /* Pairing Bootstrapping Method */
 
 /** macro to convert FW MAC address from WMI word format to User Space MAC char array */
 #define FW_MAC_ADDR_TO_CHAR_ARRAY(fw_mac_addr, mac_addr) do { \
@@ -756,10 +814,13 @@ typedef struct PACKED
 #define NCS_PK_PASN_256     8
 
 enum nan_attr_id {
-    NAN_ATTR_ID_DCEA =  0x2A,
-    NAN_ATTR_ID_CSIA =  0x22,
-    NAN_ATTR_ID_NPBA =  0x2C,
-    NAN_ATTR_ID_NIRA =  0x2B,
+    NAN_ATTR_ID_SERVICE_DESCRIPTOR = 0x3,
+    NAN_ATTR_ID_SDE                = 0xE,
+    NAN_ATTR_ID_CSIA               = 0x22,
+    NAN_ATTR_ID_SHARED_KEY_DESC    = 0x24,
+    NAN_ATTR_ID_DCEA               = 0x2A,
+    NAN_ATTR_ID_NPBA               = 0x2C,
+    NAN_ATTR_ID_NIRA               = 0x2B,
 };
 
 #define NAN_GTK_LEN 16
@@ -839,6 +900,15 @@ typedef struct PACKED {
         u8 cipher_ver;
         u8 nonce_tag[32];
 } nan_nira;
+
+typedef struct PACKED {
+        u8 attr_id;
+        u16 len;
+        u8 service_id[6];
+        u8 instance_id;
+        u8 requestor_id;
+        u8 service_control_flags;
+} nan_sda;
 
 /* NAN Configuration Req */
 typedef struct PACKED
@@ -1343,6 +1413,17 @@ typedef struct PACKED
     u32 bootstrapping_method_bitmap:16;
     u32 reserved:14;
 } NanFWPairingParamsMatch;
+
+typedef struct
+{
+    u8 instance_id;
+    u16 sdea_control;
+    u16 range_limit_ingress;
+    u16 range_limit_egress;
+    u8 service_update_indicator;
+    u16 ssi_len;
+    u8 ssi[NAN_FOLLOWUP_MAX_EXT_SERVICE_SPECIFIC_INFO_LEN];
+} nan_sdea;
 
 typedef enum {
     NAN_BS_TYPE_ADVERTISE = 0,
@@ -1930,6 +2011,8 @@ nan_pairing_initialize_peer_for_verification(struct wpa_secure_nan *secure_nan,
 void nan_rx_mgmt_auth(wifi_handle handle, const u8 *frame, size_t len);
 int nan_register_action_frames(wifi_interface_handle iface);
 int nan_register_action_dual_protected_frames(wifi_interface_handle iface);
+void nan_rx_mgmt_auth(wifi_handle handle, const u8 *frame, size_t len);
+void nan_rx_mgmt_action(wifi_handle handle, const u8 *frame, size_t len);
 
 #ifdef __cplusplus
 }

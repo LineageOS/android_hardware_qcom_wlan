@@ -4167,6 +4167,8 @@ void wifihal_event_mgmt(wifi_handle handle, struct nlattr *freq, const u8 *frame
 
     if (stype == WLAN_FC_STYPE_AUTH)
         nan_rx_mgmt_auth(handle, frame, len);
+    else if (stype == WLAN_FC_STYPE_ACTION)
+        nan_rx_mgmt_action(handle, frame, len);
 
     return;
 }

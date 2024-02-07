@@ -25,6 +25,606 @@ static int nan_pairing_set_key(hal_info *info, int alg, const u8 *addr,
                                size_t seq_len, const u8 *key, size_t key_len,
                                int key_flag);
 
+static u16 sda_get_service_info_offset(const u8 *buf, size_t buf_len, u8 window)
+{
+    u8 attr_id;
+    u16 attr_len, len;
+    u8 service_ctrl;
+    u16 offset = 0;
+
+    if (!buf || buf_len < 3) {
+        ALOGI("Invalid attribute buffer");
+        return offset;
+    }
+
+    attr_id = *buf++;
+    buf_len--;
+    if (NAN_ATTR_ID_SERVICE_DESCRIPTOR != attr_id) {
+        ALOGE("Invalid attribute ID %u", attr_id);
+        return offset;
+    }
+
+    attr_len = WPA_GET_LE16(buf);
+    buf_len -= 2;
+    buf += 2;
+
+    if (window == NAN_WINDOW_DW) {
+        /* -3 because id and length bytes are not included in attr_len. */
+        if ((attr_len < (NAN_SD_ATTR_MIN_LEN-3)) ||
+           (attr_len > NAN_SD_ATTR_MAX_LEN)) {
+            ALOGE("Invalid attribute length %u", attr_len);
+            return offset;
+        }
+    }
+
+    if (buf_len < (NAN_SD_ATTR_SERVICE_ID_LEN + 3)) {
+        ALOGE("SDA buffer too short %d", buf_len);
+        return offset;
+    }
+    buf += NAN_SD_ATTR_SERVICE_ID_LEN + 2;
+    buf_len -= NAN_SD_ATTR_SERVICE_ID_LEN + 2;
+
+    service_ctrl = *buf++;
+    buf_len--;
+
+    if (!(service_ctrl & NAN_SVC_CTRL_FLAG_SERVICE_INFO))
+        return offset;
+
+    offset = NAN_SD_ATTR_MIN_LEN;
+
+    if ((service_ctrl & NAN_SVC_CTRL_FLAG_BINDING_BITMAP) &&
+        buf_len >= 2) {
+        offset += 2;
+        buf += 2;
+        buf_len -= 2;
+    }
+
+    if ((service_ctrl & NAN_SVC_CTRL_FLAG_MATCH_FILTER) &&
+        buf_len > 0) {
+        len = *buf++;
+        buf_len--;
+        if (buf_len < len)
+            return offset;
+        offset += 1 + len;
+        buf_len -= len;
+        buf += len;
+    }
+
+    if ((service_ctrl & NAN_SVC_CTRL_FLAG_SERVICE_RSP) &&
+        buf_len > 0) {
+        len = *buf;
+        buf_len--;
+        if (buf_len < len)
+            return offset;
+        offset += 1 + *buf;
+    }
+
+    ALOGI("Service Info offset is %d", offset);
+    return offset;
+}
+
+static bool is_sda_valid(const u8 *buf, size_t buf_len)
+{
+    u8 serviceCtrlFlags;
+    u16 attr_len, len, i;
+    u8 lenoffset = 1;
+
+    if (!buf || buf_len < 3) {
+        ALOGE("%s: Invalid attribute buffer", __FUNCTION__);
+        return false;
+    }
+
+    attr_len = WPA_GET_LE16(buf + 1);
+    buf_len -= 3;
+    buf += 3; // Skip attribute ID and length bytes
+
+    ALOGI("%s: Validate SD attribute length %d", __FUNCTION__, attr_len);
+
+    if (attr_len < NAN_SD_ATTR_MIN_LEN - 3 || buf_len < attr_len) {
+        ALOGE("%s: Invalid attribute length attr_len %d, buf_len %d",
+              __FUNCTION__, attr_len, buf_len);
+        return false;
+    }
+
+    /* Skip the service, instance and requestor IDs. */
+    buf += NAN_SD_ATTR_SERVICE_ID_LEN + 2;
+    attr_len -= NAN_SD_ATTR_SERVICE_ID_LEN + 2;
+
+    serviceCtrlFlags = *buf++;
+    attr_len--;
+
+    ALOGI("%s: serviceCtrlFlags %x", __FUNCTION__, serviceCtrlFlags);
+
+    /* Parse the binding bitmap if necessary. */
+    if (serviceCtrlFlags & NAN_SVC_CTRL_FLAG_BINDING_BITMAP) {
+        if (attr_len < 2)
+            return false;
+        buf += 2;
+        attr_len -= 2;
+    }
+
+    /* Parse the match filter if necessary. */
+    if (serviceCtrlFlags & NAN_SVC_CTRL_FLAG_MATCH_FILTER) {
+        if (attr_len < 1)
+            return false;
+        len = *buf++;
+        if (attr_len < len + 1)
+            return false;
+        buf += len;
+        attr_len -= (len + 1);
+    }
+
+    /* Parse the service resopnse filter if necessary. */
+    if (serviceCtrlFlags & NAN_SVC_CTRL_FLAG_SERVICE_RSP) {
+        if (attr_len < 1)
+            return false;
+        len = *buf++;
+        if (attr_len < len + 1)
+            return false;
+        buf += len;
+        attr_len -= (len + 1);
+    }
+
+    /* Parse the service-specific info if necessary. */
+    if (serviceCtrlFlags & NAN_SVC_CTRL_FLAG_SERVICE_INFO)
+    {
+        if (attr_len < 1)
+            return false;
+        len = *buf++;
+
+        if (attr_len < len + lenoffset)
+            return false;
+        buf += len;
+        /* +1 for len field - length field is 1 byte for SSI in NAN spec */
+        attr_len -= (len + lenoffset);
+    }
+
+    if (attr_len != 0) {
+        ALOGE("Attribute data exceeds by %d bytes", attr_len);
+        return false;
+    }
+    return true;
+}
+
+static bool is_sdea_valid(const u8 *buf, size_t buf_len)
+{
+    u16 attr_len;
+    u16 service_info_len;
+    u16 sdea_control;
+
+    if (!buf || buf_len < 3) {
+        ALOGE("%s: Invalid attribute", __FUNCTION__);
+        return false;
+    }
+
+    attr_len = WPA_GET_LE16(buf + 1);
+    buf_len -= 3;
+    buf += 3; // Skip attribute ID and length bytes
+
+    ALOGI("Validate SDE attribute, length %d", attr_len);
+
+    if (attr_len < NAN_SDE_ATTR_MIN_LEN || buf_len < attr_len) {
+        ALOGE("%s: Invalid attribute length in SDEA attr_len %d, buf_len %d",
+              __FUNCTION__, attr_len, buf_len);
+        return false;
+    }
+
+    sdea_control = WPA_GET_LE16(buf + 1);
+    buf += 3;
+    attr_len -= 3;
+
+    if (sdea_control & BIT(NAN_SDE_ATTR_CTRL_RANGE_LIMIT_OFFSET)) {
+        if (attr_len < 4) {
+            ALOGE("Invalid attribute length in SDEA range_limit");
+            return false;
+        }
+        buf += 4;
+        attr_len -= 4;
+    }
+
+    if (sdea_control & BIT(NAN_SDE_ATTR_CTRL_SERVICE_UPDATE_INDI_PRESENT)) {
+        if (attr_len < 1) {
+            ALOGE("Invalid attribute length in SDEA service_update_indicator");
+            return false;
+        }
+        buf++;
+        attr_len--;
+    }
+
+    /* If attr_len is still > 0, it implies Service Info Length and Service Info field are present */
+    if (attr_len > 0) {
+        if (attr_len < 2) {
+            ALOGE("Invalid attribute length in SDEA Service Info Length");
+            return false;
+        }
+        service_info_len = WPA_GET_LE16(buf);
+        buf += 2;
+        attr_len -= 2;
+
+        if (attr_len < service_info_len) {
+            ALOGE("Invalid attribute length in SDEA Service Info field");
+            return false;
+        }
+    }
+    return true;
+}
+
+static int nan_get_npba_attr(const u8* buf, size_t buf_len,
+                             NanFWBootstrappingParams* npba, u8 *cookie,
+                             u16 *cookie_len)
+{
+    u16 attr_len;
+    u8 type_status = 0;
+
+    if (!buf || buf_len < 3) {
+        ALOGE("%s: Invalid attribute", __FUNCTION__);
+        return -1;
+    }
+
+    attr_len = WPA_GET_LE16(buf + 1);
+    buf_len -= 3;
+    buf += 3; // Skip attribute ID and length bytes
+
+    if (attr_len < NAN_NPBA_ATTR_MIN_LEN - 3 || buf_len < attr_len) {
+        ALOGE("Invalid attribute length in NPBA");
+        return -1;
+    }
+
+    npba->dialog_token = *buf++;
+    attr_len--;
+
+    type_status = *buf++;
+    attr_len--;
+    npba->type = type_status & 0x0F;
+    npba->status = (type_status & 0xF0) >> 4;
+
+    npba->reason_code = *buf++;
+    attr_len--;
+
+    /* Check if Comeback field is present */
+    if ((npba->type == NAN_BS_TYPE_REQUEST ||
+         npba->type == NAN_BS_TYPE_RESPONSE) &&
+        npba->status == NAN_BS_STATUS_COMEBACK) {
+        if (npba->type == NAN_BS_TYPE_RESPONSE) {
+            if (attr_len < 2) {
+                ALOGE("Invalid attribute length in Comeback field #1");
+                return -1;
+            }
+            npba->comeback_after = WPA_GET_LE16(buf);
+            attr_len -= 2;
+        }
+
+        /* Cookie length should be present */
+        if (attr_len < 1) {
+            ALOGE("Invalid attribute length in Comeback field #2");
+            return -1;
+        }
+        *cookie_len = *buf++;
+        attr_len--;
+
+        if (attr_len < *cookie_len) {
+            ALOGE("Invalid attribute length in Comeback field #3");
+            return -1;
+        }
+        memcpy(cookie, buf, *cookie_len);
+        buf += *cookie_len;
+        attr_len -= *cookie_len;
+    }
+
+    if (attr_len < 2) {
+        ALOGE("Invalid attribute length in NPBA #4");
+        return -1;
+    }
+
+    /* Get the Pairing Bootstrapping Method */
+    npba->bootstrapping_method_bitmap = WPA_GET_LE16(buf);
+
+    ALOGI("NPBA: Parse dialog: %d type: %d, status: %d reason: %d comeaback: %d "
+          " boostrapping: %d", npba->dialog_token, npba->type, npba->status,
+          npba->reason_code, npba->comeback_after,
+          npba->bootstrapping_method_bitmap);
+
+    return 0;
+}
+
+static bool nan_get_sde_attr(u8 *frame, u16 frame_len, nan_sdea *sdea)
+{
+    u16 service_info_len;
+
+    if (!sdea || !frame || (frame_len < NAN_SDE_ATTR_MIN_LEN)) {
+        ALOGE("%s: Incorrect arguments 0x%x 0x%x or length %d",
+              __FUNCTION__, sdea, frame, frame_len);
+        return false;
+    }
+
+    sdea->instance_id = *frame++;
+    frame_len--;
+
+    sdea->sdea_control = WPA_GET_LE16(frame);
+    frame += 2;
+    frame_len -= 2;
+
+    if (sdea->sdea_control & BIT(NAN_SDE_ATTR_CTRL_RANGE_LIMIT_OFFSET)) {
+        if (frame_len < 4)
+            return false;
+        sdea->range_limit_ingress = WPA_GET_LE16(frame);
+        sdea->range_limit_egress = WPA_GET_LE16(frame + 2);
+        frame += 4;
+        frame_len -= 4;
+    }
+
+    if (sdea->sdea_control & BIT(NAN_SDE_ATTR_CTRL_SERVICE_UPDATE_INDI_PRESENT)) {
+        if (frame_len < 1)
+            return false;
+        sdea->service_update_indicator = *frame++;
+        frame_len--;
+    }
+
+    /* Check if service info length and service info field is present. */
+    if (frame_len >= 2) {
+        service_info_len = WPA_GET_LE16(frame);
+        frame_len -= 2;
+        frame += 2;
+
+        if (frame_len >= service_info_len &&
+            service_info_len >= NAN_SDE_ATTR_SERVICE_INFO_HEADER_LEN) {
+            frame += NAN_SDE_ATTR_SERVICE_INFO_HEADER_LEN;
+            sdea->ssi_len = service_info_len - NAN_SDE_ATTR_SERVICE_INFO_HEADER_LEN;
+
+            if (sdea->ssi_len <= NAN_FOLLOWUP_MAX_EXT_SERVICE_SPECIFIC_INFO_LEN) {
+                memcpy(sdea->ssi, frame, sdea->ssi_len);
+                return true;
+            } else {
+                ALOGE("SDEA data size exceeds max extended SSI");
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+void nan_process_followup_frame(wifi_handle handle, const u8 *buf,
+                                size_t len, const u8 *mac)
+{
+    NanCommand *nanCommand;
+    nan_sda *sd_attr;
+    nan_sdea sde_attr;
+    u8 npba_valid = 0;
+    u32 match_handle = 0;
+    u16 service_info_offset;
+    u16 followup_ind_size;
+    u8 *pos, *ptlv, *temptlv;
+    u8 *sdea_attr_temp, sdea_attr_len;
+    u8 i, j, sda_count = 0, sdea_count = 0;
+    u8 *sda[NAN_MAX_SD_ATTRS_PER_FRAME];
+    size_t sda_len[NAN_MAX_SD_ATTRS_PER_FRAME];
+    u8 *sdea[NAN_MAX_SD_ATTRS_PER_FRAME];
+    u16 skd_len = 0, cookie_len = 0, msg_len;
+    u8 skd_data[NAN_MAX_SHARED_KEY_DESC_ATTR_LEN];
+    u8 cookie[NAN_MAX_BOOTSTRAPPING_COOKIE_LEN];
+    NanFollowupIndMsg *followInd;
+    NanFWBootstrappingParams npba;
+
+    memset(&npba, 0, sizeof(NanFWBootstrappingParams));
+
+    if (len < 5) {
+        ALOGE("%s: Frame length too short %d", __FUNCTION__, len);
+        return;
+    }
+    pos = (u8 *)buf + 4;
+    len -= 4;
+    memset(&sda[0], 0, sizeof(u8*) * NAN_MAX_SD_ATTRS_PER_FRAME);
+    memset(&sdea[0], 0, sizeof(u8*) * NAN_MAX_SD_ATTRS_PER_FRAME);
+
+    while (len > 3) {
+        u8 *attr = pos;
+        u8 attrId = *pos;
+        u16 attrLen = WPA_GET_LE16(pos + 1);
+
+        if (!attrLen || len < (attrLen + 3)) {
+            ALOGE("%s: SDF Invalid Frame: framelen = %d attrId = 0x%x attrlen = %d",
+                  __FUNCTION__, len, attrId, attrLen);
+            return;
+        }
+        pos += (attrLen + 3);
+        len -= (attrLen + 3);
+
+        switch (attrId)
+        {
+            case NAN_ATTR_ID_SERVICE_DESCRIPTOR:
+                if (!is_sda_valid(attr, attrLen + 3)) {
+                    ALOGE("Invalid SD attribute: attr_len = %d", attrLen);
+                    return;
+                }
+                if (sda_count < NAN_MAX_SD_ATTRS_PER_FRAME) {
+                    sda[sda_count] = attr;
+                    sda_len[sda_count++] = attrLen + 3;
+                } else {
+                    ALOGE("SDA count exceeds max SD attribute: %d", sda_count);
+                    return;
+                }
+                break;
+
+            case NAN_ATTR_ID_SDE:
+                if (!is_sdea_valid(attr, attrLen + 3)) {
+                    ALOGE("Invalid SDE attribute: attr_len = %d", attrLen);
+                    return;
+                }
+                if (sdea_count < NAN_MAX_SD_ATTRS_PER_FRAME)
+                    sdea[sdea_count++] = attr;
+                else {
+                    ALOGE("SDEA count exceeds max SD attribute: %d", sdea_count);
+                    return;
+                }
+                break;
+
+            case NAN_ATTR_ID_NPBA:
+                if (!nan_get_npba_attr(attr, attrLen + 3, &npba, cookie,
+                    &cookie_len))
+                    npba_valid = 1;
+                break;
+
+            case NAN_ATTR_ID_SHARED_KEY_DESC:
+                if (((attrLen + 3) >= NAN_MAX_SHARED_KEY_DESC_ATTR_LEN) ||
+                    (attrLen < 1))
+                {
+                    ALOGE("Invalid Shared Key descriptor: attr_len = %d", attrLen);
+                    return;
+                }
+                memcpy(skd_data, attr, attrLen + 3);
+                skd_len = attrLen + 3;
+                break;
+
+            default:
+                break;
+        }
+    }
+
+    nanCommand = NanCommand::instance(handle);
+    if (nanCommand == NULL) {
+        ALOGE("%s: Error NanCommand NULL", __FUNCTION__);
+        return;
+    }
+
+    for (i = 0; i < sda_count; ++i) {
+        sd_attr = (nan_sda *)sda[i];
+        memset(&sde_attr, 0, sizeof(nan_sdea));
+        for (j = 0; j < sdea_count; ++j) {
+            sdea_attr_temp = sdea[j];
+            sdea_attr_temp += NAN_SDE_ATTR_LEN_OFFSET;
+            sdea_attr_len = WPA_GET_LE16(sdea_attr_temp);
+            /* NAN_SDE_ATTR_OFFSET_INSTANCE_ID */
+            if (sd_attr->instance_id == *(sdea_attr_temp + 3)) {
+                if (!nan_get_sde_attr((sdea_attr_temp + 3), sdea_attr_len,
+                                      &sde_attr)) {
+                    ALOGE("Incorrect SD extended attribute");
+                    return;
+                }
+            }
+        }
+
+        if (sde_attr.ssi_len > NAN_MAX_SERVICE_SPECIFIC_INFO_LEN)
+            followup_ind_size = NAN_MAX_FOLLOWUP_IND_SIZE_EXT_SSI;
+        else
+            followup_ind_size = NAN_MAX_FOLLOWUP_IND_SIZE;
+
+        u8 *eventbuf = (u8 *)malloc(followup_ind_size);
+        if (!eventbuf) {
+            ALOGE("%s: Memory allocation failed", __FUNCTION__);
+            return;
+        }
+
+        memset(eventbuf, 0, followup_ind_size);
+        followInd = (NanFollowupIndMsg *)(eventbuf);
+
+        followInd->fwHeader.msgVersion = 1;
+        followInd->fwHeader.msgId = NAN_MSG_ID_FOLLOWUP_IND;
+        followInd->fwHeader.handle = sd_attr->requestor_id;
+
+        if (sd_attr->requestor_id < 1 ||
+            (sd_attr->requestor_id > 6 && sd_attr->requestor_id < 128) ||
+             (sd_attr->requestor_id > 133)) {
+            ALOGE("SDF Followup invalid requestor_id");
+            free(eventbuf);
+            return;
+        }
+
+        match_handle = nanCommand->getNanMatchHandle(sd_attr->requestor_id,
+                                                     sd_attr->service_id);
+
+        if (match_handle)
+            followInd->followupIndParams.matchHandle = match_handle;
+        else
+            followInd->followupIndParams.matchHandle =
+                                 (sd_attr->instance_id << 24) | 0x0000FFFF;
+
+        ptlv = followInd->ptlv;
+        temptlv = ptlv;
+        msg_len = 0;
+
+        ptlv = addTlv(NAN_TLV_TYPE_MAC_ADDRESS, NAN_MAC_ADDR_LEN,
+                      mac, ptlv);
+        msg_len += ptlv - temptlv;
+        temptlv = ptlv;
+
+        service_info_offset = sda_get_service_info_offset(sda[i], sda_len[i],
+                                                          NAN_WINDOW_DW);
+        if (service_info_offset &&
+            (service_info_offset + 1 < NAN_SD_ATTR_MAX_LEN)) {
+            ptlv = addTlv(NAN_TLV_TYPE_SERVICE_SPECIFIC_INFO,
+                          *(sda[i] + service_info_offset),
+                          sda[i] + (service_info_offset + 1), ptlv);
+            msg_len += ptlv - temptlv;
+            temptlv = ptlv;
+        }
+
+        if (sde_attr.ssi_len > 0) {
+            ptlv = addTlv(NAN_TLV_TYPE_SDEA_SERVICE_SPECIFIC_INFO,
+                          sde_attr.ssi_len, sde_attr.ssi, ptlv);
+            msg_len += ptlv - temptlv;
+            temptlv = ptlv;
+        }
+
+        if (npba_valid) {
+            ptlv = addTlv(NAN_TLV_TYPE_BOOTSTRAPPING_PARAMS,
+                          sizeof(NanFWBootstrappingParams),
+                          (u8 *)&npba, ptlv);
+            msg_len += ptlv - temptlv;
+            temptlv = ptlv;
+
+            if (cookie_len){
+                ptlv = addTlv(NAN_TLV_TYPE_BOOTSTRAPPING_COOKIE, cookie_len,
+                              cookie, ptlv);
+                msg_len += ptlv - temptlv;
+                temptlv = ptlv;
+            }
+        }
+
+        if (skd_len) {
+            ptlv = addTlv(NAN_TLV_TYPE_NAN_SHARED_KEY_DESC_ATTR, skd_len,
+                          (u8 *)skd_data, ptlv);
+            msg_len += ptlv - temptlv;
+            temptlv = ptlv;
+        }
+
+        followInd->fwHeader.msgLen = sizeof(NanMsgHeader) +
+                                     sizeof(NanFollowupIndParams) + msg_len;
+        nanCommand->setNanVendorEventAndDataLen((char *)(eventbuf),
+                                                followInd->fwHeader.msgLen);
+        nanCommand->handleNanRx();
+
+        free(eventbuf);
+    }
+    return;
+}
+
+void nan_rx_mgmt_action(wifi_handle handle, const u8 *frame, size_t len)
+{
+    size_t plen;
+    u8 category;
+    const u8 *payload;
+    const struct ieee80211_hdr *hdr = (const struct ieee80211_hdr *)frame;
+
+    if (len < IEEE80211_HDRLEN + 5)
+        return;
+
+    plen = len - IEEE80211_HDRLEN - 1;
+    payload = frame + IEEE80211_HDRLEN;
+    category = *payload++;
+
+    if ((category == WLAN_ACTION_PUBLIC ||
+        category == WLAN_ACTION_PROTECTED_DUAL) && plen >= 5 &&
+        payload[0] == WLAN_PA_VENDOR_SPECIFIC &&
+        WPA_GET_BE24(&payload[1]) == OUI_WFA &&
+        payload[4] == NAN_MSG_ID_FOLLOWUP_IND) {
+        payload++;
+        plen--;
+        nan_process_followup_frame(handle, payload, plen, hdr->addr2);
+        return;
+    }
+    return;
+}
+
 void nan_rx_mgmt_auth(wifi_handle handle, const u8 *frame, size_t len)
 {
     int ret = 0;

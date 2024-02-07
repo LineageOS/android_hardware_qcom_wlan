@@ -210,6 +210,9 @@ public:
     virtual wifi_error requestEvent();
     virtual int handleResponse(WifiEvent &reply);
     virtual int handleEvent(WifiEvent &event);
+    void setNanVendorEventAndDataLen(char *event, int len);
+    void handleNanRx();
+    u32 getNanMatchHandle(u16 requestor_id, u8 *service_id);
     wifi_error setCallbackHandler(NanCallbackHandler nHandler);
 
 
