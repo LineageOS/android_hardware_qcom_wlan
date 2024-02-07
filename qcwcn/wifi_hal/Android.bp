@@ -97,6 +97,7 @@ cc_library {
         // gscan.cpp: address of array 'cached_results[i].results' will always evaluate to 'true'
         "-Wno-pointer-bool-conversion",
         "-DCONFIG_NAN_VENDOR_AIDL",
+        "-DWPA_PASN_LIB",
     ],
     product_variables: {
         debuggable: {
@@ -110,6 +111,7 @@ cc_library {
         "libnetlink_iface_headers",
         "libutils_headers",
         "libwifi-hal-ctrl_headers",
+        "wpa_supplicant_headers",
     ],
     local_include_dirs: [".", "vendor_nan"],
     srcs: [
@@ -140,7 +142,7 @@ cc_library {
         "wificonfig.cpp",
         "wifilogger_diag.cpp",
         "wifilogger.cpp",
-	"vendor_nan/vendor_nan.cpp",
+        "vendor_nan/vendor_nan.cpp",
     ],
     shared_libs: [
         "libcld80211",
@@ -150,6 +152,7 @@ cc_library {
         "liblog",
         "libnl",
         "libwifi-hal-ctrl",
+        "libpasn",
     ],
     sanitize: {
         misc_undefined: [

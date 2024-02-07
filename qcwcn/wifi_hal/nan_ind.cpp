@@ -803,7 +803,7 @@ int NanCommand::handleNanSharedKeyDescIndication()
         nan_pairing_prepare_skda_data(ifaceHandle);
     }
 
-    pasn = &entry->pasn;
+    pasn = entry->pasn;
     evt.pairing_instance_id = entry->pairing_instance_id;
     evt.rsp_code = NAN_PAIRING_REQUEST_ACCEPT;
     evt.reason_code = NAN_STATUS_SUCCESS;
@@ -814,7 +814,7 @@ int NanCommand::handleNanSharedKeyDescIndication()
 
     evt.enable_pairing_cache = !!(entry->dcea_cap_info & DCEA_NPK_CACHING_ENABLED);
 
-    if (pasn->akmp == WPA_KEY_MGMT_PASN)
+    if (pasn_get_akmp(pasn) == WPA_KEY_MGMT_PASN)
         evt.npk_security_association.akm = PASN;
     else
         evt.npk_security_association.akm = SAE;
@@ -828,9 +828,13 @@ int NanCommand::handleNanSharedKeyDescIndication()
 
     nan_pairing_remove_peers_with_nik(info, entry->peer_nik, entry->bssid);
 
-    evt.npk_security_association.npk.pmk_len = pasn->pmk_len;
-    if (sizeof(evt.npk_security_association.npk.pmk) >= pasn->pmk_len)
-        memcpy(evt.npk_security_association.npk.pmk, pasn->pmk, pasn->pmk_len);
+    if (pasn_get_pmk_len(pasn) <= sizeof(evt.npk_security_association.npk.pmk)) {
+        memcpy(evt.npk_security_association.npk.pmk, pasn_get_pmk(pasn),
+               pasn_get_pmk_len(pasn));
+        evt.npk_security_association.npk.pmk_len = pasn_get_pmk_len(pasn);
+    } else {
+        ALOGE("%s: Invalid pmk len: %d", __FUNCTION__, pasn_get_pmk_len(pasn));
+    }
     wpa_pasn_reset(pasn);
     handleNanPairingConfirm(&evt);
     entry->is_paired = true;

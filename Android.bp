@@ -62,6 +62,7 @@ wifihal_qcom_defaults {
                 shared_libs: [
                     "//hardware/qcom/wlan:libcld80211",
                     "libcrypto",
+                    "libpasn",
                 ],
             },
         },

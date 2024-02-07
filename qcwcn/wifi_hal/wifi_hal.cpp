@@ -4141,7 +4141,7 @@ void wifihal_event_mgmt_tx_status(wifi_handle handle, struct nlattr *cookie,
         return;
     }
 
-    pasn = &peer->pasn;
+    pasn = peer->pasn;
 
     if (mgmt->u.auth.auth_transaction == 1)
         nan_pairing_notify_initiator_response(handle, (u8 *)mgmt->da);
@@ -4154,8 +4154,8 @@ void wifihal_event_mgmt_tx_status(wifi_handle handle, struct nlattr *cookie,
     ret = wpa_pasn_auth_tx_status(pasn, frame, len, ack != NULL);
     if (ret == 1) {
         ALOGI("nl80211: PASN transaction Success");
-        nan_pairing_set_keys_from_cache(handle, pasn->own_addr, pasn->peer_addr,
-                                        pasn->cipher, pasn->akmp,
+        nan_pairing_set_keys_from_cache(handle, info->secure_nan->own_addr,
+                                        peer->bssid, pasn_get_cipher(pasn), pasn_get_akmp(pasn),
                                         SECURE_NAN_PAIRING_RESPONDER);
         return;
     }
