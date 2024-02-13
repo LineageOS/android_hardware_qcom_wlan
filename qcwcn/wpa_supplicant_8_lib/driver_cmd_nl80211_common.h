@@ -51,6 +51,7 @@
 
 #define OBSS_PD_THRESHOLD_MIN -82
 #define OBSS_PD_THRESHOLD_MAX -62
+#define MAX_NUM_MLO_LINKS      15
 
 struct wpa_driver_nl80211_data *drv;
 struct i802_bss *bss;
