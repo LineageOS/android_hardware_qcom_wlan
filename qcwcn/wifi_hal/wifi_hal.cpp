@@ -157,7 +157,6 @@ wifi_error wifi_get_supported_iface_concurrency_matrix(
 #endif /* TARGET_SUPPORTS_WEARABLES */
 
 #ifdef WPA_PASN_LIB
-static const int nanPMKLifetime = 43200;
 void wifihal_event_mgmt_tx_status(wifi_handle handle, struct nlattr *cookie,
                                   const u8 *frame, size_t len, struct nlattr *ack);
 void wifihal_event_mgmt(wifi_handle handle, struct nlattr *freq, const u8 *frame,
@@ -4143,81 +4142,22 @@ void wifihal_event_mgmt(wifi_handle handle, struct nlattr *freq, const u8 *frame
 {
     int ret = 0;
     u16 fc, stype;
-    int rx_freq = 0;
-    const u8 *nan_attr_ie;
-    struct pasn_data *pasn;
-    hal_info *info = getHalInfo(handle);
-    struct wpa_pasn_params_data pasn_data;
-    struct nan_pairing_peer_info *peer;
     const struct ieee80211_hdr *hdr = (const struct ieee80211_hdr *)frame;
-    const struct ieee80211_mgmt *mgmt = (struct ieee80211_mgmt *) frame;
 
-    if (!info || !info->secure_nan) {
-        ALOGE("%s: secure nan NULL", __FUNCTION__);
+    fc = le_to_host16(hdr->frame_control);
+    stype = WLAN_FC_GET_STYPE(fc);
+
+    if (WLAN_FC_GET_TYPE(fc) != WLAN_FC_TYPE_MGMT)
         return;
-    }
 
     if (len < 24) {
         ALOGI("nl80211: Too short management frame");
         return;
     }
 
-    peer = nan_pairing_get_peer_from_list(info->secure_nan, (u8 *)mgmt->sa);
-    if (!peer) {
-        if (is_nira_present(info->secure_nan, frame, len))
-            peer = nan_pairing_initialize_peer_for_verification(info->secure_nan,
-                                                                (u8 *)mgmt->sa);
-    }
+    if (stype == WLAN_FC_STYPE_AUTH)
+        nan_rx_mgmt_auth(handle, frame, len);
 
-    if (!peer) {
-        ALOGE("nl80211: Peer not found in the pairing list");
-        return;
-    }
-
-    pasn = &peer->pasn;
-    fc = le_to_host16(hdr->frame_control);
-    stype = WLAN_FC_GET_STYPE(fc);
-
-    if (WLAN_FC_GET_TYPE(fc) != WLAN_FC_TYPE_MGMT ||
-        WLAN_FC_GET_STYPE(fc) != WLAN_FC_STYPE_AUTH)
-        return;
-
-    if (freq)
-        rx_freq = nla_get_u32(freq);
-
-    ALOGI("nl80211: RX frame da=" MACSTR " sa=" MACSTR " bssid=" MACSTR
-          " freq=%d fc=0x%x seq_ctrl=0x%x stype=%u len=%u",
-          MAC2STR(hdr->addr1), MAC2STR(hdr->addr2), MAC2STR(hdr->addr3),
-          rx_freq, fc,
-          le_to_host16(hdr->seq_ctrl), stype,
-          (unsigned int) len);
-
-    if (peer->peer_role == SECURE_NAN_PAIRING_RESPONDER) {
-        if (os_memcmp(mgmt->da, info->secure_nan->own_addr, ETH_ALEN) != 0) {
-            ALOGE(" %s Pairing Initiator: Not our frame", __FUNCTION__);
-            return;
-        }
-
-        ret = wpa_pasn_auth_rx(pasn, frame, len, &pasn_data);
-        if (ret == 0) {
-            nan_attr_ie = nan_get_attr_from_ies(mgmt->u.auth.variable,
-                             len - offsetof(struct ieee80211_mgmt, u.auth.variable),
-                             NAN_ATTR_ID_DCEA);
-            if (nan_attr_ie) {
-               nan_dcea *dcea = (nan_dcea *)nan_attr_ie;
-               peer->dcea_cap_info = dcea->cap_info;
-            }
-            ptksa_cache_add(info->secure_nan->ptksa, pasn->own_addr,
-                            pasn->peer_addr, pasn->cipher, nanPMKLifetime,
-                            &pasn->ptk, NULL, NULL, pasn->akmp);
-            memset(&pasn->ptk, 0, sizeof(pasn->ptk));
-        } else if (ret == -1) {
-            wpa_pasn_reset(pasn);
-            ALOGE(" %s wpa_pasn_auth_rx failed", __FUNCTION__);
-            peer->peer_role = SECURE_NAN_IDLE;
-        }
-    } else {
-       nan_pairing_handle_pasn_auth(handle, frame, len);
-    }
+    return;
 }
 #endif /* WPA_PASN_LIB */

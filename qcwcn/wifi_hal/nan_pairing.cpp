@@ -13,6 +13,7 @@
 #include <errno.h>
 
 #ifdef WPA_PASN_LIB
+static const int nanPMKLifetime = 43200;
 #define NAN_PAIRING_SSID "516F9A010000"
 
 /* NAN Identity key lifetime in seconds */
@@ -23,6 +24,74 @@ static int nan_pairing_set_key(hal_info *info, int alg, const u8 *addr,
                                int key_idx, int set_tx, const u8 *seq,
                                size_t seq_len, const u8 *key, size_t key_len,
                                int key_flag);
+
+void nan_rx_mgmt_auth(wifi_handle handle, const u8 *frame, size_t len)
+{
+    int ret = 0;
+    const u8 *nan_attr_ie;
+    struct pasn_data *pasn;
+    hal_info *info = getHalInfo(handle);
+    struct wpa_pasn_params_data pasn_data;
+    struct nan_pairing_peer_info *peer;
+    struct ieee80211_mgmt *mgmt = (struct ieee80211_mgmt *) frame;
+
+    if (!info || !info->secure_nan) {
+        ALOGE("%s: secure nan NULL", __FUNCTION__);
+        return;
+    }
+
+    if (!mgmt || len < offsetof(struct ieee80211_mgmt, u.auth.variable)) {
+        ALOGE("%s: Incorrect frame length", __FUNCTION__);
+        return;
+    }
+
+    peer = nan_pairing_get_peer_from_list(info->secure_nan, mgmt->sa);
+    if (!peer) {
+        if (is_nira_present(info->secure_nan, frame, len))
+            peer = nan_pairing_initialize_peer_for_verification(info->secure_nan,
+                                                                mgmt->sa);
+    }
+
+    if (!peer) {
+        ALOGE("nl80211: Peer not found in the pairing list");
+        return;
+    }
+
+    pasn = &peer->pasn;
+
+    ALOGI("nl80211: RX AUTH frame da=" MACSTR " sa=" MACSTR " bssid=" MACSTR
+          " seq_ctrl=0x%x len=%u",
+          MAC2STR(mgmt->da), MAC2STR(mgmt->sa), MAC2STR(mgmt->bssid),
+          le_to_host16(mgmt->seq_ctrl), (unsigned int) len);
+
+    if (peer->peer_role == SECURE_NAN_PAIRING_RESPONDER) {
+        if (os_memcmp(mgmt->da, info->secure_nan->own_addr, ETH_ALEN) != 0) {
+            ALOGE(" %s Pairing Initiator: Not our frame", __FUNCTION__);
+            return;
+        }
+
+        ret = wpa_pasn_auth_rx(pasn, frame, len, &pasn_data);
+        if (ret == 0) {
+            nan_attr_ie = nan_get_attr_from_ies(mgmt->u.auth.variable,
+                             len - offsetof(struct ieee80211_mgmt, u.auth.variable),
+                             NAN_ATTR_ID_DCEA);
+            if (nan_attr_ie) {
+               nan_dcea *dcea = (nan_dcea *)nan_attr_ie;
+               peer->dcea_cap_info = dcea->cap_info;
+            }
+            ptksa_cache_add(info->secure_nan->ptksa, pasn->own_addr,
+                            pasn->peer_addr, pasn->cipher, nanPMKLifetime,
+                            &pasn->ptk, NULL, NULL, pasn->akmp);
+            memset(&pasn->ptk, 0, sizeof(struct wpa_ptk));
+        } else if (ret == -1) {
+            wpa_pasn_reset(pasn);
+            ALOGE(" %s wpa_pasn_auth_rx failed", __FUNCTION__);
+            peer->peer_role = SECURE_NAN_IDLE;
+        }
+    } else {
+       nan_pairing_handle_pasn_auth(handle, frame, len);
+    }
+}
 
 struct nan_pairing_peer_info*
 nan_pairing_add_peer_to_list(struct wpa_secure_nan *secure_nan, u8 *mac)

@@ -1927,6 +1927,7 @@ bool is_nira_present(struct wpa_secure_nan *secure_nan, const u8 *frame,
 struct nan_pairing_peer_info*
 nan_pairing_initialize_peer_for_verification(struct wpa_secure_nan *secure_nan,
                                              u8 *mac);
+void nan_rx_mgmt_auth(wifi_handle handle, const u8 *frame, size_t len);
 
 #ifdef __cplusplus
 }
