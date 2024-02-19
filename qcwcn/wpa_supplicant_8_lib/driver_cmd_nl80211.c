@@ -6265,6 +6265,26 @@ static int wpa_driver_rate_mask_config(struct i802_bss *bss, char *cmd)
 		cmd = move_to_next_str(cmd);
 		memset(buffer, 0, sizeof(buffer));
 
+		if (os_strncasecmp(cmd, "link_id ", 8) == 0) {
+			cmd = move_to_next_str(cmd);
+			value = get_u8_from_string(cmd, &ret);
+			if (ret != 0) {
+				wpa_printf(MSG_ERROR,
+					   "rate_mask:link_id not present");
+				goto fail;
+			}
+			ret = nla_put_u8(nlmsg,
+					 QCA_WLAN_VENDOR_ATTR_RATEMASK_PARAMS_LINK_ID,
+					 value);
+			if (ret) {
+				wpa_printf(MSG_ERROR,
+					   "rate_mask: Failed link_id attr %d",
+					   ret);
+				goto fail;
+			}
+			cmd = move_to_next_str(cmd);
+		}
+
 		nla_nest_end(nlmsg, mask_list);
 
 	} while (os_strncasecmp(cmd, "phymode ", 8) == 0);
