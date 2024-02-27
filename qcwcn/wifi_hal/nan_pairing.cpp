@@ -2706,6 +2706,18 @@ int secure_nan_deinit(hal_info *info)
     return -1;
 }
 
+int nan_register_action_frames(wifi_interface_handle iface)
+{
+    ALOGE("NAN register action frames is not supported");
+    return -1;
+}
+
+int nan_register_action_dual_protected_frames(wifi_interface_handle iface)
+{
+    ALOGE("NAN register action dual protection frames is not supported");
+    return -1;
+}
+
 wifi_error nan_get_pairing_tk(transaction_id id,
                               wifi_interface_handle iface,
                               NanPairingTK *msg)
