@@ -50,7 +50,7 @@
 
 #include "sync.h"
 #include <utils/Log.h>
-#include "wifi_hal.h"
+#include <hardware_legacy/wifi_hal.h>
 #include "nan_i.h"
 #include "nancommand.h"
 

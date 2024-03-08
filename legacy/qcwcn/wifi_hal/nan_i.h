@@ -19,7 +19,7 @@
 
 #include "common.h"
 #include "cpp_bindings.h"
-#include "wifi_hal.h"
+#include <hardware_legacy/wifi_hal.h>
 
 #ifdef __cplusplus
 extern "C"

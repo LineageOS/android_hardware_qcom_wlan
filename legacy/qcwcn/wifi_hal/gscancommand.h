@@ -26,7 +26,7 @@
 #define PRINTF_FORMAT(a,b)
 #define STRUCT_PACKED
 #endif
-#include "gscan.h"
+#include <hardware_legacy/gscan.h>
 
 #ifdef __cplusplus
 extern "C"

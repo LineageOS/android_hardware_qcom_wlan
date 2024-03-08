@@ -19,7 +19,7 @@
 
 #include "common.h"
 #include "cpp_bindings.h"
-#include "wifi_hal.h"
+#include <hardware_legacy/wifi_hal.h>
 #include "nan_cert.h"
 
 class NanCommand : public WifiVendorCommand
