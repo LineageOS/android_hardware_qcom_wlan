@@ -204,6 +204,167 @@ extern "C"
          ((mac_addr)[4] | ((mac_addr)[5] << 8));          \
 } while (0)
 
+#ifndef WPA_PASN_LIB
+/* Macros for handling unaligned memory accesses */
+
+static inline u16 WPA_GET_BE16(const u8 *a)
+{
+	return (a[0] << 8) | a[1];
+}
+
+static inline void WPA_PUT_BE16(u8 *a, u16 val)
+{
+	a[0] = val >> 8;
+	a[1] = val & 0xff;
+}
+
+static inline u16 WPA_GET_LE16(const u8 *a)
+{
+	return (a[1] << 8) | a[0];
+}
+
+static inline void WPA_PUT_LE16(u8 *a, u16 val)
+{
+	a[1] = val >> 8;
+	a[0] = val & 0xff;
+}
+
+static inline u32 WPA_GET_BE24(const u8 *a)
+{
+	return (a[0] << 16) | (a[1] << 8) | a[2];
+}
+
+static inline void WPA_PUT_BE24(u8 *a, u32 val)
+{
+	a[0] = (val >> 16) & 0xff;
+	a[1] = (val >> 8) & 0xff;
+	a[2] = val & 0xff;
+}
+
+static inline u32 WPA_GET_LE24(const u8 *a)
+{
+	return (a[2] << 16) | (a[1] << 8) | a[0];
+}
+
+static inline void WPA_PUT_LE24(u8 *a, u32 val)
+{
+	a[2] = (val >> 16) & 0xff;
+	a[1] = (val >> 8) & 0xff;
+	a[0] = val & 0xff;
+}
+
+static inline u32 WPA_GET_BE32(const u8 *a)
+{
+	return ((u32) a[0] << 24) | (a[1] << 16) | (a[2] << 8) | a[3];
+}
+
+static inline void WPA_PUT_BE32(u8 *a, u32 val)
+{
+	a[0] = (val >> 24) & 0xff;
+	a[1] = (val >> 16) & 0xff;
+	a[2] = (val >> 8) & 0xff;
+	a[3] = val & 0xff;
+}
+
+static inline u32 WPA_GET_LE32(const u8 *a)
+{
+	return ((u32) a[3] << 24) | (a[2] << 16) | (a[1] << 8) | a[0];
+}
+
+static inline void WPA_PUT_LE32(u8 *a, u32 val)
+{
+	a[3] = (val >> 24) & 0xff;
+	a[2] = (val >> 16) & 0xff;
+	a[1] = (val >> 8) & 0xff;
+	a[0] = val & 0xff;
+}
+
+static inline u64 WPA_GET_BE64(const u8 *a)
+{
+	return (((u64) a[0]) << 56) | (((u64) a[1]) << 48) |
+		(((u64) a[2]) << 40) | (((u64) a[3]) << 32) |
+		(((u64) a[4]) << 24) | (((u64) a[5]) << 16) |
+		(((u64) a[6]) << 8) | ((u64) a[7]);
+}
+
+static inline void WPA_PUT_BE64(u8 *a, u64 val)
+{
+	a[0] = val >> 56;
+	a[1] = val >> 48;
+	a[2] = val >> 40;
+	a[3] = val >> 32;
+	a[4] = val >> 24;
+	a[5] = val >> 16;
+	a[6] = val >> 8;
+	a[7] = val & 0xff;
+}
+
+static inline u64 WPA_GET_LE64(const u8 *a)
+{
+	return (((u64) a[7]) << 56) | (((u64) a[6]) << 48) |
+		(((u64) a[5]) << 40) | (((u64) a[4]) << 32) |
+		(((u64) a[3]) << 24) | (((u64) a[2]) << 16) |
+		(((u64) a[1]) << 8) | ((u64) a[0]);
+}
+
+static inline void WPA_PUT_LE64(u8 *a, u64 val)
+{
+	a[7] = val >> 56;
+	a[6] = val >> 48;
+	a[5] = val >> 40;
+	a[4] = val >> 32;
+	a[3] = val >> 24;
+	a[2] = val >> 16;
+	a[1] = val >> 8;
+	a[0] = val & 0xff;
+}
+
+struct ieee80211_hdr {
+	u16 frame_control;
+	u16 duration_id;
+	u8 addr1[6];
+	u8 addr2[6];
+	u8 addr3[6];
+	u16 seq_ctrl;
+	/* followed by 'u8 addr4[6];' if ToDS and FromDS is set in data frame
+	 */
+} PACKED;
+
+static inline unsigned short wpa_swap_16(unsigned short v)
+{
+	return ((v & 0xff) << 8) | (v >> 8);
+}
+
+static inline unsigned int wpa_swap_32(unsigned int v)
+{
+	return ((v & 0xff) << 24) | ((v & 0xff00) << 8) |
+		((v & 0xff0000) >> 8) | (v >> 24);
+}
+
+#define le_to_host16(n) (n)
+#define host_to_le16(n) (n)
+#define be_to_host16(n) wpa_swap_16(n)
+#define host_to_be16(n) wpa_swap_16(n)
+#define le_to_host32(n) (n)
+#define host_to_le32(n) (n)
+#define be_to_host32(n) wpa_swap_32(n)
+#define host_to_be32(n) wpa_swap_32(n)
+#define host_to_le64(n) (n)
+#define WLAN_FC_GET_TYPE(fc)	(((fc) & 0x000c) >> 2)
+#define WLAN_FC_GET_STYPE(fc)	(((fc) & 0x00f0) >> 4)
+#define IEEE80211_HDRLEN (sizeof(struct ieee80211_hdr))
+
+#define WLAN_FC_STYPE_AUTH		11
+#define WLAN_FC_STYPE_ACTION		13
+
+#define WLAN_PA_VENDOR_SPECIFIC 9
+
+#define WLAN_FC_TYPE_MGMT  0
+#define OUI_WFA 0x506f9a
+#define WLAN_ACTION_PUBLIC 4
+#define WLAN_ACTION_PROTECTED_DUAL 9
+
+#endif
 /*---------------------------------------------------------------------------
 * WLAN NAN CONSTANTS
 *--------------------------------------------------------------------------*/
