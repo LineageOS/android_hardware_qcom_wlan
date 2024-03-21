@@ -1512,11 +1512,13 @@ wifi_error wifi_initialize(wifi_handle *handle)
 
     if (nan_register_action_frames(iface_handle)) {
         ALOGE("%s: registering NAN action frame failed", __FUNCTION__);
+        ret = WIFI_ERROR_UNKNOWN;
         goto unload;
     }
 
     if (nan_register_action_dual_protected_frames(iface_handle)) {
         ALOGE("%s: registering NAN action dual protected frame failed", __FUNCTION__);
+        ret = WIFI_ERROR_UNKNOWN;
         goto unload;
     }
 
