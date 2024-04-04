@@ -2189,6 +2189,88 @@ wifi_error NanCommand::putNanBeaconSdfPayload(transaction_id id,
     return ret;
 }
 
+
+wifi_error NanCommand::putNanGroupKeyInstallReq(transaction_id id,
+                                        struct nan_groupkey_info *info)
+{
+    wifi_error ret;
+    struct nlattr *nl_data;
+    NanGroupKeyParamsTlv grp_params;
+
+    ALOGV("GROUP_KEY_INSTALL_REQUEST");
+
+    size_t message_len = sizeof(NanMsgHeader);
+
+    /* Mac address and Group key params needs to be added in TLV */
+    message_len += SIZEOF_TLV_HDR + NAN_MAC_ADDR_LEN;
+    if (info->igtk_valid)
+        message_len += SIZEOF_TLV_HDR + sizeof(NanGroupKeyParamsTlv);
+    if (info->bigtk_valid)
+        message_len += SIZEOF_TLV_HDR + sizeof(NanGroupKeyParamsTlv);
+
+    pNanGroupKeyInstallReqMsg pFwReq = (pNanGroupKeyInstallReqMsg)malloc(message_len);
+    if (pFwReq == NULL) {
+        cleanup();
+        return WIFI_ERROR_OUT_OF_MEMORY;
+    }
+
+    memset (pFwReq, 0, message_len);
+    pFwReq->fwHeader.msgVersion = (u16)NAN_MSG_VERSION1;
+    pFwReq->fwHeader.msgId = NAN_MSG_ID_GROUP_KEY_INSTALL_REQ;
+    pFwReq->fwHeader.msgLen = message_len;
+    pFwReq->fwHeader.transactionId = id;
+
+    u8* tlvs = pFwReq->ptlv;
+
+    tlvs = addTlv(NAN_TLV_TYPE_MAC_ADDRESS, NAN_MAC_ADDR_LEN , info->addr,
+                  tlvs);
+
+    if (info->igtk_valid) {
+        memset(&grp_params, 0, sizeof(NanGroupKeyParamsTlv));
+        grp_params.key_cipher = info->igtk.key_cipher;
+        grp_params.key_idx = info->igtk.key_idx;
+        grp_params.key_len = info->igtk.key_len;
+        memcpy(grp_params.key_data, info->igtk.key_data, info->igtk.key_len);
+        memcpy(grp_params.key_rsc, info->igtk.rsc, NAN_MAX_GROUP_KEY_RSC_LEN);
+        tlvs = addTlv(NAN_TLV_TYPE_GROUP_KEYS_PARAM, sizeof(NanGroupKeyParamsTlv),
+                      (const u8*)&grp_params, tlvs);
+    }
+
+    if (info->bigtk_valid) {
+        memset(&grp_params, 0, sizeof(NanGroupKeyParamsTlv));
+        grp_params.key_cipher = info->bigtk.key_cipher;
+        grp_params.key_idx = info->bigtk.key_idx;
+        grp_params.key_len = info->bigtk.key_len;
+        memcpy(grp_params.key_data, info->bigtk.key_data, info->bigtk.key_len);
+        memcpy(grp_params.key_rsc, info->bigtk.rsc, NAN_MAX_GROUP_KEY_RSC_LEN);
+        tlvs = addTlv(NAN_TLV_TYPE_GROUP_KEYS_PARAM, sizeof(NanGroupKeyParamsTlv),
+                      (const u8*)&grp_params, tlvs);
+    }
+
+    mVendorData = (char *)pFwReq;
+    mDataLen = message_len;
+
+    ret = WIFI_SUCCESS;
+
+    nl_data = attr_start(NL80211_ATTR_VENDOR_DATA);
+    if (!nl_data) {
+        cleanup();
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+
+    if (mMsg.put_bytes(QCA_WLAN_VENDOR_ATTR_NAN_CMD_DATA,
+                         mVendorData, mDataLen)) {
+        ALOGE("%s: put attr error", __func__);
+        cleanup();
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+    attr_end(nl_data);
+
+    hexdump(mVendorData, mDataLen);
+    return ret;
+}
+
+
 //callback handlers registered for nl message send
 static int error_handler_nan(struct sockaddr_nl *nla, struct nlmsgerr *err,
                          void *arg)

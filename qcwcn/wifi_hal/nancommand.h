@@ -244,6 +244,8 @@ public:
                                               NanNIRARequest *pReq);
     wifi_error putNanSharedKeyDescriptorReq(transaction_id id,
                                        const NanSharedKeyRequest *pReq);
+    wifi_error putNanGroupKeyInstallReq(transaction_id id,
+                                        struct nan_groupkey_info *info);
     /* Functions for NAN error translation
        For NanResponse, NanPublishTerminatedInd, NanSubscribeTerminatedInd,
        NanDisabledInd, NanTransmitFollowupInd:
