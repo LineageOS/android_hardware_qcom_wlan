@@ -2881,6 +2881,10 @@ wifi_error diag_message_handler(hal_info *info, nl_msg *msg)
             process_driver_prints(info, (u8 *)(clh + 1), clh->wmsg.length);
         } else if (clh->wmsg.type == ANI_NL_MSG_LOG_FW_MSG_TYPE) {
             process_firmware_prints(info, (u8 *)(clh + 1), clh->wmsg.length);
+        } else if (clh->wmsg.type == ANI_NL_MSG_CSTATS_HOST_LOG_TYPE) {
+            process_driver_prints(info, (u8 *)(clh + 1), clh->wmsg.length);
+        } else if (clh->wmsg.type == ANI_NL_MSG_CSTATS_FW_LOG_TYPE) {
+            process_firmware_prints(info, (u8 *)(clh + 1), clh->wmsg.length);
         }
     } else if (cmd == ANI_NL_MSG_CNSS_DIAG) {
         uint16_t diag_fw_type;
