@@ -60,6 +60,7 @@ wifi_error NanCommand::putNanEnable(transaction_id id, const NanEnableRequest *p
     ALOGV("NAN_ENABLE");
     size_t message_len = NAN_MAX_ENABLE_REQ_SIZE;
     int freq_24g;
+    u8 followup_mgmt_rx_enable = 1;
 
     if (pReq == NULL) {
         cleanup();
@@ -75,6 +76,9 @@ wifi_error NanCommand::putNanEnable(transaction_id id, const NanEnableRequest *p
         (
           pReq->config_support_5g ? (SIZEOF_TLV_HDR + \
           sizeof(pReq->support_5g_val)) : 0 \
+        ) + \
+        (
+           (SIZEOF_TLV_HDR + sizeof(u8))
         ) + \
         (
           pReq->config_sid_beacon ? (SIZEOF_TLV_HDR + \
@@ -228,6 +232,8 @@ wifi_error NanCommand::putNanEnable(transaction_id id, const NanEnableRequest *p
                   (const u8*)&pReq->cluster_high, tlvs);
     tlvs = addTlv(NAN_TLV_TYPE_MASTER_PREFERENCE, sizeof(pReq->master_pref),
                   (const u8*)&pReq->master_pref, tlvs);
+    tlvs = addTlv(NAN_TLV_TYPE_FOLLOWUP_MGMT_RX_ENABLED, sizeof(u8),
+                  (const u8*)&followup_mgmt_rx_enable, tlvs);
     if (pReq->config_support_5g) {
         tlvs = addTlv(NAN_TLV_TYPE_5G_SUPPORT, sizeof(pReq->support_5g_val),
                      (const u8*)&pReq->support_5g_val, tlvs);
@@ -354,17 +360,21 @@ wifi_error NanCommand::putNanEnable(transaction_id id, const NanEnableRequest *p
 
     u32 config_discovery_indications;
     config_discovery_indications = (u32)pReq->discovery_indication_cfg;
-    /* Save the discovery MAC indication config if it is disabled from the
-     * framework and use it later to decide if the framework to be notified of
-     * the response. And enable the self MAC discovery indication from firmware
-     * by resetting the bit in config to get the Self MAC.
+
+    /* Save the indication configs such as Disable Discovery MAC indication,
+     * Disable cluster started and Disable cluster joined indications from the
+     * framework. Always enable indications from firmware to wifihal, so that
+     * wifihal will manage to forward the indications based on the framework
+     * configuration. Indications are required in wifihal to know nmi address,
+     * cluster address etc for nan pairing.
      */
-    if (config_discovery_indications & NAN_DISC_ADDR_IND_DISABLED) {
-        mNanCommandInstance->mNanDiscAddrIndDisabled = true;
-        config_discovery_indications &= ~NAN_DISC_ADDR_IND_DISABLED;
-    } else {
-        mNanCommandInstance->mNanDiscAddrIndDisabled = false;
-    }
+    mNanCommandInstance->mConfigDiscoveryIndications =
+                                                  config_discovery_indications;
+
+    config_discovery_indications &= ~(NAN_DISC_ADDR_IND_DISABLED |
+                                      NAN_STARTED_CLUSTER_IND_DISABLED |
+                                      NAN_JOINED_CLUSTER_IND_DISABLED);
+
     tlvs = addTlv(NAN_TLV_TYPE_CONFIG_DISCOVERY_INDICATIONS,
                   sizeof(u32),
                   (const u8*)&config_discovery_indications, tlvs);
@@ -718,17 +728,21 @@ wifi_error NanCommand::putNanConfig(transaction_id id, const NanConfigRequest *p
 
     u32 config_discovery_indications;
     config_discovery_indications = (u32)(pReq->discovery_indication_cfg);
-    /* Save the discovery MAC indication config if it is disabled from the
-     * framework and use it later to decide if the framework to be notified of
-     * the response. And enable the self MAC discovery indication from firmware
-     * by resetting the bit in config to get the Self MAC.
+
+    /* Save the indication configs such as Disable Discovery MAC indication,
+     * Disable cluster started and Disable cluster joined indications from the
+     * framework. Always enable indications from firmware to wifihal, so that
+     * wifihal will manage to forward the indications based on the framework
+     * configuration. Indications are required in wifihal to know nmi address,
+     * cluster address etc for nan pairing.
      */
-    if (config_discovery_indications & NAN_DISC_ADDR_IND_DISABLED) {
-        mNanCommandInstance->mNanDiscAddrIndDisabled = true;
-        config_discovery_indications &= ~NAN_DISC_ADDR_IND_DISABLED;
-    } else {
-        mNanCommandInstance->mNanDiscAddrIndDisabled = false;
-    }
+    mNanCommandInstance->mConfigDiscoveryIndications =
+                                                  config_discovery_indications;
+
+    config_discovery_indications &= ~(NAN_DISC_ADDR_IND_DISABLED |
+                                      NAN_STARTED_CLUSTER_IND_DISABLED |
+                                      NAN_JOINED_CLUSTER_IND_DISABLED);
+
     /* Always include the discovery cfg TLV as there is no cfg flag */
     tlvs = addTlv(NAN_TLV_TYPE_CONFIG_DISCOVERY_INDICATIONS,
                   sizeof(u32),
@@ -2222,6 +2236,8 @@ wifi_error NanCommand::requestEvent()
     int status;
     struct nl_cb * cb = NULL;
 
+    pthread_mutex_lock(&mInfo->cb_lock);
+
     cb = nl_cb_alloc(NL_CB_DEFAULT);
     if (!cb) {
         ALOGE("%s: Callback allocation failed",__func__);
@@ -2263,6 +2279,7 @@ out:
     mVendorData = NULL;
     //cleanup the mMsg
     mMsg.destroy();
+    pthread_mutex_unlock(&mInfo->cb_lock);
     return res;
 }
 

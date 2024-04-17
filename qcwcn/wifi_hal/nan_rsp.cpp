@@ -78,6 +78,7 @@ int NanCommand::isNanResponse()
     case NAN_MSG_ID_TCA_RSP:
     case NAN_MSG_ID_BEACON_SDF_RSP:
     case NAN_MSG_ID_CAPABILITIES_RSP:
+    case NAN_MSG_ID_OEM_RSP:
     case NAN_MSG_ID_TESTMODE_RSP:
         return 1;
     default:
@@ -682,10 +683,26 @@ int NanCommand::handleNanResponse()
     NanResponseMsg  rsp_data;
     int ret;
     transaction_id id;
+#ifdef CONFIG_NAN_VENDOR_AIDL
+    NanVendorResponseMsg  vendor_rsp_data;
+    NanMsgHeader *pHeader = (NanMsgHeader *)mNanVendorEvent;
+#endif
 
     ALOGV("handleNanResponse called %p", this);
     memset(&rsp_data, 0, sizeof(rsp_data));
-    //get the rsp_data
+
+#ifdef CONFIG_NAN_VENDOR_AIDL
+    memset(&vendor_rsp_data, 0, sizeof(vendor_rsp_data));
+    if (pHeader && (pHeader->msgId == NAN_MSG_ID_OEM_RSP)) {
+        ret = getNanVendorResponse(&id, &vendor_rsp_data);
+        //Call the NotifyResponse Handler
+        if (ret == 0 && mVendorHandler.NotifyVendorResponse) {
+           (*mVendorHandler.NotifyVendorResponse)(id, &vendor_rsp_data);
+        }
+        return ret;
+    }
+#endif
+
     ret = getNanResponse(&id, &rsp_data);
 
     ALOGI("handleNanResponse ret:%d status:%u value:%s response_type:%u",

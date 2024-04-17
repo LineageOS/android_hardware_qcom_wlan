@@ -878,7 +878,9 @@ wifi_error wifi_select_tx_power_scenario(wifi_interface_handle handle,
     if  (info->sar_version == QCA_WLAN_VENDOR_SAR_VERSION_1)
         return wifi_select_SARv01_tx_power_scenario(handle,scenario);
     else if(info->sar_version == QCA_WLAN_VENDOR_SAR_VERSION_2 ||
-              info->sar_version == QCA_WLAN_VENDOR_SAR_VERSION_3)
+            info->sar_version == QCA_WLAN_VENDOR_SAR_VERSION_3 ||
+            info->sar_version == QCA_WLAN_VENDOR_SAR_VERSION_4 ||
+            info->sar_version == QCA_WLAN_VENDOR_SAR_VERSION_5)
         return wifi_select_SARv02_tx_power_scenario(handle,scenario);
     else {
       ALOGE("wifi_select_tx_power_scenario %u invalid or not supported", (u32)info->sar_version);
@@ -1150,14 +1152,23 @@ wifi_error WiFiConfigCommand::requestEvent()
     wifi_error res = WIFI_SUCCESS;
     struct nl_cb *cb = NULL;
 
+    if (mInfo == NULL) {
+       ALOGE("%s: Wifi is turned off",__FUNCTION__);
+       nl_cb_put(NULL);
+       mMsg.destroy();
+       return WIFI_ERROR_UNKNOWN;
+    }
+
+    pthread_mutex_lock(&mInfo->cb_lock);
+
     cb = nl_cb_alloc(NL_CB_DEFAULT);
     if (!cb) {
         ALOGE("%s: Callback allocation failed",__FUNCTION__);
         res = WIFI_ERROR_OUT_OF_MEMORY;
         goto out;
     }
-    if (mInfo == NULL || mInfo->cmd_sock == NULL) {
-        ALOGE("%s: Wifi is turned of or socket is Null",__FUNCTION__);
+    if (mInfo->cmd_sock == NULL) {
+        ALOGE("%s: Socket is Null",__FUNCTION__);
         res = WIFI_ERROR_UNKNOWN;
         goto out;
     }
@@ -1199,6 +1210,7 @@ out:
     nl_cb_put(cb);
     /* Cleanup the mMsg */
     mMsg.destroy();
+    pthread_mutex_unlock(&mInfo->cb_lock);
     return res;
 }
 

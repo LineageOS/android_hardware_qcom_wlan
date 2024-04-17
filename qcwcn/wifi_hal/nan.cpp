@@ -2003,6 +2003,7 @@ NanCommand::NanCommand(wifi_handle handle, int id, u32 vendor_id, u32 subcmd)
         : WifiVendorCommand(handle, id, vendor_id, subcmd)
 {
     memset(&mHandler, 0,sizeof(mHandler));
+    memset(&mVendorHandler, 0,sizeof(mVendorHandler));
     mNanVendorEvent = NULL;
     mNanDataLen = 0;
     mStaParam = NULL;
@@ -2012,7 +2013,12 @@ NanCommand::NanCommand(wifi_handle handle, int id, u32 vendor_id, u32 subcmd)
     mStoreSubParams = NULL;
     mNanMaxPublishes = 0;
     mNanMaxSubscribes = 0;
-    mNanDiscAddrIndDisabled = false;
+    mConfigDiscoveryIndications = 0;
+}
+
+void NanCommand::setNanVendorEventAndDataLen(char *event, int len) {
+    mNanVendorEvent = event;
+    mNanDataLen = len;
 }
 
 NanCommand* NanCommand::instance(wifi_handle handle)
@@ -2233,6 +2239,21 @@ u16 NanCommand::getPubSubId(u32 instance_id, NanRole pool)
         ALOGE("Invalid Pool: %d", pool);
     break;
     }
+    return 0;
+}
+
+u32 NanCommand::getNanMatchHandle(u16 requestor_id, u8 *service_id)
+{
+    int i;
+
+    for (i = 0; i < mNanMaxSubscribes; i++) {
+        if (mStoreSubParams[i].subscriber_publisher_id == requestor_id &&
+            !memcmp(mStoreSubParams[i].service_id, service_id,
+             NAN_SD_ATTR_SERVICE_ID_LEN)) {
+            return mStoreSubParams[i].instance_id;
+        }
+    }
+
     return 0;
 }
 
@@ -2548,6 +2569,21 @@ int NanCommand::handleEvent(WifiEvent &event)
     }
     mNanVendorEvent = NULL;
     return NL_SKIP;
+}
+
+void NanCommand::handleNanRx() {
+
+    if (isNanResponse()) {
+        //handleNanResponse will parse the data and call
+        //the response callback handler with the populated
+        //NanResponseMsg
+        handleNanResponse();
+    } else {
+        //handleNanIndication will parse the data and call
+        //the corresponding Indication callback handler
+        //with the corresponding populated Indication event
+        handleNanIndication();
+    }
 }
 
 /*Helper function to Write and Read TLV called in indication as well as request */

@@ -126,11 +126,20 @@ int NanCommand::handleNanIndication()
             ((discEngEventInd.event_type == NAN_EVENT_ID_STARTED_CLUSTER) ||
             (discEngEventInd.event_type == NAN_EVENT_ID_JOINED_CLUSTER))) {
             mNanCommandInstance->saveClusterAddr(discEngEventInd.data.cluster.addr);
+            if (discEngEventInd.event_type == NAN_EVENT_ID_STARTED_CLUSTER &&
+                (mNanCommandInstance->mConfigDiscoveryIndications &
+                 NAN_STARTED_CLUSTER_IND_DISABLED))
+                break;
+            if (discEngEventInd.event_type == NAN_EVENT_ID_JOINED_CLUSTER &&
+                (mNanCommandInstance->mConfigDiscoveryIndications &
+                 NAN_JOINED_CLUSTER_IND_DISABLED))
+                break;
         }
         if (!res &&
             (discEngEventInd.event_type == NAN_EVENT_ID_DISC_MAC_ADDR)) {
             mNanCommandInstance->saveNmi(discEngEventInd.data.mac_addr.addr);
-            if (mNanCommandInstance->mNanDiscAddrIndDisabled)
+            if (mNanCommandInstance->mConfigDiscoveryIndications &
+                NAN_DISC_ADDR_IND_DISABLED)
                 break;
         }
         if (!res && mHandler.EventDiscEngEvent) {
@@ -210,7 +219,16 @@ int NanCommand::handleNanIndication()
             (*mHandler.EventRangeReport)(&rangeReportInd);
         }
         break;
-
+#ifdef CONFIG_NAN_VENDOR_AIDL
+    case NAN_INDICATION_VENDOR_EVENT:
+        NanVendorEventInd EventInd;
+        memset(&EventInd, 0, sizeof(EventInd));
+        res = getNanVendorEventInd(&EventInd);
+        if (!res && mVendorHandler.VendorEventIndication) {
+            (*mVendorHandler.VendorEventIndication)(&EventInd);
+        }
+        break;
+#endif
     default:
         ALOGE("handleNanIndication error invalid msg_id:%u", msg_id);
         res = (int)WIFI_ERROR_INVALID_REQUEST_ID;
@@ -260,6 +278,8 @@ NanIndicationType NanCommand::getIndicationType()
         return NAN_INDICATION_RANGING_RESULT;
     case NAN_MSG_ID_IDENTITY_RESOLUTION_IND:
         return NAN_INDICATION_IDENTITY_RESOLUTION;
+    case NAN_MSG_ID_OEM_IND:
+        return NAN_INDICATION_VENDOR_EVENT;
     default:
         return NAN_INDICATION_UNKNOWN;
     }
@@ -808,6 +828,8 @@ int NanCommand::handleNanSharedKeyDescIndication()
 
     memcpy(evt.npk_security_association.peer_nan_identity_key,
            entry->peer_nik, NAN_IDENTITY_KEY_LEN);
+
+    nan_pairing_remove_peers_with_nik(info, entry->peer_nik, entry->bssid);
 
     evt.npk_security_association.npk.pmk_len = pasn->pmk_len;
     if (sizeof(evt.npk_security_association.npk.pmk) >= pasn->pmk_len)

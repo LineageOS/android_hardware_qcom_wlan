@@ -54,6 +54,7 @@
 #include "common.h"
 #include "cpp_bindings.h"
 #include <hardware_legacy/wifi_hal.h>
+#include "vendor_nan_hal.h"
 #include "nan_cert.h"
 #include <queue>
 #include <utility>
@@ -80,7 +81,9 @@
  * First bit of discovery_indication_cfg in NanEnableRequest indicates
  * disableDiscoveryAddressChangeIndication
  */
-#define NAN_DISC_ADDR_IND_DISABLED 0x01
+#define NAN_DISC_ADDR_IND_DISABLED             0x01
+#define NAN_STARTED_CLUSTER_IND_DISABLED       0x02
+#define NAN_JOINED_CLUSTER_IND_DISABLED        0x04
 
 typedef struct PACKED
 {
@@ -109,9 +112,10 @@ private:
     u32 mNanMaxSubscribes;
     NanStoreSvcParams *mStorePubParams;
     NanStoreSvcParams *mStoreSubParams;
-    bool mNanDiscAddrIndDisabled;
+    u32 mConfigDiscoveryIndications;
     std::queue<transaction_id> mNdiTransactionId;
     std::vector<std::pair<transaction_id, NanResponseMsg> > mNanResponseMsgVec;
+    VendorNanCallbackHandler mVendorHandler;
 
     //Function to check the initial few bytes of data to
     //determine whether NanResponse or NanEvent
@@ -191,6 +195,10 @@ private:
     int getNanRangeRequestReceivedInd(NanRangeRequestInd *event);
     int getNanRangeReportInd(NanRangeReportInd *event);
     int getNdpScheduleUpdate(struct nlattr **tb_vendor, NanDataPathScheduleUpdateInd *event);
+
+    // Function used for vendor nan
+    int getNanVendorResponse(transaction_id *id, NanVendorResponseMsg *pRsp);
+    int getNanVendorEventInd(NanVendorEventInd *event);
 public:
     NanCommand(wifi_handle handle, int id, u32 vendor_id, u32 subcmd);
     static NanCommand* instance(wifi_handle handle);
@@ -202,6 +210,9 @@ public:
     virtual wifi_error requestEvent();
     virtual int handleResponse(WifiEvent &reply);
     virtual int handleEvent(WifiEvent &event);
+    void setNanVendorEventAndDataLen(char *event, int len);
+    void handleNanRx();
+    u32 getNanMatchHandle(u16 requestor_id, u8 *service_id);
     wifi_error setCallbackHandler(NanCallbackHandler nHandler);
 
 
@@ -268,6 +279,10 @@ public:
     int handleNanPairingConfirm(NanPairingConfirmInd *evt);
     void notifyPairingInitiatorResponse(transaction_id id, u32 pairing_id);
     void notifyPairingResponderResponse(transaction_id id, u32 pairing_id);
+
+    /* Functions for Vendor Nan commands and events */
+    vendor_nan_error setVendorCallbackHandler(VendorNanCallbackHandler nHandler);
+    vendor_nan_error putNanCommandData(transaction_id id, NanVendorCmdData *pReq);
 };
 #endif /* __WIFI_HAL_NAN_COMMAND_H__ */
 

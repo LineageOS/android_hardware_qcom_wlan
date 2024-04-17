@@ -126,6 +126,64 @@ extern "C"
 #define NAN_CSIA_GRPKEY_LEN_GET(x) NAN_F_MS(x,NAN_CSIA_GRPKEY_LEN)
 #define NAN_CSIA_GRPKEY_LEN_16   16
 #define NAN_CSIA_GRPKEY_LEN_32   32
+#define NAN_MAX_SD_ATTRS_PER_FRAME 20
+#define NAN_SD_ATTR_SERVICE_ID_LEN  6
+#define NAN_SDF_MAX_LEN 750
+#define NAN_SD_ATTR_MAX_LEN         \
+    (NAN_SDF_MAX_LEN -              \
+     24 - /* MAC Header */          \
+      6)  /* PAF header */
+#define NAN_SD_ATTR_MIN_LEN         \
+    (1 + /* Attribute ID     */     \
+     2 + /* Attribute Length */     \
+     NAN_SD_ATTR_SERVICE_ID_LEN +   \
+     1 + /* Instance ID      */     \
+     1 + /* Requestor ID     */     \
+     1)  /* Service Control  */
+#define NAN_SDE_ATTR_MIN_LEN 3
+#define NAN_SDE_ATTR_SERVICE_INFO_HEADER_LEN    \
+    (3 + /* OUI */                              \
+     1 /* Service Protocol Type */ )
+
+/* NAN TLV Maximum Lengths */
+#define NAN_MAX_EXT_SERVICE_SPECIFIC_INFO_LEN 270
+#define NAN_FOLLOWUP_MAX_EXT_SERVICE_SPECIFIC_INFO_LEN 1400
+#define NAN_MAX_BOOTSTRAPPING_COOKIE_LEN 255
+#define NAN_MAX_SHARED_KEY_DESC_ATTR_LEN 256
+#define NAN_MAX_FOLLOWUP_IND_SIZE                                    \
+    (                                                                \
+        sizeof(NanMsgHeader)                                     +   \
+        sizeof(NanFollowupIndParams)                             +   \
+        SIZEOF_TLV_HDR + (sizeof(u8) * NAN_MAC_ADDR_LEN)         +   \
+        SIZEOF_TLV_HDR + NAN_MAX_SERVICE_SPECIFIC_INFO_LEN           \
+    )
+#define NAN_MAX_FOLLOWUP_IND_SIZE_EXT_SSI                                \
+    (                                                                    \
+        sizeof(NanMsgHeader)                                     +       \
+        sizeof(NanFollowupIndParams)                             +       \
+        SIZEOF_TLV_HDR + (sizeof(u8) * NAN_MAC_ADDR_LEN)         +       \
+        SIZEOF_TLV_HDR + NAN_FOLLOWUP_MAX_EXT_SERVICE_SPECIFIC_INFO_LEN  \
+    )
+
+/* Service Descriptor Attribute Constants */
+
+/* Service Control Flags */
+#define NAN_SVC_CTRL_FLAG_MATCH_FILTER          0x04
+#define NAN_SVC_CTRL_FLAG_SERVICE_RSP           0x08
+#define NAN_SVC_CTRL_FLAG_SERVICE_INFO          0x10
+#define NAN_SVC_CTRL_FLAG_BINDING_BITMAP        0x40
+
+#define NAN_SDE_ATTR_LEN_OFFSET 1
+#define NAN_SDE_ATTR_CTRL_RANGE_LIMIT_OFFSET 8
+#define NAN_SDE_ATTR_CTRL_SERVICE_UPDATE_INDI_PRESENT 9
+
+#define NAN_NPBA_ATTR_MIN_LEN       \
+    (1 + /* Attribute ID     */     \
+     2 + /* Attribute Length */     \
+     1 + /* Dialog Token     */     \
+     1 + /* Type and Status  */     \
+     1 + /* Reason code      */     \
+     2 ) /* Pairing Bootstrapping Method */
 
 /** macro to convert FW MAC address from WMI word format to User Space MAC char array */
 #define FW_MAC_ADDR_TO_CHAR_ARRAY(fw_mac_addr, mac_addr) do { \
@@ -146,6 +204,167 @@ extern "C"
          ((mac_addr)[4] | ((mac_addr)[5] << 8));          \
 } while (0)
 
+#ifndef WPA_PASN_LIB
+/* Macros for handling unaligned memory accesses */
+
+static inline u16 WPA_GET_BE16(const u8 *a)
+{
+	return (a[0] << 8) | a[1];
+}
+
+static inline void WPA_PUT_BE16(u8 *a, u16 val)
+{
+	a[0] = val >> 8;
+	a[1] = val & 0xff;
+}
+
+static inline u16 WPA_GET_LE16(const u8 *a)
+{
+	return (a[1] << 8) | a[0];
+}
+
+static inline void WPA_PUT_LE16(u8 *a, u16 val)
+{
+	a[1] = val >> 8;
+	a[0] = val & 0xff;
+}
+
+static inline u32 WPA_GET_BE24(const u8 *a)
+{
+	return (a[0] << 16) | (a[1] << 8) | a[2];
+}
+
+static inline void WPA_PUT_BE24(u8 *a, u32 val)
+{
+	a[0] = (val >> 16) & 0xff;
+	a[1] = (val >> 8) & 0xff;
+	a[2] = val & 0xff;
+}
+
+static inline u32 WPA_GET_LE24(const u8 *a)
+{
+	return (a[2] << 16) | (a[1] << 8) | a[0];
+}
+
+static inline void WPA_PUT_LE24(u8 *a, u32 val)
+{
+	a[2] = (val >> 16) & 0xff;
+	a[1] = (val >> 8) & 0xff;
+	a[0] = val & 0xff;
+}
+
+static inline u32 WPA_GET_BE32(const u8 *a)
+{
+	return ((u32) a[0] << 24) | (a[1] << 16) | (a[2] << 8) | a[3];
+}
+
+static inline void WPA_PUT_BE32(u8 *a, u32 val)
+{
+	a[0] = (val >> 24) & 0xff;
+	a[1] = (val >> 16) & 0xff;
+	a[2] = (val >> 8) & 0xff;
+	a[3] = val & 0xff;
+}
+
+static inline u32 WPA_GET_LE32(const u8 *a)
+{
+	return ((u32) a[3] << 24) | (a[2] << 16) | (a[1] << 8) | a[0];
+}
+
+static inline void WPA_PUT_LE32(u8 *a, u32 val)
+{
+	a[3] = (val >> 24) & 0xff;
+	a[2] = (val >> 16) & 0xff;
+	a[1] = (val >> 8) & 0xff;
+	a[0] = val & 0xff;
+}
+
+static inline u64 WPA_GET_BE64(const u8 *a)
+{
+	return (((u64) a[0]) << 56) | (((u64) a[1]) << 48) |
+		(((u64) a[2]) << 40) | (((u64) a[3]) << 32) |
+		(((u64) a[4]) << 24) | (((u64) a[5]) << 16) |
+		(((u64) a[6]) << 8) | ((u64) a[7]);
+}
+
+static inline void WPA_PUT_BE64(u8 *a, u64 val)
+{
+	a[0] = val >> 56;
+	a[1] = val >> 48;
+	a[2] = val >> 40;
+	a[3] = val >> 32;
+	a[4] = val >> 24;
+	a[5] = val >> 16;
+	a[6] = val >> 8;
+	a[7] = val & 0xff;
+}
+
+static inline u64 WPA_GET_LE64(const u8 *a)
+{
+	return (((u64) a[7]) << 56) | (((u64) a[6]) << 48) |
+		(((u64) a[5]) << 40) | (((u64) a[4]) << 32) |
+		(((u64) a[3]) << 24) | (((u64) a[2]) << 16) |
+		(((u64) a[1]) << 8) | ((u64) a[0]);
+}
+
+static inline void WPA_PUT_LE64(u8 *a, u64 val)
+{
+	a[7] = val >> 56;
+	a[6] = val >> 48;
+	a[5] = val >> 40;
+	a[4] = val >> 32;
+	a[3] = val >> 24;
+	a[2] = val >> 16;
+	a[1] = val >> 8;
+	a[0] = val & 0xff;
+}
+
+struct ieee80211_hdr {
+	u16 frame_control;
+	u16 duration_id;
+	u8 addr1[6];
+	u8 addr2[6];
+	u8 addr3[6];
+	u16 seq_ctrl;
+	/* followed by 'u8 addr4[6];' if ToDS and FromDS is set in data frame
+	 */
+} PACKED;
+
+static inline unsigned short wpa_swap_16(unsigned short v)
+{
+	return ((v & 0xff) << 8) | (v >> 8);
+}
+
+static inline unsigned int wpa_swap_32(unsigned int v)
+{
+	return ((v & 0xff) << 24) | ((v & 0xff00) << 8) |
+		((v & 0xff0000) >> 8) | (v >> 24);
+}
+
+#define le_to_host16(n) (n)
+#define host_to_le16(n) (n)
+#define be_to_host16(n) wpa_swap_16(n)
+#define host_to_be16(n) wpa_swap_16(n)
+#define le_to_host32(n) (n)
+#define host_to_le32(n) (n)
+#define be_to_host32(n) wpa_swap_32(n)
+#define host_to_be32(n) wpa_swap_32(n)
+#define host_to_le64(n) (n)
+#define WLAN_FC_GET_TYPE(fc)	(((fc) & 0x000c) >> 2)
+#define WLAN_FC_GET_STYPE(fc)	(((fc) & 0x00f0) >> 4)
+#define IEEE80211_HDRLEN (sizeof(struct ieee80211_hdr))
+
+#define WLAN_FC_STYPE_AUTH		11
+#define WLAN_FC_STYPE_ACTION		13
+
+#define WLAN_PA_VENDOR_SPECIFIC 9
+
+#define WLAN_FC_TYPE_MGMT  0
+#define OUI_WFA 0x506f9a
+#define WLAN_ACTION_PUBLIC 4
+#define WLAN_ACTION_PROTECTED_DUAL 9
+
+#endif
 /*---------------------------------------------------------------------------
 * WLAN NAN CONSTANTS
 *--------------------------------------------------------------------------*/
@@ -193,6 +412,9 @@ typedef enum
     NAN_MSG_ID_IDENTITY_RESOLUTION_IND      = 38,
     NAN_MSG_ID_PAIRING_IND                  = 39,
     NAN_MSG_ID_UNPAIRING_IND                = 40,
+    NAN_MSG_ID_OEM_REQ                      = 41,
+    NAN_MSG_ID_OEM_RSP                      = 42,
+    NAN_MSG_ID_OEM_IND                      = 43,
     NAN_MSG_ID_TESTMODE_REQ                 = 1025,
     NAN_MSG_ID_TESTMODE_RSP                 = 1026
 } NanMsgId;
@@ -294,6 +516,7 @@ typedef enum
     NAN_TLV_TYPE_TX_RX_CHAINS = 4137,
     NAN_TLV_TYPE_ENABLE_DEVICE_RANGING = 4138,
     NAN_TLV_TYPE_UNSYNC_DISCOVERY_ENABLED = 4139,
+    NAN_TLV_TYPE_FOLLOWUP_MGMT_RX_ENABLED = 4140,
 
     NAN_TLV_TYPE_CONFIG_LAST = 8191,
 
@@ -344,6 +567,11 @@ typedef enum
     NAN_TLV_TYPE_SEC_BIGTK_KDE,
     NAN_TLV_TYPE_SEC_NM_TK,
     NAN_TLV_TYPE_SEC_LAST = 37100,
+
+    /* NAN OEM Configuration types */
+    NAN_TLV_TYPE_OEM_DATA_FIRST = 37101,
+    NAN_TLV_TYPE_OEM1_DATA = NAN_TLV_TYPE_OEM_DATA_FIRST,
+    NAN_TLV_TYPE_OEM_DATA_LAST  = 37150,
 
     NAN_TLV_TYPE_LAST = 65535
 } NanTlvType;
@@ -748,10 +976,13 @@ typedef struct PACKED
 #define NCS_PK_PASN_256     8
 
 enum nan_attr_id {
-    NAN_ATTR_ID_DCEA =  0x2A,
-    NAN_ATTR_ID_CSIA =  0x22,
-    NAN_ATTR_ID_NPBA =  0x2C,
-    NAN_ATTR_ID_NIRA =  0x2B,
+    NAN_ATTR_ID_SERVICE_DESCRIPTOR = 0x3,
+    NAN_ATTR_ID_SDE                = 0xE,
+    NAN_ATTR_ID_CSIA               = 0x22,
+    NAN_ATTR_ID_SHARED_KEY_DESC    = 0x24,
+    NAN_ATTR_ID_DCEA               = 0x2A,
+    NAN_ATTR_ID_NPBA               = 0x2C,
+    NAN_ATTR_ID_NIRA               = 0x2B,
 };
 
 #define NAN_GTK_LEN 16
@@ -831,6 +1062,15 @@ typedef struct PACKED {
         u8 cipher_ver;
         u8 nonce_tag[32];
 } nan_nira;
+
+typedef struct PACKED {
+        u8 attr_id;
+        u16 len;
+        u8 service_id[6];
+        u8 instance_id;
+        u8 requestor_id;
+        u8 service_control_flags;
+} nan_sda;
 
 /* NAN Configuration Req */
 typedef struct PACKED
@@ -1217,6 +1457,7 @@ typedef enum {
     NAN_INDICATION_RANGING_REQUEST_RECEIVED =11,
     NAN_INDICATION_RANGING_RESULT           =12,
     NAN_INDICATION_IDENTITY_RESOLUTION      =13,
+    NAN_INDICATION_VENDOR_EVENT             =14,
     NAN_INDICATION_UNKNOWN                 =0xFFFF
 } NanIndicationType;
 
@@ -1334,6 +1575,17 @@ typedef struct PACKED
     u32 bootstrapping_method_bitmap:16;
     u32 reserved:14;
 } NanFWPairingParamsMatch;
+
+typedef struct
+{
+    u8 instance_id;
+    u16 sdea_control;
+    u16 range_limit_ingress;
+    u16 range_limit_egress;
+    u8 service_update_indicator;
+    u16 ssi_len;
+    u8 ssi[NAN_FOLLOWUP_MAX_EXT_SERVICE_SPECIFIC_INFO_LEN];
+} nan_sdea;
 
 typedef enum {
     NAN_BS_TYPE_ADVERTISE = 0,
@@ -1792,6 +2044,40 @@ struct wpa_secure_nan {
     struct wpabuf *rsnxe;
 };
 
+/***************************************************
+ * Wi-Fi HAL and Firmware interface for oem data
+ ***************************************************/
+
+#define NAN_OEM1_DATA_MAX_LEN  1024
+
+/* NAN Command request */
+typedef struct PACKED
+{
+    NanMsgHeader fwHeader;
+    /* TLVs Required:
+       MANDATORY
+       1. command in byte format
+    */
+    u8 ptlv[];
+} NanFWOemReqMsg, *pNanFWOemReqMsg;
+
+/* NAN Command Rsp */
+typedef struct PACKED
+{
+    NanMsgHeader fwHeader;
+    u16 status;
+    u16 value;
+    u8 ptlv[];
+} NanFWOemRspMsg, *pNanFWOemRspMsg;
+
+/* NAN Event Ind */
+typedef struct PACKED
+{
+    NanMsgHeader fwHeader;
+    u16 reserved[2];
+    u8 ptlv[];
+} NanFWOemIndMsg, *pNanFWOemIndMsg;
+
 /* Function for NAN error translation
    For NanResponse, NanPublishTerminatedInd, NanSubscribeTerminatedInd,
    NanDisabledInd, NanTransmitFollowupInd:
@@ -1825,6 +2111,7 @@ nan_pairing_get_peer_from_bootstrapping_id(struct wpa_secure_nan *secure_nan,
 struct nan_pairing_peer_info*
 nan_pairing_get_peer_from_ndp_id(struct wpa_secure_nan *secure_nan,
                                  u32 ndp_instance_id);
+void nan_pairing_remove_peers_with_nik(hal_info *info, u8 *nik, u8 *skip_mac);
 void nan_pairing_delete_list(struct wpa_secure_nan *secure_nan);
 void nan_pairing_delete_peer_from_list(struct wpa_secure_nan *secure_nan,
                                        u8 *mac);
@@ -1883,6 +2170,11 @@ bool is_nira_present(struct wpa_secure_nan *secure_nan, const u8 *frame,
 struct nan_pairing_peer_info*
 nan_pairing_initialize_peer_for_verification(struct wpa_secure_nan *secure_nan,
                                              u8 *mac);
+void nan_rx_mgmt_auth(wifi_handle handle, const u8 *frame, size_t len);
+int nan_register_action_frames(wifi_interface_handle iface);
+int nan_register_action_dual_protected_frames(wifi_interface_handle iface);
+void nan_rx_mgmt_auth(wifi_handle handle, const u8 *frame, size_t len);
+void nan_rx_mgmt_action(wifi_handle handle, const u8 *frame, size_t len);
 
 #ifdef __cplusplus
 }
