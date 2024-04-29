@@ -3752,7 +3752,7 @@ public:
                             iface_limits[0].iface_mask |= BIT(WIFI_INTERFACE_TYPE_NAN);
                             break;
                         default:
-                            ALOGI("Ignore unsupported iface type: %d", ift);
+                            ALOGD("Ignore unsupported iface type: %d", ift);
                             break;
                     }
                 }
@@ -3833,11 +3833,11 @@ public:
                                 iface_limits[j].iface_mask |= BIT(WIFI_INTERFACE_TYPE_NAN);
                                 break;
                             case NL80211_IFTYPE_P2P_DEVICE:
-                                ALOGI("Ignore p2p_device iface type");
+                                ALOGD("Ignore p2p_device iface type");
                                 iface_limits[j].max_limit--;
                                 break;
                             default:
-                                ALOGI("Ignore unsupported iface type: %d", ift);
+                                ALOGD("Ignore unsupported iface type: %d", ift);
                                 break;
                             }
                         }
@@ -3850,6 +3850,13 @@ public:
                         if (iface_limits[j].iface_mask)
                             j++;
                     }
+
+                    // Skip combinations with zero iface limits
+                    if (j == 0) {
+                        ALOGD("Ignore Zero iface limit combination");
+                        continue;
+                    }
+
                     iface_combination->num_iface_limits = j;
                     i++;
                     if (i == MAX_IFACE_COMBINATIONS) {
