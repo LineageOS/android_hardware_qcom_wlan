@@ -159,9 +159,9 @@ wifi_error wifi_get_supported_iface_concurrency_matrix(
 #ifdef WPA_PASN_LIB
 void wifihal_event_mgmt_tx_status(wifi_handle handle, struct nlattr *cookie,
                                   const u8 *frame, size_t len, struct nlattr *ack);
+#endif
 void wifihal_event_mgmt(wifi_handle handle, struct nlattr *freq, const u8 *frame,
                         size_t len);
-#endif
 /* Initialize/Cleanup */
 
 wifi_interface_handle wifi_get_iface_handle(wifi_handle handle, char *name)
@@ -2302,16 +2302,16 @@ static int internal_valid_message_handler(nl_msg *msg, void *arg)
         data = (const u8*) nla_data(frame);
         len = nla_len(frame);
 
-#ifdef WPA_PASN_LIB
         if (cmd == NL80211_CMD_FRAME) {
             wifihal_event_mgmt(handle, tb[NL80211_ATTR_WIPHY_FREQ],
                                (const u8*) nla_data(frame), nla_len(frame));
+#ifdef WPA_PASN_LIB
         } else {
             wifihal_event_mgmt_tx_status(handle, tb[NL80211_ATTR_COOKIE],
                                          (const u8*) nla_data(frame),
                                          nla_len(frame), tb[NL80211_ATTR_ACK]);
-        }
 #endif
+        }
     }
     else if((info->wifihal_ctrl_sock.s > 0) && (cmd == NL80211_CMD_FRAME))
     {
