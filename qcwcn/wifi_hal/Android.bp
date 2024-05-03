@@ -106,7 +106,7 @@ cc_library {
     header_libs: [
         "libcld80211_headers",
         "libcutils_headers",
-        "libhardware_legacy_headers",
+        "wifi_legacy_headers",
         "libnetlink_iface_headers",
         "libutils_headers",
         "libwifi-hal-ctrl_headers",
