@@ -301,7 +301,7 @@ int NanCommand::getNanPublishReplied(NanPublishRepliedInd *event)
     NanTlv outputTlv;
     u16 readLen = 0;
     int remainingLen = (mNanDataLen - \
-        (sizeof(NanMsgHeader)));
+        (sizeof(NanMsgHeader) + sizeof(NanPublishRepliedIndParams)));
 
     if (remainingLen <= 0) {
         ALOGI("%s: No TLV's present",__func__);
