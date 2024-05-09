@@ -1509,7 +1509,7 @@ typedef struct PACKED
     u32 nan_pairing_supported:1;
     u32 nan_usd_publisher_supported:1;
     u32 nan_usd_subscriber_supported:1;
-    u32 reserved:1;
+    u32 nan_followup_rx_forward_supported:1;
     u32 max_subscribe_address;
     u32 max_nan_pairing_sessions;
     u32 nan_group_mfp_cap;

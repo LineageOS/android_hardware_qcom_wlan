@@ -116,6 +116,7 @@ private:
     std::queue<transaction_id> mNdiTransactionId;
     std::vector<std::pair<transaction_id, NanResponseMsg> > mNanResponseMsgVec;
     VendorNanCallbackHandler mVendorHandler;
+    u8 mNanFollowupRxSupport;
 
     //Function to check the initial few bytes of data to
     //determine whether NanResponse or NanEvent
@@ -217,7 +218,8 @@ public:
 
 
     //Functions to fill the vendor data appropriately
-    wifi_error putNanEnable(transaction_id id, const NanEnableRequest *pReq);
+    wifi_error putNanEnable(transaction_id id, const NanEnableRequest *pReq,
+                            u8 followup_mgmt_rx_enable);
     wifi_error putNanDisable(transaction_id id);
     wifi_error putNanPublish(transaction_id id, const NanPublishRequest *pReq,
                              const nanGrpKey *grp_keys);
@@ -263,6 +265,7 @@ public:
     u8 *getNmi();
     void saveClusterAddr(u8 *mac);
     u8 *getClusterAddr();
+    u8 getFollowupRxSupport();
     void saveServiceId(u8 *service_id, u16 sub_pub_handle,
                         u32 instance_id, NanRole Pool);
     u8 *getServiceId(u32 instance_id, NanRole Pool);

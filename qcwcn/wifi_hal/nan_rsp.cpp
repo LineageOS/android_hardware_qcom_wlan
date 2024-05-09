@@ -668,6 +668,8 @@ int NanCommand::getNanResponse(transaction_id *id, NanResponseMsg *pRsp)
             }
             pRsp->body.nan_capabilities.is_pairing_supported = \
                        pFwRsp->nan_pairing_supported;
+            mNanCommandInstance->mNanFollowupRxSupport = \
+                       pFwRsp->nan_followup_rx_forward_supported;
 
             break;
         }
