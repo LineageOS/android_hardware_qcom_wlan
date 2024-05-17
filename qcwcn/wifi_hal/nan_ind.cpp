@@ -799,15 +799,8 @@ int NanCommand::handleNanSharedKeyDescIndication()
     }
 
     if (entry->peer_role == SECURE_NAN_PAIRING_INITIATOR) {
-      NanSharedKeyRequest msg;
-      if (nan_get_shared_key_descriptor(info, entry->bssid, &msg)) {
-          ALOGE("NAN: Unable to get shared key descriptor");
-          return WIFI_ERROR_INVALID_ARGS;
-      }
-      memcpy(msg.peer_disc_mac_addr,entry->bssid, NAN_MAC_ADDR_LEN);
-      msg.requestor_instance_id = pRsp->followupIndParams.matchHandle;
-      msg.pub_sub_id = entry->pub_sub_id;
-      nan_sharedkey_followup_request(0, ifaceHandle, &msg);
+        info->secure_nan->pending_peer = entry;
+        nan_pairing_prepare_skda_data(ifaceHandle);
     }
 
     pasn = &entry->pasn;

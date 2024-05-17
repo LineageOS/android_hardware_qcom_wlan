@@ -1870,17 +1870,119 @@ int nan_pairing_set_keys_from_cache(wifi_handle handle, u8 *src_addr, u8 *bssid,
         peer->is_paired = true;
         peer->is_pairing_in_progress = false;
     } else if (peer_role == SECURE_NAN_PAIRING_RESPONDER) {
+      info->secure_nan->pending_peer = peer;
+      nan_pairing_prepare_skda_data(ifaceHandle);
+    }
+    return WIFI_SUCCESS;
+}
+
+static u32 nan_fetch_key_idx(struct wpa_secure_nan *secure_nan)
+{
+    if (secure_nan->pn_bitmap & NAN_PN_REQ_BITMAP_IGTK) {
+        secure_nan->pn_bitmap &= ~NAN_PN_REQ_BITMAP_IGTK;
+        return NAN_IGTK_KEY_IDX;
+    }
+
+    if (secure_nan->pn_bitmap & NAN_PN_REQ_BITMAP_BIGTK) {
+        secure_nan->pn_bitmap &= ~NAN_PN_REQ_BITMAP_BIGTK;
+        return NAN_BIGTK_KEY_IDX;
+    }
+    return 0;
+}
+
+
+int nan_handle_pn_response(wifi_handle handle, transaction_id id, u8 *key_rsc)
+{
+    u32 key_index;
+    wifi_interface_handle ifaceHandle;
+    hal_info *info = getHalInfo(handle);
+
+    ifaceHandle = wifi_get_iface_handle(handle, info->secure_nan->iface_name);
+    if (!ifaceHandle) {
+        ALOGE("%s: ifaceHandle NULL for %s", __FUNCTION__,
+              info->secure_nan->iface_name);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+
+    // For PN request, transaction id and key index are same
+    if (id == NAN_IGTK_KEY_IDX) {
+        memcpy(info->secure_nan->dev_grp_keys->igtk_rsc, key_rsc,
+               NAN_MAX_GROUP_KEY_RSC_LEN);
+    } else if (id == NAN_BIGTK_KEY_IDX) {
+        memcpy(info->secure_nan->dev_grp_keys->bigtk_rsc, key_rsc,
+               NAN_MAX_GROUP_KEY_RSC_LEN);
+    }
+
+    key_index = nan_fetch_key_idx(info->secure_nan);
+    if (!key_index) {
+        nan_pairing_send_skda_data(ifaceHandle);
+        return 0;
+    }
+
+    // Use transaction ID same as Key index for group key PN requests
+    nan_group_key_pn_request(key_index, ifaceHandle, key_index);
+    return 0;
+}
+
+
+int nan_pairing_send_skda_data(wifi_interface_handle iface)
+{
+      int ret = 0;
       NanSharedKeyRequest msg;
+      struct nan_pairing_peer_info *peer;
+      wifi_handle wifiHandle = getWifiHandle(iface);
+      hal_info *info = getHalInfo(wifiHandle);
+      struct wpa_secure_nan *secure_nan = info->secure_nan;
+
+      if (!secure_nan->pending_peer) {
+          ALOGE("NAN: Pending Peer info NULL");
+          return -1;
+      }
+
+      peer = secure_nan->pending_peer;
+
+      memset((u8 *)&msg, 0, sizeof(NanSharedKeyRequest));
       if (nan_get_shared_key_descriptor(info, peer->bssid, &msg)) {
           ALOGE("NAN: Unable to get shared key descriptor");
-          return -1;
+          ret = -1;
+          goto out;
       }
       memcpy(msg.peer_disc_mac_addr, peer->bssid, NAN_MAC_ADDR_LEN);
       msg.requestor_instance_id = peer->requestor_instance_id;
       msg.pub_sub_id = peer->pub_sub_id;
-      nan_sharedkey_followup_request(0, ifaceHandle, &msg);
+      nan_sharedkey_followup_request(0, iface, &msg);
+out:
+      secure_nan->pending_peer = NULL;
+      return ret;
+}
+
+int nan_pairing_prepare_skda_data(wifi_interface_handle iface)
+{
+    u32 key_index;
+    wifi_handle wifiHandle = getWifiHandle(iface);
+    hal_info *info = getHalInfo(wifiHandle);
+    struct wpa_secure_nan *secure_nan = info->secure_nan;
+
+    secure_nan->pn_bitmap = 0;
+
+    if (secure_nan->dev_grp_keys) {
+        if (secure_nan->dev_grp_keys->igtk_len)
+            secure_nan->pn_bitmap |= NAN_PN_REQ_BITMAP_IGTK;
+
+        if (secure_nan->dev_grp_keys->bigtk_len)
+            secure_nan->pn_bitmap |= NAN_PN_REQ_BITMAP_BIGTK;
     }
-    return WIFI_SUCCESS;
+
+    key_index = nan_fetch_key_idx(secure_nan);
+    if (!key_index) {
+        ALOGV("NAN: SKDA data with out Group keys");
+        nan_pairing_send_skda_data(iface);
+        return 0;
+    }
+
+    // Use transaction ID same as Key index for group key PN requests
+    nan_group_key_pn_request(key_index, iface, key_index);
+    return 0;
 }
 
 static int nan_pairing_register_pasn_auth_frames(wifi_interface_handle iface)
@@ -2820,6 +2922,12 @@ wifi_error nan_pairing_end(transaction_id id,
 {
     ALOGE("NAN Pairing end not supported");
     return WIFI_ERROR_NOT_SUPPORTED;
+}
+
+int nan_handle_pn_response(wifi_handle handle, transaction_id id, u8 *key_rsc)
+{
+    ALOGE("Secure NAN Group keys not supported");
+    return -1;
 }
 
 #endif /* WPA_PASN_LIB */

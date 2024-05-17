@@ -420,6 +420,8 @@ typedef enum
     NAN_MSG_ID_OEM_IND                      = 43,
     NAN_MSG_ID_GROUP_KEY_INSTALL_REQ        = 44,
     NAN_MSG_ID_GROUP_KEY_INSTALL_RSP        = 45,
+    NAN_MSG_ID_GET_TX_PN_REQ                = 46,
+    NAN_MSG_ID_GET_TX_PN_RSP                = 47,
     NAN_MSG_ID_TESTMODE_REQ                 = 1025,
     NAN_MSG_ID_TESTMODE_RSP                 = 1026
 } NanMsgId;
@@ -1015,6 +1017,9 @@ enum nan_attr_id {
 
 #define NAN_IGTK_KEY_IDX                   4
 #define NAN_BIGTK_KEY_IDX                  6
+
+#define NAN_PN_REQ_BITMAP_IGTK             BIT(0)
+#define NAN_PN_REQ_BITMAP_BIGTK            BIT(1)
 
 /* sub attribute iteration helpers */
 #define for_each_nan_subattr(_subattr, _data, _datalen)                    \
@@ -1695,6 +1700,22 @@ typedef struct PACKED
     u16 value;
 } NanGroupKeyInstallRspMsg, *pNanGroupKeyInstallRspMsg;
 
+/* NAN Group Key TX PN fetch Req Msg */
+typedef struct PACKED
+{
+    NanMsgHeader fwHeader;
+    u32 key_idx;
+} NanTxPnReqMsg, *pNanTxPnReqMsg;
+
+/* NAN Group Key TX PN fetch Rsp Msg */
+typedef struct PACKED
+{
+    NanMsgHeader fwHeader;
+    u16 status;
+    u16 value;
+    u8  key_rsc[NAN_MAX_GROUP_KEY_RSC_LEN];
+} NanTxPnRspMsg, *pNanTxPnRspMsg;
+
 typedef struct PACKED
 {
     NanMsgHeader fwHeader;
@@ -2108,6 +2129,10 @@ struct wpa_secure_nan {
     struct wpabuf *rsne;
     /* pointer to rsnxe buffer */
     struct wpabuf *rsnxe;
+    /* group keys pn req bitmap */
+    u8 pn_bitmap;
+    /* peer for which skda send is pending */
+    struct nan_pairing_peer_info* pending_peer;
 };
 
 /***************************************************
@@ -2241,6 +2266,12 @@ int nan_register_action_frames(wifi_interface_handle iface);
 int nan_register_action_dual_protected_frames(wifi_interface_handle iface);
 void nan_rx_mgmt_auth(wifi_handle handle, const u8 *frame, size_t len);
 void nan_rx_mgmt_action(wifi_handle handle, const u8 *frame, size_t len);
+int nan_handle_pn_response(wifi_handle handle, transaction_id id, u8 *key_rsc);
+int nan_pairing_send_skda_data(wifi_interface_handle iface);
+int nan_pairing_prepare_skda_data(wifi_interface_handle iface);
+wifi_error nan_group_key_pn_request(transaction_id id,
+                                    wifi_interface_handle iface,
+                                    u32 key_index);
 
 #ifdef __cplusplus
 }

@@ -2189,6 +2189,51 @@ wifi_error NanCommand::putNanBeaconSdfPayload(transaction_id id,
     return ret;
 }
 
+wifi_error NanCommand::putNanGroupKeyPnReq(transaction_id id, u32 key_index)
+{
+    wifi_error ret;
+    struct nlattr *nl_data;
+    ALOGV("GROUP_KEY_PN_REQUEST");
+
+    size_t message_len =
+        sizeof(NanMsgHeader) + sizeof(u32);
+
+    pNanTxPnReqMsg pFwReq = (pNanTxPnReqMsg)malloc(message_len);
+    if (pFwReq == NULL) {
+        cleanup();
+        return WIFI_ERROR_OUT_OF_MEMORY;
+    }
+
+    memset (pFwReq, 0, message_len);
+    pFwReq->fwHeader.msgVersion = (u16)NAN_MSG_VERSION1;
+    pFwReq->fwHeader.msgId = NAN_MSG_ID_GET_TX_PN_REQ;
+    pFwReq->fwHeader.msgLen = message_len;
+    pFwReq->fwHeader.transactionId = id;
+
+    pFwReq->key_idx = key_index;
+
+    mVendorData = (char *)pFwReq;
+    mDataLen = message_len;
+
+    ret = WIFI_SUCCESS;
+
+    nl_data = attr_start(NL80211_ATTR_VENDOR_DATA);
+    if (!nl_data) {
+        cleanup();
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+
+    if (mMsg.put_bytes(QCA_WLAN_VENDOR_ATTR_NAN_CMD_DATA,
+                         mVendorData, mDataLen)) {
+        ALOGE("%s: put attr error", __func__);
+        cleanup();
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+    attr_end(nl_data);
+
+    hexdump(mVendorData, mDataLen);
+    return ret;
+}
 
 wifi_error NanCommand::putNanGroupKeyInstallReq(transaction_id id,
                                         struct nan_groupkey_info *info)
