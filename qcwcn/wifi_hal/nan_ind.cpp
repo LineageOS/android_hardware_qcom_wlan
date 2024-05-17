@@ -1528,6 +1528,16 @@ int NanCommand::getNdpRequest(struct nlattr **tb_vendor,
             peer->ndp_instance_id = event->ndp_instance_id;
     }
 
+    if (tb_vendor[QCA_WLAN_VENDOR_ATTR_NDP_CSIA_CAPABILITIES]) {
+        event->csia_capabilities =
+              nla_get_u8(tb_vendor[QCA_WLAN_VENDOR_ATTR_NDP_CSIA_CAPABILITIES]);
+        ALOGV("%s: csia capabilities: %d", __FUNCTION__, event->csia_capabilities);
+    }
+
+    if (tb_vendor[QCA_WLAN_VENDOR_ATTR_NDP_GTK_REQUIRED]) {
+        event->gtk_protection = 1;
+        ALOGV("%s: GTK protection enabled", __FUNCTION__);
+    }
     return WIFI_SUCCESS;
 }
 
