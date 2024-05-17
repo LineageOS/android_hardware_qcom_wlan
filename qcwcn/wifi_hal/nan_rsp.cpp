@@ -79,6 +79,7 @@ int NanCommand::isNanResponse()
     case NAN_MSG_ID_BEACON_SDF_RSP:
     case NAN_MSG_ID_CAPABILITIES_RSP:
     case NAN_MSG_ID_OEM_RSP:
+    case NAN_MSG_ID_GROUP_KEY_INSTALL_RSP:
     case NAN_MSG_ID_TESTMODE_RSP:
         return 1;
     default:

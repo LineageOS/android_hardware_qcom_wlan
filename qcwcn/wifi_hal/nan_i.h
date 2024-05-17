@@ -117,6 +117,9 @@ extern "C"
 #define NAN_F_MS(_v, _f)                                            \
             ( ((_v) & (_f)) >> (_f##_S) )
 
+#define NAN_MAX_GROUP_KEY_LEN 32
+#define NAN_MAX_GROUP_KEY_RSC_LEN 6
+
 #define NAN_CSIA_GRPKEY_SUPPORT_S 1
 #define NAN_CSIA_GRPKEY_SUPPORT (0x2 << NAN_CSIA_GRPKEY_SUPPORT_S)
 #define NAN_CSIA_GRPKEY_SUPPORT_GET(x) NAN_F_MS(x,NAN_CSIA_GRPKEY_SUPPORT)
@@ -415,6 +418,8 @@ typedef enum
     NAN_MSG_ID_OEM_REQ                      = 41,
     NAN_MSG_ID_OEM_RSP                      = 42,
     NAN_MSG_ID_OEM_IND                      = 43,
+    NAN_MSG_ID_GROUP_KEY_INSTALL_REQ        = 44,
+    NAN_MSG_ID_GROUP_KEY_INSTALL_RSP        = 45,
     NAN_MSG_ID_TESTMODE_REQ                 = 1025,
     NAN_MSG_ID_TESTMODE_RSP                 = 1026
 } NanMsgId;
@@ -566,6 +571,7 @@ typedef enum
     NAN_TLV_TYPE_SEC_IGTK_KDE = NAN_TLV_TYPE_SEC_FIRST,
     NAN_TLV_TYPE_SEC_BIGTK_KDE,
     NAN_TLV_TYPE_SEC_NM_TK,
+    NAN_TLV_TYPE_GROUP_KEYS_PARAM,
     NAN_TLV_TYPE_SEC_LAST = 37100,
 
     /* NAN OEM Configuration types */
@@ -1655,6 +1661,40 @@ typedef struct PACKED
     u32                        pairing_handle;
 } NanFWUnPairingIndMsg, *pFWNanUnPairingIndMsg;
 
+/* NAN Group Key params */
+typedef struct PACKED
+{
+    u32 key_cipher:16;
+    u32 key_idx:8;
+    u32 key_len:8;
+    u8  key_data[NAN_MAX_GROUP_KEY_LEN];
+    u8  key_rsc[NAN_MAX_GROUP_KEY_RSC_LEN];
+} NanGroupKeyParamsTlv;
+
+/* NAN Group Key Install Req Msg */
+typedef struct PACKED
+{
+    NanMsgHeader fwHeader;
+
+    /*
+     * TLVs
+     *
+     * Required: MAC address, one or more tNanGroupKeyParamsTlv.
+     */
+    u8 ptlv[];
+    /* NOTE:
+     * This struct cannot be expanded, due to the above variable-length array.
+     */
+} NanGroupKeyInstallReqMsg, *pNanGroupKeyInstallReqMsg;
+
+/* NAN Group Key Install Rsp Msg */
+typedef struct PACKED
+{
+    NanMsgHeader fwHeader;
+    u16 status;
+    u16 value;
+} NanGroupKeyInstallRspMsg, *pNanGroupKeyInstallRspMsg;
+
 typedef struct PACKED
 {
     NanMsgHeader fwHeader;
@@ -1737,6 +1777,13 @@ typedef enum {
     NAN_I_PUBLISH_SUBSCRIBE_TERMINATED_REASON_POST_DISC_ATTR_EXPIRED = 8199,
     NAN_I_PUBLISH_SUBSCRIBE_TERMINATED_REASON_POST_DISC_LEN_EXCEEDED = 8200,
     NAN_I_PUBLISH_SUBSCRIBE_TERMINATED_REASON_FURTHER_AVAIL_MAP_EMPTY = 8201,
+
+    /* Status related to Key Install and PN */
+    NAN_I_STATUS_INVALID_IGTK_PARAMS = 8501,
+    NAN_I_STATUS_INVALID_BIGTK_PARAMS = 8502,
+    NAN_I_STATUS_INVALID_TX_KEY_NOT_PRESENT = 8503,
+    NAN_I_STATUS_INVALID_NO_PEER_ENTRY = 8504,
+
     /* 9000-9500 NDP Status type */
     NDP_I_UNSUPPORTED_CONCURRENCY = 9000,
     NDP_I_NAN_DATA_IFACE_CREATE_FAILED = 9001,
@@ -1837,12 +1884,15 @@ struct nanGrpKey {
     u8 gtk[NAN_GTK_MAX_LEN];
     size_t gtk_len;
     u32 gtk_life_time;
+    u8  gtk_rsc[NAN_MAX_GROUP_KEY_RSC_LEN];
     u8 igtk[NAN_IGTK_MAX_LEN];
     size_t igtk_len;
     u32 igtk_life_time;
+    u8  igtk_rsc[NAN_MAX_GROUP_KEY_RSC_LEN];
     u8 bigtk[NAN_BIGTK_MAX_LEN];
     size_t bigtk_len;
     u32 bigtk_life_time;
+    u8  bigtk_rsc[NAN_MAX_GROUP_KEY_RSC_LEN];
 };
 
 struct PACKED sharedKeyDesc {
@@ -1952,6 +2002,22 @@ struct pasn_auth_frame {
     u8 data[MAX_FRAME_LEN_80211_MGMT];
     /* length of frame */
     u32 len;
+};
+
+struct nan_grpkey_params {
+    u16 key_cipher;
+    u8 key_idx;
+    u8 key_len;
+    u8 key_data[NAN_MAX_GROUP_KEY_LEN];
+    u8 rsc[NAN_MAX_GROUP_KEY_RSC_LEN];
+};
+
+struct nan_groupkey_info {
+    u8 addr[NAN_MAC_ADDR_LEN];
+    bool igtk_valid;
+    bool bigtk_valid;
+    struct nan_grpkey_params igtk;
+    struct nan_grpkey_params bigtk;
 };
 
 /* This is nan pairing peer information.
@@ -2149,8 +2215,8 @@ wifi_error nan_set_nira_request(transaction_id id, wifi_interface_handle iface,
 wifi_error nan_sharedkey_followup_request(transaction_id id,
                                      wifi_interface_handle iface,
                                      NanSharedKeyRequest *msg);
-wifi_error nan_validate_shared_key_desc(hal_info *info, const u8 *addr, u8 *buf,
-                                        u16 len);
+wifi_error nan_validate_shared_key_desc(wifi_interface_handle iface,
+                                        const u8 *addr, u8 *buf, u16 len);
 wifi_error nan_get_shared_key_descriptor(hal_info *info, const u8 *addr,
                                          NanSharedKeyRequest *key);
 int nan_pairing_initiator_pmksa_cache_add(struct rsn_pmksa_cache *pmksa,

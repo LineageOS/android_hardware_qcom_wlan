@@ -23,6 +23,9 @@ static int nan_pairing_set_key(hal_info *info, int alg, const u8 *addr,
                                int key_idx, int set_tx, const u8 *seq,
                                size_t seq_len, const u8 *key, size_t key_len,
                                int key_flag);
+wifi_error nan_pairing_set_group_key(transaction_id id,
+                                     wifi_interface_handle iface,
+                                     struct nan_groupkey_info *info);
 
 static u16 sda_get_service_info_offset(const u8 *buf, size_t buf_len, u8 window)
 {
@@ -1173,8 +1176,8 @@ wifi_error nan_get_pairing_pmkid(transaction_id id,
     return WIFI_SUCCESS;
 }
 
-wifi_error nan_validate_shared_key_desc(hal_info *info, const u8 *addr, u8 *buf,
-                                        u16 len)
+wifi_error nan_validate_shared_key_desc(wifi_interface_handle iface,
+                                        const u8 *addr, u8 *buf, u16 len)
 {
     wifi_error ret = WIFI_SUCCESS;
     u16 key_data_len;
@@ -1192,6 +1195,10 @@ wifi_error nan_validate_shared_key_desc(hal_info *info, const u8 *addr, u8 *buf,
     u8 *pos, *key_data, *data;
     struct nan_pairing_peer_info *peer;
     u16 remainingLen, key_len;
+    u8 igtk_rcvd = 0, bigtk_rcvd = 0;
+    struct nan_groupkey_info grpkey_info;
+    wifi_handle wifiHandle = getWifiHandle(iface);
+    hal_info *info = getHalInfo(wifiHandle);
 
     if (len < sizeof(struct sharedKeyDesc) +
               sizeof(struct keyDescriptor))
@@ -1272,7 +1279,7 @@ wifi_error nan_validate_shared_key_desc(hal_info *info, const u8 *addr, u8 *buf,
         if (remainingLen < 2 + nan_kde->length)
             break;
         if (nan_kde->length + 2 <= sizeof(struct nanKDE))
-            goto fail;
+            break;
 
         if ((nan_kde->type != NAN_VENDOR_ATTR_TYPE) ||
             (WPA_GET_BE24(nan_kde->oui) != OUI_WFA)) {
@@ -1306,10 +1313,7 @@ wifi_error nan_validate_shared_key_desc(hal_info *info, const u8 *addr, u8 *buf,
              key_len = 2 + nan_kde->length - sizeof(struct nanKDE) - sizeof(struct igtkKDE);
              // Using GCMP with key size of 16 bytes
              if (key_len == NAN_CSIA_GRPKEY_LEN_16) {
-                 nan_pairing_set_key(info, WPA_CIPHER_GCMP, addr,
-                                     NAN_IGTK_KEY_IDX, 1, NULL, 0,
-                                     igtk_kde->igtk, key_len,
-                                     KEY_FLAG_GROUP_RX);
+                 igtk_rcvd = 1;
              } else {
                  ALOGE("%s: unsupported IGTK len", __FUNCTION__);
              }
@@ -1325,10 +1329,7 @@ wifi_error nan_validate_shared_key_desc(hal_info *info, const u8 *addr, u8 *buf,
              key_len = 2 + nan_kde->length - sizeof(struct nanKDE) - sizeof(struct bigtkKDE);
              // Using GCMP with key size of 16 bytes
              if (key_len == NAN_CSIA_GRPKEY_LEN_16) {
-                 nan_pairing_set_key(info, WPA_CIPHER_GCMP, addr,
-                                     NAN_BIGTK_KEY_IDX, 1, NULL, 0,
-                                     bigtk_kde->bigtk, key_len,
-                                     KEY_FLAG_GROUP_RX);
+                 bigtk_rcvd = 1;
              } else {
                  ALOGE("%s: unsupported BIGTK len", __FUNCTION__);
              }
@@ -1337,6 +1338,7 @@ wifi_error nan_validate_shared_key_desc(hal_info *info, const u8 *addr, u8 *buf,
              bigtk_lifetime_kde = (struct bigtkLifetime *)nan_kde->data;
              ALOGV("%s: received BIGTK Lifetime: %d", __FUNCTION__,
                    bigtk_lifetime_kde->lifetime);
+             break;
         default:
            ALOGE("NAN: Invalid Shared key KDE, DataType=%d", nan_kde->dataType);
            break;
@@ -1347,6 +1349,29 @@ skip_kde:
         remainingLen -= 2 + nan_kde->length;
     }
 
+    if (igtk_rcvd || bigtk_rcvd) {
+        memset(&grpkey_info, 0, sizeof(struct nan_groupkey_info));
+        memcpy(grpkey_info.addr, addr, NAN_MAC_ADDR_LEN);
+
+        if(igtk_rcvd) {
+           grpkey_info.igtk_valid = 1;
+           grpkey_info.igtk.key_cipher = WPA_CIPHER_GCMP;
+           grpkey_info.igtk.key_idx = NAN_IGTK_KEY_IDX;
+           grpkey_info.igtk.key_len = NAN_CSIA_GRPKEY_LEN_16;
+           memcpy(grpkey_info.igtk.key_data, igtk_kde->igtk, NAN_CSIA_GRPKEY_LEN_16);
+           memcpy(grpkey_info.igtk.rsc, igtk_kde->pn, NAN_MAX_GROUP_KEY_RSC_LEN);
+        }
+
+        if(bigtk_rcvd) {
+           grpkey_info.bigtk_valid = 1;
+           grpkey_info.bigtk.key_cipher = WPA_CIPHER_GCMP;
+           grpkey_info.bigtk.key_idx = NAN_BIGTK_KEY_IDX;
+           grpkey_info.bigtk.key_len = NAN_CSIA_GRPKEY_LEN_16;
+           memcpy(grpkey_info.bigtk.key_data, bigtk_kde->bigtk, NAN_CSIA_GRPKEY_LEN_16);
+           memcpy(grpkey_info.bigtk.rsc, bigtk_kde->pn, NAN_MAX_GROUP_KEY_RSC_LEN);
+        }
+        nan_pairing_set_group_key(0, iface, &grpkey_info);
+    }
 fail:
      free(data);
      return ret;
@@ -1463,6 +1488,7 @@ wifi_error nan_get_shared_key_descriptor(hal_info *info, const u8 *addr,
 
         igtk_kde = (struct igtkKDE *)pos;
         igtk_kde->keyid[0] = NAN_IGTK_KEY_IDX;
+        memcpy(igtk_kde->pn, grp_keys->igtk_rsc, NAN_MAX_GROUP_KEY_RSC_LEN);
         memcpy(igtk_kde->igtk, grp_keys->igtk, grp_keys->igtk_len);
         pos += sizeof(struct igtkKDE) + grp_keys->igtk_len;
 
@@ -1491,6 +1517,7 @@ wifi_error nan_get_shared_key_descriptor(hal_info *info, const u8 *addr,
 
         bigtk_kde = (struct bigtkKDE *)pos;
         bigtk_kde->keyid[0] = NAN_BIGTK_KEY_IDX;
+        memcpy(bigtk_kde->pn, grp_keys->bigtk_rsc, NAN_MAX_GROUP_KEY_RSC_LEN);
         memcpy(bigtk_kde->bigtk, grp_keys->bigtk, grp_keys->bigtk_len);
         pos += sizeof(struct bigtkKDE) + grp_keys->bigtk_len;
 
@@ -1572,6 +1599,55 @@ static u32 wpa_alg_to_cipher_suite(enum wpa_alg alg, size_t key_len)
         ALOGI("NAN: Unexpected encryption algorithm %d", alg);
         return 0;
     }
+}
+
+wifi_error nan_pairing_set_group_key(transaction_id id,
+                                     wifi_interface_handle iface,
+                                     struct nan_groupkey_info *grpkey_info)
+{
+    wifi_error ret;
+    NanCommand *nanCommand;
+    interface_info *ifaceInfo = getIfaceInfo(iface);
+    wifi_handle wifiHandle = getWifiHandle(iface);
+    hal_info *info = getHalInfo(wifiHandle);
+
+    if (info == NULL) {
+        ALOGE("%s: Error hal_info NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
+
+    nanCommand = new NanCommand(wifiHandle,
+                                0,
+                                OUI_QCA,
+                                info->support_nan_ext_cmd?
+                                QCA_NL80211_VENDOR_SUBCMD_NAN_EXT :
+                                QCA_NL80211_VENDOR_SUBCMD_NAN);
+    if (nanCommand == NULL) {
+        ALOGE("%s: Error NanCommand NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
+
+    ret = nanCommand->create();
+    if (ret != WIFI_SUCCESS)
+        goto cleanup;
+
+    ret = nanCommand->set_iface_id(ifaceInfo->name);
+    if (ret != WIFI_SUCCESS)
+        goto cleanup;
+
+    ret = nanCommand->putNanGroupKeyInstallReq(id, grpkey_info);
+    if (ret != WIFI_SUCCESS) {
+        ALOGE("%s: putNanGroupKeyInstallReq Error:%d", __FUNCTION__, ret);
+        goto cleanup;
+    }
+
+    ret = nanCommand->requestEvent();
+    if (ret != WIFI_SUCCESS)
+        ALOGE("%s: requestEvent Error:%d", __FUNCTION__, ret);
+
+cleanup:
+    delete nanCommand;
+    return ret;
 }
 
 static int nan_pairing_set_key(hal_info *info, int alg, const u8 *addr,
@@ -2446,12 +2522,6 @@ void nan_pairing_derive_grp_keys(hal_info *info, u8* addr, u32 cipher_caps)
             ALOGE("%s: Get random IGTK Failed", __FUNCTION__);
             goto fail;
         }
-        if (nan_pairing_set_key(info, WPA_CIPHER_GCMP, addr, NAN_IGTK_KEY_IDX, 1,
-                                NULL, 0, grp_key->igtk, grp_key->igtk_len,
-                                KEY_FLAG_GROUP_RX)) {
-             ALOGE("%s: set pairing key IGTK failed", __FUNCTION__);
-             goto fail;
-        }
     } else {
         ALOGE("%s: unsupported IGTK len %d", __FUNCTION__, grp_key->igtk_len);
         goto fail;
@@ -2461,12 +2531,6 @@ void nan_pairing_derive_grp_keys(hal_info *info, u8* addr, u32 cipher_caps)
         if (random_get_bytes(grp_key->bigtk, grp_key->bigtk_len) < 0) {
             ALOGE("%s: Get random BIGTK Failed", __FUNCTION__);
             goto fail;
-        }
-        if (nan_pairing_set_key(info, WPA_CIPHER_GCMP, addr, NAN_BIGTK_KEY_IDX, 1,
-                                NULL, 0, grp_key->bigtk, grp_key->bigtk_len,
-                                KEY_FLAG_GROUP_RX)) {
-             ALOGE("%s: set pairing key BIGTK failed", __FUNCTION__);
-             goto fail;
         }
     } else {
         ALOGE("%s: unsupported BIGTK len %d", __FUNCTION__, grp_key->bigtk_len);

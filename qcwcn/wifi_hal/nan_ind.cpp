@@ -772,10 +772,21 @@ int NanCommand::handleNanSharedKeyDescIndication()
         return retval;
 
     NanPairingConfirmInd evt;
-    hal_info *info = getHalInfo(wifiHandle());
     struct pasn_data *pasn;
     struct nan_pairing_peer_info *entry;
-    if (nan_validate_shared_key_desc(info, mac, shared_key_attr,
+    hal_info *info = getHalInfo(wifiHandle());
+    if (!info) {
+        ALOGE("%s: hal info NULL", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+    ifaceHandle = wifi_get_iface_handle(wifiHandle(),
+                                        info->secure_nan->iface_name);
+    if (!ifaceHandle) {
+        ALOGE("%s: ifaceHandle NULL for %s", __FUNCTION__,
+              info->secure_nan->iface_name);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+    if (nan_validate_shared_key_desc(ifaceHandle, mac, shared_key_attr,
                                      shared_key_attr_len)) {
          ALOGV("Pairing handshake Invalid");
          return WIFI_ERROR_INVALID_ARGS;
@@ -791,14 +802,7 @@ int NanCommand::handleNanSharedKeyDescIndication()
       NanSharedKeyRequest msg;
       if (nan_get_shared_key_descriptor(info, entry->bssid, &msg)) {
           ALOGE("NAN: Unable to get shared key descriptor");
-          return -1;
-      }
-      ifaceHandle = wifi_get_iface_handle(wifiHandle(),
-                                          info->secure_nan->iface_name);
-      if (!ifaceHandle) {
-          ALOGE("%s: ifaceHandle NULL for %s", __FUNCTION__,
-                info->secure_nan->iface_name);
-          return -1;
+          return WIFI_ERROR_INVALID_ARGS;
       }
       memcpy(msg.peer_disc_mac_addr,entry->bssid, NAN_MAC_ADDR_LEN);
       msg.requestor_instance_id = pRsp->followupIndParams.matchHandle;
