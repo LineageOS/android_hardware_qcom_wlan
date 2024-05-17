@@ -2657,6 +2657,29 @@ int secure_nan_deinit(hal_info *info)
     return 0;
 }
 
+/*  Function to end pairing */
+wifi_error nan_pairing_end(transaction_id id,
+                           wifi_interface_handle iface,
+                           NanPairingEndRequest *msg)
+{
+    wifi_handle wifiHandle = getWifiHandle(iface);
+    hal_info *info = getHalInfo(wifiHandle);
+    struct nan_pairing_peer_info *peer;
+
+    if (!info || !info->secure_nan) {
+        ALOGE("%s: Error hal_info NULL", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+
+    peer = nan_pairing_get_peer_from_id(info->secure_nan, msg->pairing_instance_id);
+    if (peer) {
+        nan_pairing_set_key(info, WPA_ALG_NONE, peer->bssid, 0, 0, NULL, 0,
+                            NULL, 0, KEY_FLAG_PAIRWISE);
+        nan_pairing_delete_peer_from_list(info->secure_nan, peer->bssid);
+    }
+    return WIFI_SUCCESS;
+}
+
 #else  /* WPA_PASN_LIB */
 
 struct nan_pairing_peer_info*
@@ -2725,6 +2748,14 @@ wifi_error nan_get_pairing_pmkid(transaction_id id,
 void nan_pairing_set_nira(struct wpa_secure_nan *secure_nan)
 {
     ALOGE("NAN Pairing set NIRA not supported");
+}
+
+wifi_error nan_pairing_end(transaction_id id,
+                           wifi_interface_handle iface,
+                           NanPairingEndRequest *msg)
+{
+    ALOGE("NAN Pairing end not supported");
+    return WIFI_ERROR_NOT_SUPPORTED;
 }
 
 #endif /* WPA_PASN_LIB */
