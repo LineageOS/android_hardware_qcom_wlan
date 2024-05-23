@@ -914,7 +914,7 @@ wifi_error wifi_get_chip_capabilities(wifi_handle handle,
         return WIFI_ERROR_NOT_SUPPORTED;
     }
 
-    iface_handle = wifi_get_iface_handle(handle, "wlan0");
+    iface_handle = wifi_get_iface_handle(handle, (char*)"wlan0");
     if (!iface_handle) {
         ALOGE("%s no iface with wlan0", __func__);
         return WIFI_ERROR_UNKNOWN;
