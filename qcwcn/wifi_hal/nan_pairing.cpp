@@ -407,6 +407,18 @@ void nan_process_followup_frame(wifi_handle handle, const u8 *buf,
     NanFollowupIndMsg *followInd;
     NanFWBootstrappingParams npba;
 
+    nanCommand = NanCommand::instance(handle);
+    if (nanCommand == NULL) {
+        ALOGE("%s: Error NanCommand NULL", __FUNCTION__);
+        return;
+    }
+
+    if (!nanCommand->isNanEnabled()) {
+        ALOGE("%s: Dropping followup rx frame from " MACSTR,
+              __FUNCTION__, MAC2STR(mac));
+        return;
+    }
+
     memset(&npba, 0, sizeof(NanFWBootstrappingParams));
 
     if (len < 5) {
@@ -480,12 +492,6 @@ void nan_process_followup_frame(wifi_handle handle, const u8 *buf,
             default:
                 break;
         }
-    }
-
-    nanCommand = NanCommand::instance(handle);
-    if (nanCommand == NULL) {
-        ALOGE("%s: Error NanCommand NULL", __FUNCTION__);
-        return;
     }
 
     for (i = 0; i < sda_count; ++i) {

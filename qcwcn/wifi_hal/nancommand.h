@@ -117,6 +117,7 @@ private:
     std::vector<std::pair<transaction_id, NanResponseMsg> > mNanResponseMsgVec;
     VendorNanCallbackHandler mVendorHandler;
     u8 mNanFollowupRxSupport;
+    bool mNanEnabled;
 
     //Function to check the initial few bytes of data to
     //determine whether NanResponse or NanEvent
@@ -274,6 +275,9 @@ public:
     void allocSvcParams();
     void reallocSvcParams(NanRole pool);
     void deallocSvcParams();
+    void setNanEnabled();
+    void setNanDisabled();
+    bool isNanEnabled();
     void saveTransactionId(transaction_id id);
     transaction_id getTransactionId();
     void saveNanResponseMsg(transaction_id id, NanResponseMsg &msg);
