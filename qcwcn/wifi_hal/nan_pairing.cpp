@@ -19,6 +19,7 @@ static const int nanPMKLifetime = 43200;
 static const int NIKLifetime = 43200;
 /* NAN group key lifetime in seconds */
 static const int GrpKeyLifetime = 43200;
+#ifdef WPA_PASN_LIB
 static int nan_pairing_set_key(hal_info *info, int alg, const u8 *addr,
                                int key_idx, int set_tx, const u8 *seq,
                                size_t seq_len, const u8 *key, size_t key_len,
@@ -26,6 +27,7 @@ static int nan_pairing_set_key(hal_info *info, int alg, const u8 *addr,
 wifi_error nan_pairing_set_group_key(transaction_id id,
                                      wifi_interface_handle iface,
                                      struct nan_groupkey_info *info);
+#endif
 
 static u16 sda_get_service_info_offset(const u8 *buf, size_t buf_len, u8 window)
 {
