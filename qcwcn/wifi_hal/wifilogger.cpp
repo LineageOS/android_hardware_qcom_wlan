@@ -329,6 +329,10 @@ wifi_error wifi_get_ring_data(wifi_interface_handle iface,
     hal_info *info = getHalInfo(wifiHandle);
     int ring_id = 0;
 
+    if (!info) {
+        ALOGE("%s: Interface info is NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
     /* Check Supported logger capability */
     if (!(info->supported_logger_feature_set & LOGGER_RING_BUFFER)) {
         ALOGE("%s: Ring buffer logging feature not supported %x", __FUNCTION__,
