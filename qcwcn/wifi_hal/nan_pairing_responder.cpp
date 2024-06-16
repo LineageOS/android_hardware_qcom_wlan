@@ -445,6 +445,41 @@ int nan_pairing_handle_pasn_auth(wifi_handle handle, const u8 *data, size_t len)
             ALOGE("PASN Responder: Handle PASN Auth3 failed ");
             return WIFI_ERROR_UNKNOWN;
         }
+        if (!(entry->dcea_cap_info & DCEA_NPK_CACHING_ENABLED)) {
+        // Send Pairing Confirmation as Followup with Peer NIK is not mandatory
+            NanPairingConfirmInd evt;
+            evt.pairing_instance_id = entry->pairing_instance_id;
+            evt.rsp_code = NAN_PAIRING_REQUEST_ACCEPT;
+            evt.reason_code = NAN_STATUS_SUCCESS;
+            evt.enable_pairing_cache = 0;
+
+            if (entry->is_paired)
+                evt.nan_pairing_request_type = NAN_PAIRING_VERIFICATION;
+            else
+                evt.nan_pairing_request_type = NAN_PAIRING_SETUP;
+
+            if (pasn_get_akmp(pasn) == WPA_KEY_MGMT_PASN)
+                evt.npk_security_association.akm = PASN;
+            else
+                evt.npk_security_association.akm = SAE;
+
+            if (info->secure_nan->dev_nik)
+                memcpy(evt.npk_security_association.local_nan_identity_key,
+                       info->secure_nan->dev_nik->nik_data,
+                       NAN_IDENTITY_KEY_LEN);
+
+            if (pasn_get_pmk_len(pasn) <= sizeof(evt.npk_security_association.npk.pmk)) {
+                memcpy(evt.npk_security_association.npk.pmk, pasn_get_pmk(pasn),
+                       pasn_get_pmk_len(pasn));
+                evt.npk_security_association.npk.pmk_len = pasn_get_pmk_len(pasn);
+            } else {
+                ALOGE("%s: Invalid pmk len: %d", __FUNCTION__, pasn_get_pmk_len(pasn));
+            }
+            wpa_pasn_reset(pasn);
+            nanCommand->handleNanPairingConfirm(&evt);
+            entry->is_paired = true;
+            entry->is_pairing_in_progress = false;
+        }
     }
     return WIFI_SUCCESS;
 }
