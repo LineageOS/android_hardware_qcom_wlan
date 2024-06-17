@@ -629,7 +629,10 @@ wifi_error nan_bootstrapping_request(transaction_id id,
         ALOGE("%s: Error hal_info NULL", __FUNCTION__);
         return WIFI_ERROR_UNKNOWN;
     }
-
+    if (info->secure_nan == NULL) {
+        ALOGE("%s: Secure NAN not supported", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
     t_nanCommand = NanCommand::instance(wifiHandle);
     if (t_nanCommand == NULL) {
         ALOGE("%s: Error NanCommand NULL", __FUNCTION__);
@@ -718,7 +721,10 @@ wifi_error nan_bootstrapping_indication_response(transaction_id id,
         ALOGE("%s: Error hal_info NULL", __FUNCTION__);
         return WIFI_ERROR_UNKNOWN;
     }
-
+    if (info->secure_nan == NULL) {
+        ALOGE("%s: Secure NAN not supported", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
     t_nanCommand = NanCommand::instance(wifiHandle);
     if (t_nanCommand == NULL) {
         ALOGE("%s: Error NanCommand NULL", __FUNCTION__);

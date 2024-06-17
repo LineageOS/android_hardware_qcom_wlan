@@ -637,7 +637,14 @@ int NanCommand::handleNanBootstrappingIndication()
     {
        hal_info *info = getHalInfo(wifiHandle());
        struct nan_pairing_peer_info *entry = NULL;
-
+       if (!info) {
+           ALOGE("%s: hal info NULL", __FUNCTION__);
+           return WIFI_ERROR_UNKNOWN;
+       }
+       if (!info->secure_nan) {
+           ALOGE("%s: Secure NAN not supported", __FUNCTION__);
+           return WIFI_ERROR_UNKNOWN;
+       }
        if (params->type == NAN_BS_TYPE_REQUEST) {
            NanBootstrappingRequestInd bootstrapReqInd;
 
@@ -777,6 +784,10 @@ int NanCommand::handleNanSharedKeyDescIndication()
     hal_info *info = getHalInfo(wifiHandle());
     if (!info) {
         ALOGE("%s: hal info NULL", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+    if (!info->secure_nan) {
+        ALOGE("%s: Secure NAN not supported", __FUNCTION__);
         return WIFI_ERROR_INVALID_ARGS;
     }
     ifaceHandle = wifi_get_iface_handle(wifiHandle(),
