@@ -79,6 +79,8 @@ int NanCommand::isNanResponse()
     case NAN_MSG_ID_BEACON_SDF_RSP:
     case NAN_MSG_ID_CAPABILITIES_RSP:
     case NAN_MSG_ID_OEM_RSP:
+    case NAN_MSG_ID_GROUP_KEY_INSTALL_RSP:
+    case NAN_MSG_ID_GET_TX_PN_RSP:
     case NAN_MSG_ID_TESTMODE_RSP:
         return 1;
     default:
@@ -666,8 +668,21 @@ int NanCommand::getNanResponse(transaction_id *id, NanResponseMsg *pRsp)
             }
             pRsp->body.nan_capabilities.is_pairing_supported = \
                        pFwRsp->nan_pairing_supported;
+            mNanCommandInstance->mNanFollowupRxSupport = \
+                       pFwRsp->nan_followup_rx_forward_supported;
 
             break;
+        }
+        case NAN_MSG_ID_GET_TX_PN_RSP:
+        {
+            pNanTxPnRspMsg pFwRsp = \
+                (pNanTxPnRspMsg)mNanVendorEvent;
+            *id = (transaction_id)pFwRsp->fwHeader.transactionId;
+            NanErrorTranslation((NanInternalStatusType)pFwRsp->status, pFwRsp->value, pRsp, false);
+            if (info->secure_nan)
+                nan_handle_pn_response(wifiHandle(), *id, pFwRsp->key_rsc);
+            /* return -1 for internal message */
+            return -1;
         }
         default:
             return  -1;

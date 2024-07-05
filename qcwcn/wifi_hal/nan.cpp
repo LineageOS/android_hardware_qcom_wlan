@@ -114,6 +114,7 @@ wifi_error nan_enable_request(transaction_id id,
     interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
     hal_info *info = getHalInfo(wifiHandle);
+    u8 followup_rx_support = 0;
 
     if (info == NULL) {
         ALOGE("%s: Error hal_info NULL", __FUNCTION__);
@@ -140,7 +141,12 @@ wifi_error nan_enable_request(transaction_id id,
     if (ret != WIFI_SUCCESS)
         goto cleanup;
 
-    ret = nanCommand->putNanEnable(id, msg);
+    t_nanCommand = NanCommand::instance(wifiHandle);
+    if (t_nanCommand != NULL) {
+        followup_rx_support = t_nanCommand->getFollowupRxSupport();
+    }
+
+    ret = nanCommand->putNanEnable(id, msg, followup_rx_support);
     if (ret != WIFI_SUCCESS) {
         ALOGE("%s: putNanEnable Error:%d", __FUNCTION__, ret);
         goto cleanup;
@@ -151,9 +157,9 @@ wifi_error nan_enable_request(transaction_id id,
         ALOGE("%s: requestEvent Error:%d", __FUNCTION__, ret);
 
     if (ret == WIFI_SUCCESS) {
-        t_nanCommand = NanCommand::instance(wifiHandle);
         if (t_nanCommand != NULL) {
             t_nanCommand->allocSvcParams();
+            t_nanCommand->setNanEnabled();
         }
     }
 
@@ -212,6 +218,7 @@ wifi_error nan_disable_request(transaction_id id,
         t_nanCommand = NanCommand::instance(wifiHandle);
         if (t_nanCommand != NULL) {
             t_nanCommand->deallocSvcParams();
+            t_nanCommand->setNanDisabled();
         }
         secure_nan_cache_flush(info);
     }
@@ -259,6 +266,8 @@ wifi_error nan_publish_request(transaction_id id,
         info->secure_nan->supported_bootstrap =
               msg->nan_pairing_config.supported_bootstrapping_methods;
 #ifdef WPA_PASN_LIB
+        if (!msg->cipher_capabilities && msg->nan_pairing_config.enable_pairing_setup)
+            msg->cipher_capabilities = 0x4;
         if (!info->secure_nan->dev_grp_keys)
             nan_pairing_derive_grp_keys(info, t_nanCommand->getNmi(),
                                         msg->cipher_capabilities);
@@ -393,6 +402,8 @@ wifi_error nan_subscribe_request(transaction_id id,
         info->secure_nan->supported_bootstrap =
               msg->nan_pairing_config.supported_bootstrapping_methods;
 #ifdef WPA_PASN_LIB
+        if (!msg->cipher_capabilities && msg->nan_pairing_config.enable_pairing_setup)
+            msg->cipher_capabilities = 0x4;
         if (!info->secure_nan->dev_grp_keys)
             nan_pairing_derive_grp_keys(info, t_nanCommand->getNmi(),
                                         msg->cipher_capabilities);
@@ -499,6 +510,56 @@ cleanup:
     return ret;
 }
 
+/* Function to get packet number on multicast group keys from wlan firmware */
+wifi_error nan_group_key_pn_request(transaction_id id,
+                                    wifi_interface_handle iface,
+                                    u32 key_index)
+{
+    wifi_error ret;
+    NanCommand *nanCommand;
+    interface_info *ifaceInfo = getIfaceInfo(iface);
+    wifi_handle wifiHandle = getWifiHandle(iface);
+    hal_info *info = getHalInfo(wifiHandle);
+
+    if (info == NULL) {
+        ALOGE("%s: Error hal_info NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
+
+    nanCommand = new NanCommand(wifiHandle,
+                                0,
+                                OUI_QCA,
+                                info->support_nan_ext_cmd?
+                                QCA_NL80211_VENDOR_SUBCMD_NAN_EXT :
+                                QCA_NL80211_VENDOR_SUBCMD_NAN);
+    if (nanCommand == NULL) {
+        ALOGE("%s: Error NanCommand NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
+
+    ret = nanCommand->create();
+    if (ret != WIFI_SUCCESS)
+        goto cleanup;
+
+    ret = nanCommand->set_iface_id(ifaceInfo->name);
+    if (ret != WIFI_SUCCESS)
+        goto cleanup;
+
+    ret = nanCommand->putNanGroupKeyPnReq(id, key_index);
+    if (ret != WIFI_SUCCESS) {
+        ALOGE("%s: putNanGroupKeyPnReq Error:%d", __FUNCTION__, ret);
+        goto cleanup;
+    }
+
+    ret = nanCommand->requestEvent();
+    if (ret != WIFI_SUCCESS)
+        ALOGE("%s: requestEvent Error:%d", __FUNCTION__, ret);
+
+cleanup:
+    delete nanCommand;
+    return ret;
+}
+
 /*  Function to send NAN shared key descriptor request to the wifi driver.*/
 wifi_error nan_sharedkey_followup_request(transaction_id id,
                                      wifi_interface_handle iface,
@@ -568,7 +629,10 @@ wifi_error nan_bootstrapping_request(transaction_id id,
         ALOGE("%s: Error hal_info NULL", __FUNCTION__);
         return WIFI_ERROR_UNKNOWN;
     }
-
+    if (info->secure_nan == NULL) {
+        ALOGE("%s: Secure NAN not supported", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
     t_nanCommand = NanCommand::instance(wifiHandle);
     if (t_nanCommand == NULL) {
         ALOGE("%s: Error NanCommand NULL", __FUNCTION__);
@@ -657,7 +721,10 @@ wifi_error nan_bootstrapping_indication_response(transaction_id id,
         ALOGE("%s: Error hal_info NULL", __FUNCTION__);
         return WIFI_ERROR_UNKNOWN;
     }
-
+    if (info->secure_nan == NULL) {
+        ALOGE("%s: Secure NAN not supported", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
     t_nanCommand = NanCommand::instance(wifiHandle);
     if (t_nanCommand == NULL) {
         ALOGE("%s: Error NanCommand NULL", __FUNCTION__);
@@ -1617,6 +1684,19 @@ wifi_error nan_data_request_initiator(transaction_id id,
             goto cleanup;
         }
     }
+    if (msg->csia_capabilities) {
+        if (nanCommand->put_u8(QCA_WLAN_VENDOR_ATTR_NDP_CSIA_CAPABILITIES,
+                msg->csia_capabilities)) {
+            ret = WIFI_ERROR_UNKNOWN;
+            goto cleanup;
+        }
+    }
+    if (msg->gtk_protection) {
+        if (nanCommand->put_flag(QCA_WLAN_VENDOR_ATTR_NDP_GTK_REQUIRED)) {
+            ret = WIFI_ERROR_UNKNOWN;
+            goto cleanup;
+        }
+    }
     if (msg->key_info.key_type == NAN_SECURITY_KEY_INPUT_PMK) {
         if (msg->key_info.body.pmk_info.pmk_len != NAN_PMK_INFO_LEN) {
             ret = WIFI_ERROR_UNKNOWN;
@@ -1803,6 +1883,19 @@ wifi_error nan_data_indication_response(transaction_id id,
     if (msg->cipher_type != NAN_CIPHER_SUITE_SHARED_KEY_NONE) {
         if (nanCommand->put_u32(QCA_WLAN_VENDOR_ATTR_NDP_CSID,
                 msg->cipher_type)){
+            ret = WIFI_ERROR_UNKNOWN;
+            goto cleanup;
+        }
+    }
+    if (msg->csia_capabilities) {
+        if (nanCommand->put_u8(QCA_WLAN_VENDOR_ATTR_NDP_CSIA_CAPABILITIES,
+                msg->csia_capabilities)) {
+            ret = WIFI_ERROR_UNKNOWN;
+            goto cleanup;
+        }
+    }
+    if (msg->gtk_protection) {
+        if (nanCommand->put_flag(QCA_WLAN_VENDOR_ATTR_NDP_GTK_REQUIRED)) {
             ret = WIFI_ERROR_UNKNOWN;
             goto cleanup;
         }
@@ -2014,6 +2107,8 @@ NanCommand::NanCommand(wifi_handle handle, int id, u32 vendor_id, u32 subcmd)
     mNanMaxPublishes = 0;
     mNanMaxSubscribes = 0;
     mConfigDiscoveryIndications = 0;
+    mNanFollowupRxSupport = 0;
+    mNanEnabled = false;
 }
 
 void NanCommand::setNanVendorEventAndDataLen(char *event, int len) {
@@ -2097,6 +2192,30 @@ u8 *NanCommand::getNmi()
 u8 *NanCommand::getClusterAddr()
 {
     return mClusterAddr;
+}
+
+/* Get NAN Followup Rx support */
+u8 NanCommand::getFollowupRxSupport()
+{
+    return mNanFollowupRxSupport;
+}
+
+/* Set NAN Enabled */
+void NanCommand::setNanEnabled()
+{
+    mNanEnabled = true;
+}
+
+/* Set NAN Disabled */
+void NanCommand::setNanDisabled()
+{
+    mNanEnabled = false;
+}
+
+/* is NAN Enabled */
+bool NanCommand::isNanEnabled()
+{
+    return mNanEnabled;
 }
 
 /*
@@ -2245,6 +2364,9 @@ u16 NanCommand::getPubSubId(u32 instance_id, NanRole pool)
 u32 NanCommand::getNanMatchHandle(u16 requestor_id, u8 *service_id)
 {
     int i;
+
+    if (mStoreSubParams == NULL)
+        return 0;
 
     for (i = 0; i < mNanMaxSubscribes; i++) {
         if (mStoreSubParams[i].subscriber_publisher_id == requestor_id &&

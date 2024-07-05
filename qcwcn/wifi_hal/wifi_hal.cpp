@@ -64,7 +64,12 @@
 #include <netlink/object-api.h>
 #include <netlink/netlink.h>
 #include <netlink/socket.h>
-#include "nl-priv-dynamic-core/nl-core.h"
+#if __has_include(<netlink-private/types.h>)
+#include <netlink-private/object-api.h>
+#include <netlink-private/types.h>
+#else
+#include <nl-priv-dynamic-core/nl-core.h>
+#endif /* has netlink-private */
 
 #include "nl80211_copy.h"
 
@@ -914,7 +919,7 @@ wifi_error wifi_get_chip_capabilities(wifi_handle handle,
         return WIFI_ERROR_NOT_SUPPORTED;
     }
 
-    iface_handle = wifi_get_iface_handle(handle, "wlan0");
+    iface_handle = wifi_get_iface_handle(handle, (char*)"wlan0");
     if (!iface_handle) {
         ALOGE("%s no iface with wlan0", __func__);
         return WIFI_ERROR_UNKNOWN;
@@ -1168,6 +1173,7 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn) {
     fn->wifi_nan_bootstrapping_request = nan_bootstrapping_request;
     fn->wifi_nan_bootstrapping_indication_response =
                                 nan_bootstrapping_indication_response;
+    fn->wifi_nan_pairing_end = nan_pairing_end;
     fn->wifi_get_chip_capabilities = wifi_get_chip_capabilities;
 
     return WIFI_SUCCESS;

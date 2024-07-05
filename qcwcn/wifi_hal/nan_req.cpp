@@ -54,13 +54,13 @@
 #include "nan_i.h"
 #include "nancommand.h"
 
-wifi_error NanCommand::putNanEnable(transaction_id id, const NanEnableRequest *pReq)
+wifi_error NanCommand::putNanEnable(transaction_id id, const NanEnableRequest *pReq,
+                                    u8 followup_mgmt_rx_enable)
 {
     wifi_error ret;
     ALOGV("NAN_ENABLE");
     size_t message_len = NAN_MAX_ENABLE_REQ_SIZE;
     int freq_24g;
-    u8 followup_mgmt_rx_enable = 1;
 
     if (pReq == NULL) {
         cleanup();
@@ -76,9 +76,6 @@ wifi_error NanCommand::putNanEnable(transaction_id id, const NanEnableRequest *p
         (
           pReq->config_support_5g ? (SIZEOF_TLV_HDR + \
           sizeof(pReq->support_5g_val)) : 0 \
-        ) + \
-        (
-           (SIZEOF_TLV_HDR + sizeof(u8))
         ) + \
         (
           pReq->config_sid_beacon ? (SIZEOF_TLV_HDR + \
@@ -209,6 +206,9 @@ wifi_error NanCommand::putNanEnable(transaction_id id, const NanEnableRequest *p
           sizeof(pReq->enable_unsync_srvdsc)) : 0 \
         );
 
+    if (followup_mgmt_rx_enable)
+        message_len += (SIZEOF_TLV_HDR + sizeof(u8));
+
     pNanEnableReqMsg pFwReq = (pNanEnableReqMsg)malloc(message_len);
     if (pFwReq == NULL) {
         cleanup();
@@ -232,8 +232,10 @@ wifi_error NanCommand::putNanEnable(transaction_id id, const NanEnableRequest *p
                   (const u8*)&pReq->cluster_high, tlvs);
     tlvs = addTlv(NAN_TLV_TYPE_MASTER_PREFERENCE, sizeof(pReq->master_pref),
                   (const u8*)&pReq->master_pref, tlvs);
-    tlvs = addTlv(NAN_TLV_TYPE_FOLLOWUP_MGMT_RX_ENABLED, sizeof(u8),
-                  (const u8*)&followup_mgmt_rx_enable, tlvs);
+    if (followup_mgmt_rx_enable) {
+        tlvs = addTlv(NAN_TLV_TYPE_FOLLOWUP_MGMT_RX_ENABLED, sizeof(u8),
+                      (const u8*)&followup_mgmt_rx_enable, tlvs);
+    }
     if (pReq->config_support_5g) {
         tlvs = addTlv(NAN_TLV_TYPE_5G_SUPPORT, sizeof(pReq->support_5g_val),
                      (const u8*)&pReq->support_5g_val, tlvs);
@@ -809,8 +811,10 @@ wifi_error NanCommand::putNanPublish(transaction_id id, const NanPublishRequest 
         (pReq->rx_match_filter_len ? SIZEOF_TLV_HDR + pReq->rx_match_filter_len : 0) +
         (pReq->tx_match_filter_len ? SIZEOF_TLV_HDR + pReq->tx_match_filter_len : 0) +
         (SIZEOF_TLV_HDR + sizeof(NanServiceAcceptPolicy)) +
-        (pReq->cipher_type ? SIZEOF_TLV_HDR + sizeof(NanCsidType) : 0) +
+        ((pReq->cipher_type || pReq->nan_pairing_config.enable_pairing_setup) ?
+          SIZEOF_TLV_HDR + sizeof(NanCsidType) : 0) +
         ((pReq->sdea_params.config_nan_data_path || pReq->sdea_params.security_cfg ||
+          pReq->nan_pairing_config.enable_pairing_setup ||
           pReq->sdea_params.ranging_state || pReq->sdea_params.range_report ||
           pReq->sdea_params.qos_cfg || pReq->sdea_params.config_fsd_gas ||
           pReq->sdea_params.config_fsd_req || pReq->sdea_params.gtk_protection) ?
@@ -912,11 +916,14 @@ wifi_error NanCommand::putNanPublish(transaction_id id, const NanPublishRequest 
     tlvs = addTlv(NAN_TLV_TYPE_NAN_SERVICE_ACCEPT_POLICY, sizeof(NanServiceAcceptPolicy),
                   (const u8*)&pReq->service_responder_policy, tlvs);
 
-    if (pReq->cipher_type) {
+    if (pReq->cipher_type || pReq->nan_pairing_config.enable_pairing_setup) {
         NanCsidType pNanCsidType;
         pNanCsidType.csid_type = pReq->cipher_type;
 
         u16 tlv_type = NAN_TLV_TYPE_NAN_CSID;
+
+        if (pReq->nan_pairing_config.enable_pairing_setup)
+            pNanCsidType.csid_type |= NAN_CIPHER_SUITE_PUBLIC_KEY_PASN_128_MASK;
 
         if (pNanCsidType.csid_type & NAN_EXT_CSID_TYPE_MASK)
             tlv_type = NAN_TLV_TYPE_NAN_CSID_EXT;
@@ -943,6 +950,7 @@ wifi_error NanCommand::putNanPublish(transaction_id id, const NanPublishRequest 
 
     if (pReq->sdea_params.config_nan_data_path ||
         pReq->sdea_params.security_cfg ||
+        pReq->nan_pairing_config.enable_pairing_setup ||
         pReq->sdea_params.ranging_state ||
         pReq->sdea_params.range_report ||
         pReq->sdea_params.qos_cfg ||
@@ -960,7 +968,8 @@ wifi_error NanCommand::putNanPublish(transaction_id id, const NanPublishRequest 
                                   NAN_DATA_PATH_UNICAST_MSG;
 
         }
-        if (pReq->sdea_params.security_cfg) {
+        if (pReq->sdea_params.security_cfg ||
+            pReq->nan_pairing_config.enable_pairing_setup) {
             pNanFWSdeaCtrlParams.security_required =
                                          pReq->sdea_params.security_cfg;
         }
@@ -1191,8 +1200,10 @@ wifi_error NanCommand::putNanSubscribe(transaction_id id,
         (pReq->service_specific_info_len ? SIZEOF_TLV_HDR + pReq->service_specific_info_len : 0) +
         (pReq->rx_match_filter_len ? SIZEOF_TLV_HDR + pReq->rx_match_filter_len : 0) +
         (pReq->tx_match_filter_len ? SIZEOF_TLV_HDR + pReq->tx_match_filter_len : 0) +
-        (pReq->cipher_type ? SIZEOF_TLV_HDR + sizeof(NanCsidType) : 0) +
+        ((pReq->cipher_type || pReq->nan_pairing_config.enable_pairing_setup) ?
+          SIZEOF_TLV_HDR + sizeof(NanCsidType) : 0) +
         ((pReq->sdea_params.config_nan_data_path || pReq->sdea_params.security_cfg ||
+          pReq->nan_pairing_config.enable_pairing_setup ||
           pReq->sdea_params.ranging_state || pReq->sdea_params.range_report ||
           pReq->sdea_params.qos_cfg || pReq->sdea_params.config_fsd_gas ||
           pReq->sdea_params.config_fsd_req || pReq->sdea_params.gtk_protection) ?
@@ -1300,11 +1311,14 @@ wifi_error NanCommand::putNanSubscribe(transaction_id id,
                       (const u8*)&pReq->intf_addr[i][0], tlvs);
     }
 
-    if (pReq->cipher_type) {
+    if (pReq->cipher_type || pReq->nan_pairing_config.enable_pairing_setup) {
         NanCsidType pNanCsidType;
         pNanCsidType.csid_type = pReq->cipher_type;
 
         u16 tlv_type = NAN_TLV_TYPE_NAN_CSID;
+
+        if (pReq->nan_pairing_config.enable_pairing_setup)
+            pNanCsidType.csid_type |= NAN_CIPHER_SUITE_PUBLIC_KEY_PASN_128_MASK;
 
         if (pNanCsidType.csid_type & NAN_EXT_CSID_TYPE_MASK)
             tlv_type = NAN_TLV_TYPE_NAN_CSID_EXT;
@@ -1331,6 +1345,7 @@ wifi_error NanCommand::putNanSubscribe(transaction_id id,
 
     if (pReq->sdea_params.config_nan_data_path ||
         pReq->sdea_params.security_cfg ||
+        pReq->nan_pairing_config.enable_pairing_setup ||
         pReq->sdea_params.ranging_state ||
         pReq->sdea_params.range_report ||
         pReq->sdea_params.qos_cfg ||
@@ -1348,7 +1363,8 @@ wifi_error NanCommand::putNanSubscribe(transaction_id id,
                                   NAN_DATA_PATH_UNICAST_MSG;
 
         }
-        if (pReq->sdea_params.security_cfg) {
+        if (pReq->sdea_params.security_cfg ||
+            pReq->nan_pairing_config.enable_pairing_setup) {
             pNanFWSdeaCtrlParams.security_required =
                                          pReq->sdea_params.security_cfg;
         }
@@ -2188,6 +2204,133 @@ wifi_error NanCommand::putNanBeaconSdfPayload(transaction_id id,
     hexdump(mVendorData, mDataLen);
     return ret;
 }
+
+wifi_error NanCommand::putNanGroupKeyPnReq(transaction_id id, u32 key_index)
+{
+    wifi_error ret;
+    struct nlattr *nl_data;
+    ALOGV("GROUP_KEY_PN_REQUEST");
+
+    size_t message_len =
+        sizeof(NanMsgHeader) + sizeof(u32);
+
+    pNanTxPnReqMsg pFwReq = (pNanTxPnReqMsg)malloc(message_len);
+    if (pFwReq == NULL) {
+        cleanup();
+        return WIFI_ERROR_OUT_OF_MEMORY;
+    }
+
+    memset (pFwReq, 0, message_len);
+    pFwReq->fwHeader.msgVersion = (u16)NAN_MSG_VERSION1;
+    pFwReq->fwHeader.msgId = NAN_MSG_ID_GET_TX_PN_REQ;
+    pFwReq->fwHeader.msgLen = message_len;
+    pFwReq->fwHeader.transactionId = id;
+
+    pFwReq->key_idx = key_index;
+
+    mVendorData = (char *)pFwReq;
+    mDataLen = message_len;
+
+    ret = WIFI_SUCCESS;
+
+    nl_data = attr_start(NL80211_ATTR_VENDOR_DATA);
+    if (!nl_data) {
+        cleanup();
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+
+    if (mMsg.put_bytes(QCA_WLAN_VENDOR_ATTR_NAN_CMD_DATA,
+                         mVendorData, mDataLen)) {
+        ALOGE("%s: put attr error", __func__);
+        cleanup();
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+    attr_end(nl_data);
+
+    hexdump(mVendorData, mDataLen);
+    return ret;
+}
+
+wifi_error NanCommand::putNanGroupKeyInstallReq(transaction_id id,
+                                        struct nan_groupkey_info *info)
+{
+    wifi_error ret;
+    struct nlattr *nl_data;
+    NanGroupKeyParamsTlv grp_params;
+
+    ALOGV("GROUP_KEY_INSTALL_REQUEST");
+
+    size_t message_len = sizeof(NanMsgHeader);
+
+    /* Mac address and Group key params needs to be added in TLV */
+    message_len += SIZEOF_TLV_HDR + NAN_MAC_ADDR_LEN;
+    if (info->igtk_valid)
+        message_len += SIZEOF_TLV_HDR + sizeof(NanGroupKeyParamsTlv);
+    if (info->bigtk_valid)
+        message_len += SIZEOF_TLV_HDR + sizeof(NanGroupKeyParamsTlv);
+
+    pNanGroupKeyInstallReqMsg pFwReq = (pNanGroupKeyInstallReqMsg)malloc(message_len);
+    if (pFwReq == NULL) {
+        cleanup();
+        return WIFI_ERROR_OUT_OF_MEMORY;
+    }
+
+    memset (pFwReq, 0, message_len);
+    pFwReq->fwHeader.msgVersion = (u16)NAN_MSG_VERSION1;
+    pFwReq->fwHeader.msgId = NAN_MSG_ID_GROUP_KEY_INSTALL_REQ;
+    pFwReq->fwHeader.msgLen = message_len;
+    pFwReq->fwHeader.transactionId = id;
+
+    u8* tlvs = pFwReq->ptlv;
+
+    tlvs = addTlv(NAN_TLV_TYPE_MAC_ADDRESS, NAN_MAC_ADDR_LEN , info->addr,
+                  tlvs);
+
+    if (info->igtk_valid) {
+        memset(&grp_params, 0, sizeof(NanGroupKeyParamsTlv));
+        grp_params.key_cipher = info->igtk.key_cipher;
+        grp_params.key_idx = info->igtk.key_idx;
+        grp_params.key_len = info->igtk.key_len;
+        memcpy(grp_params.key_data, info->igtk.key_data, info->igtk.key_len);
+        memcpy(grp_params.key_rsc, info->igtk.rsc, NAN_MAX_GROUP_KEY_RSC_LEN);
+        tlvs = addTlv(NAN_TLV_TYPE_GROUP_KEYS_PARAM, sizeof(NanGroupKeyParamsTlv),
+                      (const u8*)&grp_params, tlvs);
+    }
+
+    if (info->bigtk_valid) {
+        memset(&grp_params, 0, sizeof(NanGroupKeyParamsTlv));
+        grp_params.key_cipher = info->bigtk.key_cipher;
+        grp_params.key_idx = info->bigtk.key_idx;
+        grp_params.key_len = info->bigtk.key_len;
+        memcpy(grp_params.key_data, info->bigtk.key_data, info->bigtk.key_len);
+        memcpy(grp_params.key_rsc, info->bigtk.rsc, NAN_MAX_GROUP_KEY_RSC_LEN);
+        tlvs = addTlv(NAN_TLV_TYPE_GROUP_KEYS_PARAM, sizeof(NanGroupKeyParamsTlv),
+                      (const u8*)&grp_params, tlvs);
+    }
+
+    mVendorData = (char *)pFwReq;
+    mDataLen = message_len;
+
+    ret = WIFI_SUCCESS;
+
+    nl_data = attr_start(NL80211_ATTR_VENDOR_DATA);
+    if (!nl_data) {
+        cleanup();
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+
+    if (mMsg.put_bytes(QCA_WLAN_VENDOR_ATTR_NAN_CMD_DATA,
+                         mVendorData, mDataLen)) {
+        ALOGE("%s: put attr error", __func__);
+        cleanup();
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+    attr_end(nl_data);
+
+    hexdump(mVendorData, mDataLen);
+    return ret;
+}
+
 
 //callback handlers registered for nl message send
 static int error_handler_nan(struct sockaddr_nl *nla, struct nlmsgerr *err,

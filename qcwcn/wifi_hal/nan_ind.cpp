@@ -301,7 +301,7 @@ int NanCommand::getNanPublishReplied(NanPublishRepliedInd *event)
     NanTlv outputTlv;
     u16 readLen = 0;
     int remainingLen = (mNanDataLen - \
-        (sizeof(NanMsgHeader)));
+        (sizeof(NanMsgHeader) + sizeof(NanPublishRepliedIndParams)));
 
     if (remainingLen <= 0) {
         ALOGI("%s: No TLV's present",__func__);
@@ -637,7 +637,14 @@ int NanCommand::handleNanBootstrappingIndication()
     {
        hal_info *info = getHalInfo(wifiHandle());
        struct nan_pairing_peer_info *entry = NULL;
-
+       if (!info) {
+           ALOGE("%s: hal info NULL", __FUNCTION__);
+           return WIFI_ERROR_UNKNOWN;
+       }
+       if (!info->secure_nan) {
+           ALOGE("%s: Secure NAN not supported", __FUNCTION__);
+           return WIFI_ERROR_UNKNOWN;
+       }
        if (params->type == NAN_BS_TYPE_REQUEST) {
            NanBootstrappingRequestInd bootstrapReqInd;
 
@@ -772,10 +779,25 @@ int NanCommand::handleNanSharedKeyDescIndication()
         return retval;
 
     NanPairingConfirmInd evt;
-    hal_info *info = getHalInfo(wifiHandle());
     struct pasn_data *pasn;
     struct nan_pairing_peer_info *entry;
-    if (nan_validate_shared_key_desc(info, mac, shared_key_attr,
+    hal_info *info = getHalInfo(wifiHandle());
+    if (!info) {
+        ALOGE("%s: hal info NULL", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+    if (!info->secure_nan) {
+        ALOGE("%s: Secure NAN not supported", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+    ifaceHandle = wifi_get_iface_handle(wifiHandle(),
+                                        info->secure_nan->iface_name);
+    if (!ifaceHandle) {
+        ALOGE("%s: ifaceHandle NULL for %s", __FUNCTION__,
+              info->secure_nan->iface_name);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+    if (nan_validate_shared_key_desc(ifaceHandle, mac, shared_key_attr,
                                      shared_key_attr_len)) {
          ALOGV("Pairing handshake Invalid");
          return WIFI_ERROR_INVALID_ARGS;
@@ -788,22 +810,8 @@ int NanCommand::handleNanSharedKeyDescIndication()
     }
 
     if (entry->peer_role == SECURE_NAN_PAIRING_INITIATOR) {
-      NanSharedKeyRequest msg;
-      if (nan_get_shared_key_descriptor(info, entry->bssid, &msg)) {
-          ALOGE("NAN: Unable to get shared key descriptor");
-          return -1;
-      }
-      ifaceHandle = wifi_get_iface_handle(wifiHandle(),
-                                          info->secure_nan->iface_name);
-      if (!ifaceHandle) {
-          ALOGE("%s: ifaceHandle NULL for %s", __FUNCTION__,
-                info->secure_nan->iface_name);
-          return -1;
-      }
-      memcpy(msg.peer_disc_mac_addr,entry->bssid, NAN_MAC_ADDR_LEN);
-      msg.requestor_instance_id = pRsp->followupIndParams.matchHandle;
-      msg.pub_sub_id = entry->pub_sub_id;
-      nan_sharedkey_followup_request(0, ifaceHandle, &msg);
+        info->secure_nan->pending_peer = entry;
+        nan_pairing_prepare_skda_data(ifaceHandle);
     }
 
     pasn = &entry->pasn;
@@ -1531,6 +1539,16 @@ int NanCommand::getNdpRequest(struct nlattr **tb_vendor,
             peer->ndp_instance_id = event->ndp_instance_id;
     }
 
+    if (tb_vendor[QCA_WLAN_VENDOR_ATTR_NDP_CSIA_CAPABILITIES]) {
+        event->csia_capabilities =
+              nla_get_u8(tb_vendor[QCA_WLAN_VENDOR_ATTR_NDP_CSIA_CAPABILITIES]);
+        ALOGV("%s: csia capabilities: %d", __FUNCTION__, event->csia_capabilities);
+    }
+
+    if (tb_vendor[QCA_WLAN_VENDOR_ATTR_NDP_GTK_REQUIRED]) {
+        event->gtk_protection = 1;
+        ALOGV("%s: GTK protection enabled", __FUNCTION__);
+    }
     return WIFI_SUCCESS;
 }
 
