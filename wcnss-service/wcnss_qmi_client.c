@@ -30,8 +30,14 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define LOG_TAG "wcnss_qmi"
 #include <cutils/log.h>
 #include "wcnss_qmi_client.h"
+
+#ifdef WCNSS_QMI_OSS
+#include "missing_qmi_client_api.h"
+#else
 #include "qmi_client.h"
 #include "device_management_service_v01.h"
+#endif
+
 #include <cutils/properties.h>
 #include <string.h>
 
@@ -48,10 +54,21 @@ int wcnss_init_qmi()
 {
 	qmi_client_error_type qmi_client_err;
 
+#ifdef WCNSS_QMI_OSS
+	qmi_client_err = missing_client_api_init();
+	if (qmi_client_err != QMI_NO_ERR) {
+		ALOGE("%s: Error while Initializing missing client APIs: %d",
+			  __func__, qmi_client_err);
+		goto exit;
+	}
+#endif
+
 	ALOGE("%s: Initialize wcnss QMI Interface", __func__);
         qmi_client_os_params dms_os_params;
 
+#ifndef WCNSS_QMI_OSS
 	memset(&dms_os_params, 0, sizeof(qmi_client_os_params));
+#endif
 	qmi_client_err = qmi_client_init_instance(dms_get_service_object_v01(),
 			QMI_CLIENT_INSTANCE_ANY, NULL, NULL,
 			&dms_os_params, 5000, &dms_qmi_client);
