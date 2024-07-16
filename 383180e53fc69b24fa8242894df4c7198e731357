@@ -16,6 +16,24 @@
       "message": "This should be reopened if 397516 gets merged, with only the changes in wcnss_service.c kept",
       "revId": "383180e53fc69b24fa8242894df4c7198e731357",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "d11ebc91_b0968091",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 26777
+      },
+      "writtenOn": "2024-07-16T13:07:55Z",
+      "side": 1,
+      "message": "actually should be fixed regardless if 397516 gets merged",
+      "parentUuid": "421bcba0_0a39f148",
+      "revId": "383180e53fc69b24fa8242894df4c7198e731357",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ],
   "submitRequirementResults": []
