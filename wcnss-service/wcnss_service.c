@@ -846,7 +846,9 @@ int main(int argc, char *argv[])
 	else
 		ALOGE("Failed to Initialize wcnss QMI Interface");
 
+#ifdef MDM_DETECT
 nomodem:
+#endif
 #endif
 
 	dynamic_nv_replace();
