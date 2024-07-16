@@ -845,10 +845,11 @@ int main(int argc, char *argv[])
 	}
 	else
 		ALOGE("Failed to Initialize wcnss QMI Interface");
-
-nomodem:
 #endif
 
+#if defined(WCNSS_QMI) && defined(MDM_DETECT)
+nomodem:
+#endif
 	dynamic_nv_replace();
 
 #if defined(WCNSS_QMI) || defined(WCNSS_QMI_OSS)

@@ -37,6 +37,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #endif
 #define MODEM_BASEBAND_VALUE_APQ  "apq"
 
+#ifndef WCNSS_QMI_OSS
 #ifdef WCNSS_QMI
 #ifndef WCNSS_QMI_CLIENT_H
 #define WCNSS_QMI_CLIENT_H
@@ -45,5 +46,6 @@ int wcnss_init_qmi(void);
 int wcnss_qmi_get_wlan_address(unsigned char *pBdAddr);
 void wcnss_qmi_deinit(void);
 
+#endif
 #endif
 #endif
