@@ -1,4 +1,22 @@
 {
-  "comments": [],
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "421bcba0_0a39f148",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 26777
+      },
+      "writtenOn": "2024-07-16T13:02:23Z",
+      "side": 1,
+      "message": "This should be reopened if 397516 gets merged, with only the changes in wcnss_service.c kept",
+      "revId": "383180e53fc69b24fa8242894df4c7198e731357",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    }
+  ],
   "submitRequirementResults": []
 }
