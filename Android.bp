@@ -34,9 +34,10 @@ license {
 soong_config_module_type {
     name: "wifihal_qcom_defaults",
     module_type: "cc_defaults",
-    config_namespace: "qcom_wifi",
+    config_namespace: "wifi",
     variables: [
         "qcom_wlan_hal",
+        "libpasn_support", //$(wildcard external/wpa_supplicant_8/src/pasn/pasn_common.c)
     ],
     properties: [
         "shared_libs",
@@ -51,6 +52,11 @@ soong_config_string_variable {
     ],
 }
 
+soong_config_string_variable {
+    name: "libpasn_support",
+    values: ["true","false"],
+}
+
 wifihal_qcom_defaults {
     name: "libwifi-hal-qcom",
     soong_config_variables: {
@@ -62,8 +68,18 @@ wifihal_qcom_defaults {
                 shared_libs: [
                     "//hardware/qcom/wlan:libcld80211",
                     "libcrypto",
-                    "libpasn",
                 ],
+            },
+        },
+        libpasn_support: {
+            true: {
+                shared_libs: ["libpasn"],
+            },
+            false: {
+                /* If libpasn_support is false, do not add libpasn.so */
+            },
+            conditions_default: {
+                shared_libs: ["libpasn"],
             },
         },
     },
