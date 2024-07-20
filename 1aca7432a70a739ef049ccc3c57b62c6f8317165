@@ -33,6 +33,24 @@
       "message": "Why not just implement this in your device in libwcnss_qmi? This still requires device specific bits and that is the reason we added the libwcnss_qmi setup in the first place.",
       "revId": "1aca7432a70a739ef049ccc3c57b62c6f8317165",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "ff79fd14_824d9b8a",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 7
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 26777
+      },
+      "writtenOn": "2024-07-20T10:03:19Z",
+      "side": 1,
+      "message": "What I am thinking is that this part of wcnss_qmi is also used by many devices (excluding readmac users). So if we are able to allow the use of this without having to ship an exact copy of this in the device tree, it would be better. I think this has been a trend in the LineageOS project where all the shims and HALs are being commonized into hardware repos, so this is the time to introduce it for WLAN as well.",
+      "parentUuid": "2b87edd6_a636de16",
+      "revId": "1aca7432a70a739ef049ccc3c57b62c6f8317165",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
