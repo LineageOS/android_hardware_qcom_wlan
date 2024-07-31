@@ -197,16 +197,17 @@ wifi_error nan_pairing_request(transaction_id id,
     if (memcmp(secure_nan->own_addr, nanCommand->getNmi(), NAN_MAC_ADDR_LEN) != 0)
         memcpy(secure_nan->own_addr, nanCommand->getNmi(), NAN_MAC_ADDR_LEN);
 
-    pasn = peer->pasn;
+    pasn = &peer->pasn;
     memcpy(secure_nan->cluster_addr, nanCommand->getClusterAddr(), NAN_MAC_ADDR_LEN);
-    pasn_set_own_addr(pasn, nanCommand->getNmi());
-    pasn_set_bssid(pasn, nanCommand->getClusterAddr());
-    pasn_set_peer_addr(pasn, (u8 *)msg->peer_disc_mac_addr);
+    memcpy(pasn->own_addr, nanCommand->getNmi(), NAN_MAC_ADDR_LEN);
+    memcpy(pasn->bssid, nanCommand->getClusterAddr(), NAN_MAC_ADDR_LEN);
+    os_memcpy(pasn->peer_addr, (u8 *)msg->peer_disc_mac_addr, NAN_MAC_ADDR_LEN);
 
-    pasn_set_akmp(pasn, akmp);
-    pasn_set_cipher(pasn, cipher);
-    pasn_enable_kdk_derivation(pasn);
-    pasn_set_initiator_pmksa(pasn, secure_nan->initiator_pmksa);
+    pasn->derive_kdk = true;
+    pasn->akmp = akmp;
+    pasn->cipher = cipher;
+    pasn->kdk_len = WPA_KDK_MAX_LEN;
+    pasn->pmksa = (struct rsn_pmksa_cache *)secure_nan->initiator_pmksa;
     peer->peer_role = SECURE_NAN_PAIRING_RESPONDER;
     peer->requestor_instance_id = msg->requestor_instance_id;
     peer->pub_sub_id = info->secure_nan->pub_sub_id;
@@ -218,7 +219,7 @@ wifi_error nan_pairing_request(transaction_id id,
            secure_nan->supported_bootstrap);
 
     if (akmp == WPA_KEY_MGMT_SAE)
-        pasn_set_rsnxe_caps(pasn, BIT(WLAN_RSNX_CAPAB_SAE_H2E));
+        pasn->rsnxe_capab |= BIT(WLAN_RSNX_CAPAB_SAE_H2E);
 
     if (msg->nan_pairing_request_type == NAN_PAIRING_SETUP) {
         if (!msg->is_opportunistic)
@@ -249,13 +250,14 @@ wifi_error nan_pairing_request(transaction_id id,
         os_memcpy(&pmkid[secure_nan->dev_nik->nira_nonce_len],
                   secure_nan->dev_nik->nira_tag,
                   secure_nan->dev_nik->nira_tag_len);
-        pasn_set_custom_pmkid(pasn, pmkid);
+        pasn->custom_pmkid_valid = true;
+        os_memcpy(pasn->custom_pmkid, pmkid, PMKID_LEN);
 
         if (msg->key_info.key_type == NAN_SECURITY_KEY_INPUT_PMK &&
             msg->akm == SAE) {
             if (!msg->key_info.body.pmk_info.pmk_len ||
                 nan_pairing_initiator_pmksa_cache_add(secure_nan->initiator_pmksa,
-                                                      secure_nan->own_addr,
+                                                      pasn->own_addr,
                                                       msg->peer_disc_mac_addr,
                                                       msg->key_info.body.pmk_info.pmk,
                                                       msg->key_info.body.pmk_info.pmk_len)) {
