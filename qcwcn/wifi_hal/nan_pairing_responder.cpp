@@ -252,6 +252,7 @@ wifi_error nan_pairing_indication_response(transaction_id id,
         } else {
             pasn_set_akmp(pasn, WPA_KEY_MGMT_PASN);
             pasn_set_wpa_key_mgmt(pasn, WPA_KEY_MGMT_PASN);
+            pasn_set_noauth(pasn, 1);
         }
         if (msg->key_info.key_type == NAN_SECURITY_KEY_INPUT_PASSPHRASE) {
             nan_pairing_set_password(peer,
