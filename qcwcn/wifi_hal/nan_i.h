@@ -2049,7 +2049,7 @@ struct nan_pairing_peer_info {
     struct list_head list;
 #ifdef WPA_PASN_LIB
     /* pasn data required for authentication */
-    struct pasn_data pasn;
+    struct pasn_data *pasn;
 #endif
     /* is trans_id valid */
     bool trans_id_valid;
@@ -2278,4 +2278,3 @@ wifi_error nan_group_key_pn_request(transaction_id id,
 #endif /* __cplusplus */
 
 #endif /* __NAN_I_H__ */
-

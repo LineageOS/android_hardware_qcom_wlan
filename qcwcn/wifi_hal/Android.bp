@@ -58,10 +58,20 @@ soong_config_module_type {
         "mac_privacy_logging", // CONFIG_MAC_PRIVACY_LOGGING
         "target_supports_wearables", // TARGET_SUPPORTS_WEARABLES
     ],
+    variables: [
+        "libpasn_support", //$(wildcard external/wpa_supplicant_8/src/pasn/pasn_common.c)
+    ],
     properties: [
         "cflags",
         "cppflags",
+        "header_libs",
+        "shared_libs",
     ],
+}
+
+soong_config_string_variable {
+    name: "libpasn_support",
+    values: ["true","false"],
 }
 
 wifi_hal_cc_defaults {
@@ -78,6 +88,21 @@ wifi_hal_cc_defaults {
         },
         target_supports_wearables: {
             cflags: ["-DTARGET_SUPPORTS_WEARABLES"],
+        },
+        libpasn_support: {
+            true: {
+                cflags: ["-DWPA_PASN_LIB"],
+                header_libs: ["wpa_supplicant_headers"],
+                shared_libs: ["libpasn"],
+            },
+            false: {
+                /* If libpasn_support is false, do not add libpasn.so */
+            },
+            conditions_default: {
+                cflags: ["-DWPA_PASN_LIB"],
+                header_libs: ["wpa_supplicant_headers"],
+                shared_libs: ["libpasn"],
+            },
         },
     },
 }
@@ -140,7 +165,7 @@ cc_library {
         "wificonfig.cpp",
         "wifilogger_diag.cpp",
         "wifilogger.cpp",
-	"vendor_nan/vendor_nan.cpp",
+        "vendor_nan/vendor_nan.cpp",
     ],
     shared_libs: [
         "libcld80211",

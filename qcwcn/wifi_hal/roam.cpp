@@ -358,6 +358,8 @@ wifi_error wifi_enable_firmware_roaming(wifi_interface_handle iface, fw_roaming_
         policy = QCA_ROAMING_ALLOWED_WITHIN_ESS;
     } else if(state == ROAMING_DISABLE) {
         policy = QCA_ROAMING_NOT_ALLOWED;
+    } else if(state == ROAMING_AGGRESSIVE) {
+        policy = QCA_ROAMING_MODE_AGGRESSIVE;
     } else {
         ALOGE("%s: Invalid state provided: %d. Exit \n", __FUNCTION__, state);
         return WIFI_ERROR_INVALID_ARGS;
