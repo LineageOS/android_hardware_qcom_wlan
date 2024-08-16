@@ -1607,7 +1607,8 @@ wifi_error nan_data_request_initiator(transaction_id id,
         (msg->key_info.body.passphrase_info.passphrase_len == 0)) {
         ALOGE("%s: Failed-Initiator req, missing pmk and passphrase",
                __FUNCTION__);
-        return WIFI_ERROR_INVALID_ARGS;
+        ret = WIFI_ERROR_INVALID_ARGS;
+        goto cleanup;
     }
 
     if ((msg->cipher_type != NAN_CIPHER_SUITE_SHARED_KEY_NONE) &&
@@ -1615,7 +1616,8 @@ wifi_error nan_data_request_initiator(transaction_id id,
         (msg->service_name_len == 0)) {
         ALOGE("%s: Failed-Initiator req, missing service name for out of band request",
               __FUNCTION__);
-        return WIFI_ERROR_INVALID_ARGS;
+        ret = WIFI_ERROR_INVALID_ARGS;
+        goto cleanup;
     }
 
     /* Add the vendor specific attributes for the NL command. */
@@ -1832,7 +1834,8 @@ wifi_error nan_data_indication_response(transaction_id id,
         (msg->key_info.body.passphrase_info.passphrase_len == 0)) {
         ALOGE("%s: Failed-Initiator req, missing pmk and passphrase",
                __FUNCTION__);
-        return WIFI_ERROR_INVALID_ARGS;
+        ret = WIFI_ERROR_INVALID_ARGS;
+        goto cleanup;
     }
 
     /* Add the vendor specific attributes for the NL command. */
