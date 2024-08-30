@@ -1858,7 +1858,14 @@ int nan_pairing_set_keys_from_cache(wifi_handle handle, u8 *src_addr, u8 *bssid,
                                 &entry->ptk.kek_len);
     }
     nan_set_nira_request(0, ifaceHandle, info->secure_nan->dev_nik->nik_data);
-    if (!(peer->dcea_cap_info & DCEA_NPK_CACHING_ENABLED)) {
+
+    if (peer_role == SECURE_NAN_PAIRING_INITIATOR)
+        return WIFI_SUCCESS;
+
+    if (peer->dcea_cap_info & DCEA_NPK_CACHING_ENABLED) {
+        info->secure_nan->pending_peer = peer;
+        nan_pairing_prepare_skda_data(ifaceHandle);
+    } else {
         // Send Pairing Confirmation as Followup with Peer NIK is not mandatory
         NanPairingConfirmInd evt;
         evt.pairing_instance_id = peer->pairing_instance_id;
@@ -1892,9 +1899,6 @@ int nan_pairing_set_keys_from_cache(wifi_handle handle, u8 *src_addr, u8 *bssid,
         nanCommand->handleNanPairingConfirm(&evt);
         peer->is_paired = true;
         peer->is_pairing_in_progress = false;
-    } else if (peer_role == SECURE_NAN_PAIRING_RESPONDER) {
-      info->secure_nan->pending_peer = peer;
-      nan_pairing_prepare_skda_data(ifaceHandle);
     }
     return WIFI_SUCCESS;
 }
