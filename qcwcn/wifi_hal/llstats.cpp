@@ -132,12 +132,15 @@ static wifi_error get_wifi_interface_info(wifi_interface_link_layer_info *stats,
     len = ((sizeof(stats->mac_addr) <= len) ? sizeof(stats->mac_addr) : len);
     memcpy(&stats->mac_addr[0], nla_data(tb_vendor[QCA_WLAN_VENDOR_ATTR_LL_STATS_IFACE_INFO_MAC_ADDR]), len);
 
-    if (!tb_vendor[QCA_WLAN_VENDOR_ATTR_LL_STATS_IFACE_INFO_STATE])
-    {
-        ALOGE("%s: QCA_WLAN_VENDOR_ATTR_LL_STATS_IFACE_INFO_STATE not found", __FUNCTION__);
-        return WIFI_ERROR_INVALID_ARGS;
+    if (stats->mode == WIFI_INTERFACE_STA ||
+        stats->mode == WIFI_INTERFACE_P2P_CLIENT) {
+        if (!tb_vendor[QCA_WLAN_VENDOR_ATTR_LL_STATS_IFACE_INFO_STATE]) {
+            ALOGE("%s: QCA_WLAN_VENDOR_ATTR_LL_STATS_IFACE_INFO_STATE not found", __FUNCTION__);
+            return WIFI_ERROR_INVALID_ARGS;
+        }
+
+        stats->state = (wifi_connection_state)nla_get_u32(tb_vendor[QCA_WLAN_VENDOR_ATTR_LL_STATS_IFACE_INFO_STATE]);
     }
-    stats->state = (wifi_connection_state)nla_get_u32(tb_vendor[QCA_WLAN_VENDOR_ATTR_LL_STATS_IFACE_INFO_STATE]);
 
     if (!tb_vendor[QCA_WLAN_VENDOR_ATTR_LL_STATS_IFACE_INFO_ROAMING])
     {
