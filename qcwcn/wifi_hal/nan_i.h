@@ -1513,6 +1513,9 @@ typedef struct PACKED
     u32 max_subscribe_address;
     u32 max_nan_pairing_sessions;
     u32 nan_group_mfp_cap;
+    u32 is_6g_supported:1;
+    u32 is_he_supported:1;
+    u32 reserved:30;
 
 } NanCapabilitiesRspMsg, *pNanCapabilitiesRspMsg;
 
