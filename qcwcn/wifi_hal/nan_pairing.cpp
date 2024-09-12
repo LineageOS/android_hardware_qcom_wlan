@@ -540,7 +540,7 @@ void nan_process_followup_frame(wifi_handle handle, const u8 *buf,
         }
 
         match_handle = nanCommand->getNanMatchHandle(sd_attr->requestor_id,
-                                                     sd_attr->service_id);
+                                                     sd_attr->service_id, mac);
 
         if (match_handle)
             followInd->followupIndParams.matchHandle = match_handle;
