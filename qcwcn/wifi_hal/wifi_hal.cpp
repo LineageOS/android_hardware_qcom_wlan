@@ -94,7 +94,7 @@
 #include "ifaceeventhandler.h"
 #include "wifiloggercmd.h"
 #include "tcp_params_update.h"
-
+#include "wificonfigcommand.h"
 
 /*
  BUGBUG: normally, libnl allocates ports for all connections it makes; but
@@ -1176,6 +1176,7 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn) {
     fn->wifi_nan_pairing_end = nan_pairing_end;
     fn->wifi_get_chip_capabilities = wifi_get_chip_capabilities;
 
+    fn->wifi_set_scan_mode = wifi_set_scan_mode_config;
     return WIFI_SUCCESS;
 }
 
@@ -1575,7 +1576,6 @@ unload:
             free(info);
         }
     }
-
     return ret;
 }
 

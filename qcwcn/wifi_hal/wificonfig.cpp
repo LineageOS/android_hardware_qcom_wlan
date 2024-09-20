@@ -1710,3 +1710,84 @@ cleanup:
     delete wifiConfigCommand;
     return (wifi_error)ret;
 }
+
+/* Set the scan only mode to driver. */
+wifi_error wifi_set_scan_mode_config(wifi_interface_handle iface, bool enable)
+{
+    int requestId, ret = 0;
+    WiFiConfigCommand *wifiConfigCommand;
+    struct nlattr *nlData;
+    wifi_handle wifiHandle = getWifiHandle(iface);
+    interface_info *ifaceInfo = getIfaceInfo(iface);
+
+    if (!wifiHandle) {
+        ALOGE("%s: Error wifi_handle NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
+
+    if (!ifaceInfo) {
+        ALOGE("%s: Error ifaceInfo NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
+    ALOGD("%s: %d if_name: %s", __FUNCTION__, enable, ifaceInfo->name);
+    requestId = get_requestid();
+
+    wifiConfigCommand = new WiFiConfigCommand(
+                            wifiHandle,
+                            requestId,
+                            OUI_QCA,
+                            QCA_NL80211_VENDOR_SUBCMD_SET_WIFI_CONFIGURATION);
+
+    if (wifiConfigCommand == NULL) {
+        ALOGE("%s: Error wifiConfigCommand NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
+
+    /* Create the NL message. */
+    ret = wifiConfigCommand->create();
+    if (ret < 0) {
+        ALOGE("wifi_set_scan_mode: failed to create NL msg. "
+              "Error:%d", ret);
+        goto cleanup;
+    }
+
+    /* Set the interface Id of the message. */
+    ret = wifiConfigCommand->set_iface_id(ifaceInfo->name);
+    if (ret < 0) {
+        ALOGE("wifi_set_scan_mode: failed to set iface id. "
+              "Error:%d", ret);
+        goto cleanup;
+    }
+
+    /* Add the vendor specific attributes for the NL command. */
+    nlData = wifiConfigCommand->attr_start(NL80211_ATTR_VENDOR_DATA);
+    if (!nlData) {
+        ret = WIFI_ERROR_UNKNOWN;
+        ALOGE("wifi_set_scan_mode: failed attr_start for "
+              "VENDOR_DATA. Error:%d", ret);
+        goto cleanup;
+    }
+
+    if (wifiConfigCommand->put_u8(
+        QCA_WLAN_VENDOR_ATTR_CONFIG_REDUCED_POWER_SCAN_MODE, enable)) {
+        ret = WIFI_ERROR_UNKNOWN;
+        ALOGE("wifi_set_scan_mode(): failed to put vendor data. "
+              "Error:%d", ret);
+        goto cleanup;
+    }
+    wifiConfigCommand->attr_end(nlData);
+
+    /* Send the NL msg. */
+    wifiConfigCommand->waitForRsp(false);
+    ret = wifiConfigCommand->requestEvent();
+    if (ret != 0) {
+        ALOGE("wifi_set_scan_mode(): requestEvent Error:%d", ret);
+        goto cleanup;
+    }
+
+cleanup:
+    delete wifiConfigCommand;
+    return (wifi_error)ret;
+
+}
+

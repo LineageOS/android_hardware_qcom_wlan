@@ -81,6 +81,8 @@ extern "C"
 
 int check_feature(enum qca_wlan_vendor_features feature, features_info *info);
 
+wifi_error wifi_set_scan_mode_config(wifi_interface_handle iface, bool enable);
+
 class WiFiConfigCommand: public WifiVendorCommand
 {
 private:
