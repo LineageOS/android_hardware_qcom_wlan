@@ -377,6 +377,14 @@ int nan_pairing_handle_pasn_auth(wifi_handle handle, const u8 *data, size_t len)
                    NAN_IDENTITY_TAG_LEN);
         }
 
+        nan_attr_ie = nan_get_attr_from_ies(mgmt->u.auth.variable,
+                          len - offsetof(struct ieee80211_mgmt,
+                          u.auth.variable), NAN_ATTR_ID_CSIA);
+
+        if (nan_attr_ie) {
+            nan_csia *csia = (nan_csia *)nan_attr_ie;
+            entry->csia_cap_info = csia->caps;
+        }
         if (entry && entry->is_pairing_in_progress) {
             ALOGV("PASN Responder: Drop PASN M1 frame as Pairing in progress");
             return WIFI_ERROR_UNKNOWN;
