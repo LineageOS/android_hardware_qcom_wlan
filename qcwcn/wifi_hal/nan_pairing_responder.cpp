@@ -137,6 +137,7 @@ wifi_error nan_pairing_indication_response(transaction_id id,
     hal_info *info = getHalInfo(wifiHandle);
     const struct ieee80211_mgmt *mgmt = NULL;
     struct wpa_secure_nan *secure_nan;
+    bool reject = false;
     int ret;
 
     if (!info) {
@@ -182,14 +183,8 @@ wifi_error nan_pairing_indication_response(transaction_id id,
     pasn = peer->pasn;
     pasn_enable_kdk_derivation(pasn);
     peer->peer_role = SECURE_NAN_PAIRING_INITIATOR;
-
-    if (msg->rsp_code == NAN_PAIRING_REQUEST_REJECT) {
-        ALOGE("%s: received reject rsp", __FUNCTION__);
-        peer->is_pairing_in_progress = false;
-        goto fail;
-    }
-
     mgmt = (struct ieee80211_mgmt *)peer->frame->data;
+
     pasn_set_own_addr(pasn, nanCommand->getNmi());
     pasn_set_bssid(pasn, nanCommand->getClusterAddr());
     pasn_set_peer_addr(pasn, (u8 *)mgmt->sa);
@@ -278,13 +273,25 @@ wifi_error nan_pairing_indication_response(transaction_id id,
     if (secure_nan->rsnxe)
         pasn_set_rsnxe_ie(pasn, wpabuf_head_u8(secure_nan->rsnxe));
 
+    if (msg->rsp_code == NAN_PAIRING_REQUEST_REJECT)
+        reject = true;
+
     pasn_set_responder_pmksa(pasn, secure_nan->responder_pmksa);
     peer->trans_id = id;
     peer->trans_id_valid = true;
+
     ret = handle_auth_pasn_1(pasn, secure_nan->own_addr, (u8 *)mgmt->sa, mgmt,
-                             peer->frame->len);
+                             peer->frame->len, reject);
     if (ret == -1) {
+        NanPairingConfirmInd evt;
+
         ALOGE("%s: Handle auth pasn 1 failed", __FUNCTION__);
+        memset(&evt, 0, sizeof(NanPairingConfirmInd));
+        evt.pairing_instance_id = peer->pairing_instance_id;
+        evt.rsp_code = NAN_PAIRING_REQUEST_REJECT;
+        evt.reason_code =  NAN_STATUS_INTERNAL_FAILURE;
+        nanCommand->handleNanPairingConfirm(&evt);
+        peer->is_pairing_in_progress = false;
         wpa_pasn_reset(pasn);
         peer->peer_role = SECURE_NAN_IDLE;
         goto fail;
@@ -444,6 +451,41 @@ int nan_pairing_handle_pasn_auth(wifi_handle handle, const u8 *data, size_t len)
         if (ret != 0) {
             ALOGE("PASN Responder: Handle PASN Auth3 failed ");
             return WIFI_ERROR_UNKNOWN;
+        }
+        if (!(entry->dcea_cap_info & DCEA_NPK_CACHING_ENABLED)) {
+        // Send Pairing Confirmation as Followup with Peer NIK is not mandatory
+            NanPairingConfirmInd evt;
+            evt.pairing_instance_id = entry->pairing_instance_id;
+            evt.rsp_code = NAN_PAIRING_REQUEST_ACCEPT;
+            evt.reason_code = NAN_STATUS_SUCCESS;
+            evt.enable_pairing_cache = 0;
+
+            if (entry->is_paired)
+                evt.nan_pairing_request_type = NAN_PAIRING_VERIFICATION;
+            else
+                evt.nan_pairing_request_type = NAN_PAIRING_SETUP;
+
+            if (pasn_get_akmp(pasn) == WPA_KEY_MGMT_PASN)
+                evt.npk_security_association.akm = PASN;
+            else
+                evt.npk_security_association.akm = SAE;
+
+            if (info->secure_nan->dev_nik)
+                memcpy(evt.npk_security_association.local_nan_identity_key,
+                       info->secure_nan->dev_nik->nik_data,
+                       NAN_IDENTITY_KEY_LEN);
+
+            if (pasn_get_pmk_len(pasn) <= sizeof(evt.npk_security_association.npk.pmk)) {
+                memcpy(evt.npk_security_association.npk.pmk, pasn_get_pmk(pasn),
+                       pasn_get_pmk_len(pasn));
+                evt.npk_security_association.npk.pmk_len = pasn_get_pmk_len(pasn);
+            } else {
+                ALOGE("%s: Invalid pmk len: %d", __FUNCTION__, pasn_get_pmk_len(pasn));
+            }
+            wpa_pasn_reset(pasn);
+            nanCommand->handleNanPairingConfirm(&evt);
+            entry->is_paired = true;
+            entry->is_pairing_in_progress = false;
         }
     }
     return WIFI_SUCCESS;

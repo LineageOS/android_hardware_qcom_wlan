@@ -723,6 +723,13 @@ void nan_rx_mgmt_auth(wifi_handle handle, const u8 *frame, size_t len)
     struct wpa_pasn_params_data pasn_data;
     struct nan_pairing_peer_info *peer;
     struct ieee80211_mgmt *mgmt = (struct ieee80211_mgmt *) frame;
+    NanCommand *nanCommand = NULL;
+
+    nanCommand = NanCommand::instance(handle);
+    if (nanCommand == NULL) {
+        ALOGE("%s: Error NanCommand NULL", __FUNCTION__);
+        return;
+    }
 
     if (!info || !info->secure_nan) {
         ALOGE("%s: secure nan NULL", __FUNCTION__);
@@ -772,7 +779,18 @@ void nan_rx_mgmt_auth(wifi_handle handle, const u8 *frame, size_t len)
                             peer->bssid, pasn_get_cipher(pasn), nanPMKLifetime,
                             pasn_get_ptk(pasn), NULL, NULL, pasn_get_akmp(pasn));
             memset(pasn_get_ptk(pasn), 0, sizeof(struct wpa_ptk));
-        } else if (ret == -1) {
+        } else if (ret == -1 || mgmt->u.auth.status_code) {
+            NanPairingConfirmInd evt;
+
+            memset(&evt, 0, sizeof(NanPairingConfirmInd));
+            evt.pairing_instance_id = peer->pairing_instance_id;
+            evt.rsp_code = NAN_PAIRING_REQUEST_REJECT;
+            evt.reason_code = NAN_STATUS_PROTOCOL_FAILURE;
+            evt.enable_pairing_cache = 0;
+            nanCommand->handleNanPairingConfirm(&evt);
+
+            peer->is_paired = false;
+            peer->is_pairing_in_progress = false;
             wpa_pasn_reset(pasn);
             ALOGE(" %s wpa_pasn_auth_rx failed", __FUNCTION__);
             peer->peer_role = SECURE_NAN_IDLE;
@@ -1858,7 +1876,14 @@ int nan_pairing_set_keys_from_cache(wifi_handle handle, u8 *src_addr, u8 *bssid,
                                 &entry->ptk.kek_len);
     }
     nan_set_nira_request(0, ifaceHandle, info->secure_nan->dev_nik->nik_data);
-    if (!(peer->dcea_cap_info & DCEA_NPK_CACHING_ENABLED)) {
+
+    if (peer_role == SECURE_NAN_PAIRING_INITIATOR)
+        return WIFI_SUCCESS;
+
+    if (peer->dcea_cap_info & DCEA_NPK_CACHING_ENABLED) {
+        info->secure_nan->pending_peer = peer;
+        nan_pairing_prepare_skda_data(ifaceHandle);
+    } else {
         // Send Pairing Confirmation as Followup with Peer NIK is not mandatory
         NanPairingConfirmInd evt;
         evt.pairing_instance_id = peer->pairing_instance_id;
@@ -1892,9 +1917,6 @@ int nan_pairing_set_keys_from_cache(wifi_handle handle, u8 *src_addr, u8 *bssid,
         nanCommand->handleNanPairingConfirm(&evt);
         peer->is_paired = true;
         peer->is_pairing_in_progress = false;
-    } else if (peer_role == SECURE_NAN_PAIRING_RESPONDER) {
-      info->secure_nan->pending_peer = peer;
-      nan_pairing_prepare_skda_data(ifaceHandle);
     }
     return WIFI_SUCCESS;
 }

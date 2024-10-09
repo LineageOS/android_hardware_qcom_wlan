@@ -65,6 +65,7 @@
 #include <dlfcn.h>
 #include <dirent.h>
 #include <string.h>
+#include "includes.h"
 #include "common.h"
 #include "driver_cmd_nl80211_extn.h"
 
