@@ -398,7 +398,8 @@ void nan_process_followup_frame(wifi_handle handle, const u8 *buf,
     u16 service_info_offset;
     u16 followup_ind_size;
     u8 *pos, *ptlv, *temptlv;
-    u8 *sdea_attr_temp, sdea_attr_len;
+    u8 *sdea_attr_temp;
+    u16 sdea_attr_len;
     u8 i, j, sda_count = 0, sdea_count = 0;
     u8 *sda[NAN_MAX_SD_ATTRS_PER_FRAME];
     size_t sda_len[NAN_MAX_SD_ATTRS_PER_FRAME];
@@ -504,8 +505,8 @@ void nan_process_followup_frame(wifi_handle handle, const u8 *buf,
             sdea_attr_temp += NAN_SDE_ATTR_LEN_OFFSET;
             sdea_attr_len = WPA_GET_LE16(sdea_attr_temp);
             /* NAN_SDE_ATTR_OFFSET_INSTANCE_ID */
-            if (sd_attr->instance_id == *(sdea_attr_temp + 3)) {
-                if (!nan_get_sde_attr((sdea_attr_temp + 3), sdea_attr_len,
+            if (sd_attr->instance_id == *(sdea_attr_temp + 2)) {
+                if (!nan_get_sde_attr((sdea_attr_temp + 2), sdea_attr_len,
                                       &sde_attr)) {
                     ALOGE("Incorrect SD extended attribute");
                     return;
