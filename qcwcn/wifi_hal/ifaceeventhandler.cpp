@@ -393,12 +393,27 @@ int WifihalGeneric::handleResponse(WifiEvent &reply)
                         (struct nlattr *)mVendorData,
                         mDataLen, NULL);
 
-                if (!tb_vendor[QCA_WLAN_VENDOR_ATTR_FEATURE_SET])
+                if (tb_vendor[QCA_WLAN_VENDOR_ATTR_FEATURE_SET_EXT])
                 {
-                    ALOGE("%s: QCA_WLAN_VENDOR_ATTR_FEATURE_SET not found", __func__);
-                    return -EINVAL;
+                    size_t len;
+                    u8* feature;
+
+                    ALOGV("QCA_WLAN_VENDOR_ATTR_FEATURE_SET_EXT found");
+
+                    feature = (u8*)nla_data(tb_vendor[QCA_WLAN_VENDOR_ATTR_FEATURE_SET_EXT]);
+                    len = nla_len(tb_vendor[QCA_WLAN_VENDOR_ATTR_FEATURE_SET_EXT]);
+
+                    mSet = 0;
+                    for (int index = 0; index < len && index < 8; index++) {
+                        mSet |= ((u64)feature[index]) << (index * 8);
+                    }
+                } else {
+                    if (!tb_vendor[QCA_WLAN_VENDOR_ATTR_FEATURE_SET]) {
+                        ALOGE("%s: QCA_WLAN_VENDOR_ATTR_FEATURE_SET not found", __func__);
+                        return -EINVAL;
+                    }
+                    mSet = nla_get_u32(tb_vendor[QCA_WLAN_VENDOR_ATTR_FEATURE_SET]);
                 }
-                mSet = nla_get_u32(tb_vendor[QCA_WLAN_VENDOR_ATTR_FEATURE_SET]);
                 ALOGV("Supported feature set : %" PRIx64, mSet);
 
                 break;
