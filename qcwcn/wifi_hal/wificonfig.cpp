@@ -1782,6 +1782,8 @@ wifi_error wifi_set_scan_mode_config(wifi_interface_handle iface, bool enable)
     ret = wifiConfigCommand->requestEvent();
     if (ret != 0) {
         ALOGE("wifi_set_scan_mode(): requestEvent Error:%d", ret);
+        if (ret == WIFI_ERROR_INVALID_ARGS)
+            ret = WIFI_ERROR_NOT_SUPPORTED;
         goto cleanup;
     }
 
