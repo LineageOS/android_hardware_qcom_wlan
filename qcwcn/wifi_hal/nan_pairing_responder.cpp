@@ -281,7 +281,7 @@ wifi_error nan_pairing_indication_response(transaction_id id,
     peer->trans_id_valid = true;
 
     ret = handle_auth_pasn_1(pasn, secure_nan->own_addr, (u8 *)mgmt->sa, mgmt,
-                             peer->frame->len);
+                             peer->frame->len, reject);
     if (ret == -1) {
         NanPairingConfirmInd evt;
 
