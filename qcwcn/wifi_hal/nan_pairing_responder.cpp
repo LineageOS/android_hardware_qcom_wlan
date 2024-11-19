@@ -252,6 +252,7 @@ wifi_error nan_pairing_indication_response(transaction_id id,
         } else {
             pasn_set_akmp(pasn, WPA_KEY_MGMT_PASN);
             pasn_set_wpa_key_mgmt(pasn, WPA_KEY_MGMT_PASN);
+            pasn_set_noauth(pasn, 1);
         }
         if (msg->key_info.key_type == NAN_SECURITY_KEY_INPUT_PASSPHRASE) {
             nan_pairing_set_password(peer,
@@ -377,6 +378,14 @@ int nan_pairing_handle_pasn_auth(wifi_handle handle, const u8 *data, size_t len)
                    NAN_IDENTITY_TAG_LEN);
         }
 
+        nan_attr_ie = nan_get_attr_from_ies(mgmt->u.auth.variable,
+                          len - offsetof(struct ieee80211_mgmt,
+                          u.auth.variable), NAN_ATTR_ID_CSIA);
+
+        if (nan_attr_ie) {
+            nan_csia *csia = (nan_csia *)nan_attr_ie;
+            entry->csia_cap_info = csia->caps;
+        }
         if (entry && entry->is_pairing_in_progress) {
             ALOGV("PASN Responder: Drop PASN M1 frame as Pairing in progress");
             return WIFI_ERROR_UNKNOWN;

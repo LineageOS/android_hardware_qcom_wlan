@@ -15,7 +15,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -95,6 +95,7 @@
 #include "wifiloggercmd.h"
 #include "tcp_params_update.h"
 #include "wificonfigcommand.h"
+#include "wifi_cached_scan_result.h"
 
 /*
  BUGBUG: normally, libnl allocates ports for all connections it makes; but
@@ -151,6 +152,10 @@ static int wifi_is_nan_ext_cmd_supported(wifi_interface_handle handle);
 
 wifi_error
     wifi_init_tcp_param_change_event_handler(wifi_interface_handle iface);
+
+wifi_error
+    wifi_get_cached_scan_results(wifi_interface_handle iface,
+                                 wifi_cached_scan_result_handler handler);
 
 #ifndef TARGET_SUPPORTS_WEARABLES
 wifi_error wifi_get_supported_iface_combination(wifi_interface_handle iface_handle);
@@ -1177,6 +1182,7 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn) {
     fn->wifi_get_chip_capabilities = wifi_get_chip_capabilities;
 
     fn->wifi_set_scan_mode = wifi_set_scan_mode_config;
+    fn->wifi_get_cached_scan_results = wifi_get_cached_scan_results;
     return WIFI_SUCCESS;
 }
 

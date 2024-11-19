@@ -526,7 +526,8 @@ int NanCommand::getNanMatch(NanMatchInd *event)
             mNanCommandInstance->saveServiceId(outputTlv.value,
                                                event->publish_subscribe_id,
                                                event->requestor_instance_id,
-                                               NAN_ROLE_SUBSCRIBER);
+                                               NAN_ROLE_SUBSCRIBER,
+                                               event->addr);
             break;
         default:
             ALOGV("Unknown TLV type skipped");
@@ -1532,7 +1533,8 @@ int NanCommand::getNdpRequest(struct nlattr **tb_vendor,
             mNanCommandInstance->saveServiceId((u8 *)nla_data(tb_vendor[QCA_WLAN_VENDOR_ATTR_NDP_SERVICE_ID]),
                                                event->service_instance_id,
                                                event->ndp_instance_id,
-                                               NAN_ROLE_PUBLISHER);
+                                               NAN_ROLE_PUBLISHER,
+                                               event->peer_disc_mac_addr);
     } else {
         ALOGD("%s: Service ID not present", __FUNCTION__);
     }

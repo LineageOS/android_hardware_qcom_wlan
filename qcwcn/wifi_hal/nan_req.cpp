@@ -1785,12 +1785,6 @@ wifi_error NanCommand::putNanBootstrappingIndicationRsp(transaction_id id,
     /* Add bootstrapping parameters */
     message_len += (SIZEOF_TLV_HDR + sizeof(NanFWBootstrappingParams));
 
-    pNanTransmitFollowupReqMsg pFwReq = (pNanTransmitFollowupReqMsg)malloc(message_len);
-    if (pFwReq == NULL) {
-        cleanup();
-        return WIFI_ERROR_OUT_OF_MEMORY;
-    }
-
 #ifdef WPA_PASN_LIB
     if (is_zero_ether_addr(pRsp->peer_disc_mac_addr)) {
          entry = nan_pairing_get_peer_from_bootstrapping_id(info->secure_nan,
@@ -1802,10 +1796,16 @@ wifi_error NanCommand::putNanBootstrappingIndicationRsp(transaction_id id,
 #endif
     if (!entry) {
         ALOGE(" %s :No valid Peer in pairing list", __FUNCTION__);
+        cleanup();
         return WIFI_ERROR_UNKNOWN;
     }
-
     ALOGV("Message Len %zu", message_len);
+
+    pNanTransmitFollowupReqMsg pFwReq = (pNanTransmitFollowupReqMsg)malloc(message_len);
+    if (pFwReq == NULL) {
+        cleanup();
+        return WIFI_ERROR_OUT_OF_MEMORY;
+    }
     memset (pFwReq, 0, message_len);
     pFwReq->fwHeader.msgVersion = (u16)NAN_MSG_VERSION1;
     pFwReq->fwHeader.msgId = NAN_MSG_ID_TRANSMIT_FOLLOWUP_REQ;
@@ -2083,6 +2083,7 @@ wifi_error NanCommand::putNanTCA(transaction_id id, const NanTCARequest *pReq)
                       (const u8*)&tcaReqParams[0], tlvs);
     } else {
         ALOGE("%s: Unrecognized tca_type:%u", __FUNCTION__, pReq->tca_type);
+        free(pFwReq);
         cleanup();
         return WIFI_ERROR_INVALID_ARGS;
     }
