@@ -839,6 +839,10 @@ static int handle_response(struct resp_info *info, struct nlattr *vendata,
 		os_memset(info->reply_buf, 0, info->reply_buf_len);
 		wpa_driver_tsf_cmd_resp_handler(info, vendata, datalen);
 		break;
+	case QCA_NL80211_VENDOR_SUBCMD_GET_MONITOR_MODE:
+		os_memset(info->reply_buf, 0, info->reply_buf_len);
+		mon_response_handler(info, vendata, datalen);
+		break;
 	default:
 		wpa_printf(MSG_ERROR,"Unsupported response type: %d", info->subcmd);
 		break;
@@ -7070,6 +7074,15 @@ int wpa_driver_nl80211_driver_cmd(void *priv, char *cmd, char *buf,
 		 */
 		cmd += 26;
 		return wpa_driver_cfg_coex_traffic_shaping(bss, cmd);
+	} else if (os_strncasecmp(cmd, "STARTMONITOR ", 13) == 0) {
+		cmd += 13;
+		return wpa_driver_start_mon(bss, cmd);
+	} else if (os_strncasecmp(cmd, "STOPMONITOR ", 12) == 0) {
+		cmd += 12;
+		return wpa_driver_stop_mon(bss, cmd);
+	} else if (os_strncasecmp(cmd, "ISMONITORRUNNING ", 17) == 0) {
+		cmd += 17;
+		return wpa_driver_get_mon_status(bss, cmd, buf, buf_len);
 	} else { /* Use private command */
 		memset(&ifr, 0, sizeof(ifr));
 		memset(&priv_cmd, 0, sizeof(priv_cmd));
