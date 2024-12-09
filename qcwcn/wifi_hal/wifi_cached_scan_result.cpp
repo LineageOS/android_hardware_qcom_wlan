@@ -254,7 +254,7 @@ static wifi_error parse_wifi_cached_scan_result(wifi_cached_scan_report *report,
         if (flag_isset(feature_flag, len, QCA_WLAN_FW_SCAN_BSS_EHT_OPS))
             scan_result[result_cnt].flags |= WIFI_CACHED_SCAN_RESULT_FLAGS_EHT_OPS_PRESENT;
 
-        if (flag_isset(feature_flag, len, QCA_WLAN_FW_SCAN_BSS_FT_RESPONDER))
+        if (flag_isset(feature_flag, len, QCA_WLAN_FW_SCAN_BSS_FTM_RESPONDER))
             scan_result[result_cnt].flags |= WIFI_CACHED_SCAN_RESULT_FLAGS_IS_FTM_RESPONDER;
 
         /* primary frequency */
