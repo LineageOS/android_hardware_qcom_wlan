@@ -96,6 +96,7 @@
 #include "tcp_params_update.h"
 #include "wificonfigcommand.h"
 #include "wifi_cached_scan_result.h"
+#include "twtCommand.h"
 
 /*
  BUGBUG: normally, libnl allocates ports for all connections it makes; but
@@ -1183,6 +1184,7 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn) {
 
     fn->wifi_set_scan_mode = wifi_set_scan_mode_config;
     fn->wifi_get_cached_scan_results = wifi_get_cached_scan_results;
+    fn->wifi_twt_register_events = wifi_twt_register_events;
     return WIFI_SUCCESS;
 }
 
@@ -1574,6 +1576,7 @@ unload:
             cleanupRSSIMonitorHandler(info);
             cleanupRadioHandler(info);
             cleanupTCPParamCommand(info);
+            cleanupTwtCommand(info);
             free(info->event_cb);
             if (info->driver_supported_features.flags) {
                 free(info->driver_supported_features.flags);
@@ -1709,6 +1712,7 @@ static void internal_cleaned_up_handler(wifi_handle handle)
     cleanupRSSIMonitorHandler(info);
     cleanupRadioHandler(info);
     cleanupTCPParamCommand(info);
+    cleanupTwtCommand(info);
     if (secure_nan_deinit(info))
         ALOGE("%s: secure nan deinit failed", __FUNCTION__);
 
