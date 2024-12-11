@@ -16,7 +16,7 @@ struct mlo_link_state_info {
 	struct mlo_link_state {
 		int link_id;
 		int link_state;
-	} link_state_info[MAX_NUM_MLO_LINKS];
+	} link_state_info[MAX_NUM_MLD_LINKS];
 };
 
 static int get_mlo_links_state(struct nl_msg *msg, void *arg)
