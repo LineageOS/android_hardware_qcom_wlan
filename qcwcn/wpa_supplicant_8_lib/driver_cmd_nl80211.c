@@ -6366,7 +6366,7 @@ struct mlo_ul_mu_info {
 	struct mlo_link_state {
 		u8 link_id;
 		u8 ul_mu_mode;
-	} link_ul_mu_info[MAX_NUM_MLO_LINKS + 1];
+	} link_ul_mu_info[MAX_NUM_MLD_LINKS + 1];
 };
 
 static bool mlo_ul_mu_process_cmd_string(char *cmd, struct mlo_ul_mu_info *info)
