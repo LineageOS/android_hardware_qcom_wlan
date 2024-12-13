@@ -219,6 +219,10 @@ int NanCommand::handleNanIndication()
             (*mHandler.EventRangeReport)(&rangeReportInd);
         }
         break;
+
+    case NAN_CONTINUOUS_RANGE_RESULT_IND:
+        res = getNanContinuousRangingResult();
+        break;
 #ifdef CONFIG_NAN_VENDOR_AIDL
     case NAN_INDICATION_VENDOR_EVENT:
         NanVendorEventInd EventInd;
@@ -280,6 +284,8 @@ NanIndicationType NanCommand::getIndicationType()
         return NAN_INDICATION_IDENTITY_RESOLUTION;
     case NAN_MSG_ID_OEM_IND:
         return NAN_INDICATION_VENDOR_EVENT;
+    case NAN_MSG_ID_CONTINUOUS_RANGE_RESULT_IND:
+        return NAN_CONTINUOUS_RANGE_RESULT_IND;
     default:
         return NAN_INDICATION_UNKNOWN;
     }
@@ -1830,6 +1836,144 @@ int NanCommand::getNanRangeReportInd(NanRangeReportInd *event)
         memset(&outputTlv,0, sizeof(outputTlv));
     }
     return WIFI_SUCCESS;
+}
+
+int NanCommand::getNanContinuousRangingResult()
+{
+    if (mNanVendorEvent == NULL) {
+        ALOGE("%s: Invalid input argument mNanVendorEvent:%p",
+              __func__, mNanVendorEvent);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+
+    NanTlv outputTlv;
+    u16 readLen = 0;
+    int index = 0;
+    unsigned num_results = 0;
+    u16 session_id = 0;
+    int ret  = WIFI_SUCCESS;
+
+    pNanContRangeResultInd pRsp = (pNanContRangeResultInd)mNanVendorEvent;
+    u8 *pInputTlv = pRsp->ptlv;
+
+    ALOGD("mNanDataLen:%zu", mDataLen);
+    int remainingLen = (mNanDataLen - (sizeof(NanMsgHeader)));
+
+    if (remainingLen <= 0) {
+        ALOGE("%s: No TLV's present",__func__);
+        return WIFI_SUCCESS;
+    }
+
+    session_id = pRsp->fwHeader.handle;
+    ALOGV("%s: TLV remaining Len:%d, session id: %u",__func__, remainingLen,
+                                                    session_id);
+    while ((remainingLen > 0) &&
+     (0 != (readLen = NANTLV_ReadTlv(pInputTlv, &outputTlv, remainingLen)))) {
+     ALOGV("%s: Remaining Len:%d readLen:%d type:%d length:%d",
+              __func__, remainingLen, readLen, outputTlv.type,
+              outputTlv.length);
+        switch (outputTlv.type) {
+
+            case NAN_TLV_TYPE_CONTINUOUS_RANGING_RESULT:
+                index += 1;
+                break;
+            default:
+                ALOGV("Unhandled TLV type:%d", outputTlv.type);
+                break;
+        }
+        remainingLen -= readLen;
+        pInputTlv += readLen;
+        memset(&outputTlv,0, sizeof(outputTlv));
+    }
+
+    wifi_rtt_result **result = (wifi_rtt_result **)
+                               malloc(index * sizeof(wifi_rtt_result *));
+    if (result == NULL) {
+        ALOGE("Memory allocation failed for wifi rtt result array");
+        return WIFI_ERROR_OUT_OF_MEMORY;
+    }
+    memset((void *)result, 0, index * sizeof(wifi_rtt_result*));
+
+    for (int i = 0; i < index; i++) {
+        result[i] = (wifi_rtt_result*)malloc(sizeof(wifi_rtt_result));
+         if (result[i] == NULL) {
+            ALOGE("Memory allocation failed for wifi rtt result");
+            index = i;
+            ret = WIFI_ERROR_OUT_OF_MEMORY;
+            goto cleanup;
+         }
+    }
+
+    index = 0;
+    pInputTlv = pRsp->ptlv;
+    remainingLen = (mNanDataLen - (sizeof(NanMsgHeader)));
+
+    while ((remainingLen > 0) &&
+      (0 != (readLen = NANTLV_ReadTlv(pInputTlv, &outputTlv, remainingLen)))) {
+        switch (outputTlv.type) {
+
+            case NAN_TLV_TYPE_CONTINUOUS_RANGING_RESULT:
+                NanContinuousRangeResult rangeResult;
+                if (outputTlv.length > sizeof(NanContinuousRangeResult)) {
+                    outputTlv.length = sizeof(NanContinuousRangeResult);
+                }
+                memcpy(&rangeResult, outputTlv.value, outputTlv.length);
+
+                // Populating values in rtt_result
+                FW_MAC_ADDR_TO_CHAR_ARRAY(rangeResult.fw_addr, result[index]->addr);
+                result[index]->measurement_number = rangeResult.num_measurements;
+                result[index]->success_number = rangeResult.num_successful_measurements;
+                result[index]->number_per_burst_peer = rangeResult.number_per_burst_peer;
+                result[index]->burst_duration = (int)rangeResult.burst_duration_ms;
+                result[index]->rssi = (wifi_rssi)rangeResult.avg_rssi+100;
+                result[index]->distance_mm = (int)rangeResult.distance_mm;
+                result[index]->distance_sd_mm = (int)rangeResult.distance_stdev_mm;
+                result[index]->type = RTT_TYPE_2_SIDED_11MC;
+                ALOGV("Mac Address: " MAC_ADDR_STR
+                      "\n measurement_number:%u\n"
+                      "success_number:%u\n"
+                      "number_per_burst_peer:%u\n"
+                      "burst_duration:%d\n"
+                      "distance_mm:%d\n"
+                      "distance_sd_mm:%d\n",
+                      MAC_ADDR_ARRAY(result[index]->addr),
+                      result[index]->measurement_number,
+                      result[index]->success_number,
+                      result[index]->number_per_burst_peer,
+                      result[index]->burst_duration,
+                      result[index]->distance_mm,
+                      result[index]->distance_sd_mm);
+                break;
+
+            default:
+                ALOGV("Unhandled TLV type:%d", outputTlv.type);
+                break;
+        }
+        index += 1;
+        remainingLen -= readLen;
+        pInputTlv += readLen;
+        memset(&outputTlv,0, sizeof(outputTlv));
+    }
+    num_results = (unsigned)index;
+    ALOGV("%s: Number of Rtt Results: %u", __func__, num_results);
+
+    if ( mHandler.EventRangingResults) {
+     (*mHandler.EventRangingResults)(result, num_results,
+                                    session_id);
+    }
+cleanup:
+    for (int i=0; i < index; i++) {
+        if (result[i]) {
+            free(result[i]);
+            result[i] = NULL;
+        }
+    }
+    if (result) {
+        free(result);
+        result = NULL;
+    }
+
+    return ret;
 }
 
 int NanCommand::handleNanBootstrappingReqInd(NanBootstrappingRequestInd  *evt)

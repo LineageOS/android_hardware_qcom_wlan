@@ -672,6 +672,8 @@ int NanCommand::getNanResponse(transaction_id *id, NanResponseMsg *pRsp)
                        pFwRsp->nan_pairing_supported;
             mNanCommandInstance->mNanFollowupRxSupport = \
                        pFwRsp->nan_followup_rx_forward_supported;
+            pRsp->body.nan_capabilities.is_periodic_ranging_supported = \
+                       pFwRsp->supportsPeriodicRanging;
 
             if (capab_len <= offsetof(NanCapabilitiesRspMsg, nan_group_mfp_cap)
                              + sizeof(pFwRsp->nan_group_mfp_cap))
@@ -681,6 +683,10 @@ int NanCommand::getNanResponse(transaction_id *id, NanResponseMsg *pRsp)
                        pFwRsp->is_6g_supported;
             pRsp->body.nan_capabilities.is_he_supported = \
                        pFwRsp->is_he_supported;
+            pRsp->body.nan_capabilities.supported_bw = \
+                       (wifi_rtt_bw)pFwRsp->maxSupportedBandWidth;
+            pRsp->body.nan_capabilities.num_rx_chains_supported = \
+                       pFwRsp->numRxChainsSupported;
 
             break;
         }

@@ -422,6 +422,7 @@ typedef enum
     NAN_MSG_ID_GROUP_KEY_INSTALL_RSP        = 45,
     NAN_MSG_ID_GET_TX_PN_REQ                = 46,
     NAN_MSG_ID_GET_TX_PN_RSP                = 47,
+    NAN_MSG_ID_CONTINUOUS_RANGE_RESULT_IND  = 48,
     NAN_MSG_ID_TESTMODE_REQ                 = 1025,
     NAN_MSG_ID_TESTMODE_RSP                 = 1026
 } NanMsgId;
@@ -476,6 +477,8 @@ typedef enum
     NAN_TLV_TYPE_NIRA_TAG = 37,
     NAN_TLV_TYPE_NAN_CSID_EXT = 38,
     NAN_TLV_TYPE_CSIA_CAP = 39,
+    NAN_TLV_TYPE_SERVICE_RANGE_PARAM_EXT = 40,
+    NAN_TLV_TYPE_CONTINUOUS_RANGING_RESULT = 41,
     NAN_TLV_TYPE_SDF_LAST = 4095,
 
     /* Configuration types */
@@ -664,6 +667,9 @@ typedef enum
 
 #define NAN_TLV_HEADER_SIZE 4
 
+/* NAN Continuous Ranging Result Indication Event*/
+#define NAN_RANGE_IND_MASK_CONTINUOUS_RESULT      8
+
 /* NAN Error Rsp */
 typedef struct PACKED
 {
@@ -671,6 +677,26 @@ typedef struct PACKED
     u16 status;
     u16 value;
 } NanErrorRspMsg, *pNanErrorRspMsg;
+
+/* IE that would be requested to FW */
+typedef struct PACKED {
+    u8 preamble;
+    u8 pkt_bw;
+    u16 burst_size;
+    u16 freq_mhz_hint;
+    u16 cf0_mhz_hint;
+    u16 cf1_mhz_hint;
+    u16 reserved;
+} NanFWRangeReqMsgExt;
+
+/* NAN Continuous Range Result Response from Fw */
+typedef struct PACKED {
+    NanMsgHeader fwHeader;
+    /*TLV Required
+       1. t_nan_cont_range_result_params (at least one entry required)
+    */
+    u8 ptlv[1];
+} NanContRangeResultInd, *pNanContRangeResultInd;
 
 //* NAN Publish Service Req */
 typedef struct PACKED
@@ -1469,6 +1495,7 @@ typedef enum {
     NAN_INDICATION_RANGING_RESULT           =12,
     NAN_INDICATION_IDENTITY_RESOLUTION      =13,
     NAN_INDICATION_VENDOR_EVENT             =14,
+    NAN_CONTINUOUS_RANGE_RESULT_IND         = 15,
     NAN_INDICATION_UNKNOWN                 =0xFFFF
 } NanIndicationType;
 
@@ -1515,8 +1542,10 @@ typedef struct PACKED
     u32 nan_group_mfp_cap;
     u32 is_6g_supported:1;
     u32 is_he_supported:1;
-    u32 reserved:30;
-
+    u32 supportsPeriodicRanging:1;
+    u32 maxSupportedBandWidth:16;
+    u32 numRxChainsSupported:4;
+    u32 reserved:9;
 } NanCapabilitiesRspMsg, *pNanCapabilitiesRspMsg;
 
 /* NAN Self Transmit Followup */
@@ -2175,6 +2204,31 @@ typedef struct PACKED
     u16 reserved[2];
     u8 ptlv[];
 } NanFWOemIndMsg, *pNanFWOemIndMsg;
+
+/* NAN Continuous Range Result */
+typedef struct PACKED {
+    u32 match_handle;
+    fw_mac_addr fw_addr;
+    u8 num_measurements;
+    u8 num_successful_measurements;
+    u8 number_per_burst_peer;
+    u16 burst_duration_ms;
+    u8 avg_rssi;
+    u32 distance_mm;
+    u32 distance_stdev_mm;
+} NanContinuousRangeResult, *pNanContinuousRangeResult;
+
+/* NAN Continuous Ranging RTT Interval Values */
+typedef enum {
+    PERIODIC_RANGING_INTERVAL_NONE = 0,
+    PERIODIC_RANGING_INTERVAL_128TU = 128,
+    PERIODIC_RANGING_INTERVAL_256TU = 256,
+    PERIODIC_RANGING_INTERVAL_512TU = 512,
+    PERIODIC_RANGING_INTERVAL_1024TU = 1024,
+    PERIODIC_RANGING_INTERVAL_2048TU = 2048,
+    PERIODIC_RANGING_INTERVAL_4096TU = 4096,
+    PERIODIC_RANGING_INTERVAL_8192TU = 8192
+} NAN_CONTINUOUS_RANGING_INTERVAL;
 
 /* Function for NAN error translation
    For NanResponse, NanPublishTerminatedInd, NanSubscribeTerminatedInd,
