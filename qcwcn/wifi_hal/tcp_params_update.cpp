@@ -54,9 +54,7 @@ TCPParamCommand::TCPParamCommand(wifi_handle handle, int id,
                         __FUNCTION__, vendor_id, subcmd);
     }
     memset(def_tcp_limit_output_bytes, 0, SIZE_TCP_PARAM);
-    memset(def_tcp_adv_win_scale, 0, SIZE_TCP_PARAM);
     def_tcp_limit_output_bytes_valid = false;
-    def_tcp_adv_win_scale_valid = false;
 }
 
 TCPParamCommand::~TCPParamCommand()
@@ -84,8 +82,6 @@ int TCPParamCommand::handleEvent(WifiEvent &event)
     u8 tpDirection, tpLevel;
     u32 tcpLimitOutputBytes;
     u8 tcpLimitOutputBytesFlag = 0;
-    s8 tcpAdvWinScale;
-    u8 tcpAdvWinScaleFlag = 0;
     u32 tcpDelackSeg;
     u8 tcpDelackSegFlag = 0;
     char value_to_str[100];
@@ -114,12 +110,6 @@ int TCPParamCommand::handleEvent(WifiEvent &event)
             tcpLimitOutputBytesFlag = 1;
         }
 
-        if (tb[QCA_WLAN_VENDOR_ATTR_THROUGHPUT_CHANGE_TCP_ADV_WIN_SCALE]) {
-            tcpAdvWinScale = *(s8 *)nla_data(tb[
-            QCA_WLAN_VENDOR_ATTR_THROUGHPUT_CHANGE_TCP_ADV_WIN_SCALE]);
-            tcpAdvWinScaleFlag = 1;
-        }
-
         if (tb[QCA_WLAN_VENDOR_ATTR_THROUGHPUT_CHANGE_TCP_DELACK_SEG]) {
             tcpDelackSeg = nla_get_u32(tb[
             QCA_WLAN_VENDOR_ATTR_THROUGHPUT_CHANGE_TCP_DELACK_SEG]);
@@ -129,24 +119,12 @@ int TCPParamCommand::handleEvent(WifiEvent &event)
             switch(tpLevel) {
             case QCA_WLAN_THROUGHPUT_LEVEL_LOW:
             {
-                if (def_tcp_adv_win_scale_valid)
-                    wlan_service_set_tcp_adv_win_scale(def_tcp_adv_win_scale);
                 wlan_service_set_tcp_use_userconfig("0");
             }
             break;
             case QCA_WLAN_THROUGHPUT_LEVEL_MEDIUM:
             case QCA_WLAN_THROUGHPUT_LEVEL_HIGH:
             {
-                if (tcpAdvWinScaleFlag) {
-                    ret_val = snprintf(value_to_str, sizeof(value_to_str), "%d",
-                                            tcpAdvWinScale);
-                    if (ret_val < 0 || ret_val >= (int)sizeof(value_to_str)) {
-                        ALOGE("Error in converting value to string: %d", ret_val);
-                        ret = WIFI_ERROR_UNKNOWN;
-                        goto cleanup;
-                    }
-                    wlan_service_set_tcp_adv_win_scale(value_to_str);
-                }
                 if (tcpDelackSegFlag && wlan_service_set_tcp_use_userconfig("1") == 0) {
                     ret_val = snprintf(value_to_str, sizeof(value_to_str), "%d",
                                             tcpDelackSeg);
@@ -251,12 +229,6 @@ wifi_error wifi_init_tcp_param_change_event_handler(wifi_interface_handle iface)
         tcpParamCommand->def_tcp_limit_output_bytes_valid = true;
     }
 
-    if (wlan_service_read_sys_param("/proc/sys/net/ipv4/tcp_adv_win_scale",
-                    tcpParamCommand->def_tcp_adv_win_scale,
-                    SIZE_TCP_PARAM) == 0) {
-        tcpParamCommand->def_tcp_adv_win_scale_valid = true;
-    }
-
     return WIFI_SUCCESS;
 }
 
@@ -274,9 +246,6 @@ void cleanupTCPParamCommand(hal_info *info) {
             wlan_service_update_sys_param("/proc/sys/net/ipv4/tcp_limit_output_bytes",
                               tcpParamCommand->def_tcp_limit_output_bytes);
         wlan_service_update_sys_param("/proc/sys/net/ipv4/tcp_use_userconfig", "0");
-        if (tcpParamCommand->def_tcp_adv_win_scale_valid)
-            wlan_service_update_sys_param("/proc/sys/net/ipv4/tcp_adv_win_scale",
-                              tcpParamCommand->def_tcp_adv_win_scale);
         delete tcpParamCommand;
     }
 
@@ -347,12 +316,6 @@ wifi_error wlan_service_read_sys_param(const char *path, char *str, size_t max_s
 
     ALOGD("%s: %s %s", __FUNCTION__,  path, str);
     return WIFI_SUCCESS;
-}
-
-int TCPParamCommand::wlan_service_set_tcp_adv_win_scale(char *str)
-{
-    return wlan_service_update_sys_param(
-        "/proc/sys/net/ipv4/tcp_adv_win_scale", str);
 }
 
 int TCPParamCommand::wlan_service_set_tcp_use_userconfig(const char *str)
