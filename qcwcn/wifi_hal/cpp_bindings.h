@@ -356,6 +356,7 @@ public:
     wifi_error requestEvent(int cmd);
     wifi_error requestVendorEvent(uint32_t id, int subcmd);
     wifi_error requestResponse(WifiRequest& request);
+    int requestResponseWithKernelStatus(WifiRequest& request);
 
 protected:
     wifi_handle wifiHandle() {

@@ -599,6 +599,12 @@ wifi_error WifiCommand::requestResponse()
 
 wifi_error WifiCommand::requestResponse(WifiRequest& request)
 {
+    int err = requestResponseWithKernelStatus(request);
+    return mapKernelErrortoWifiHalError(err);
+}
+
+int WifiCommand::requestResponseWithKernelStatus(WifiRequest& request)
+{
     int err = 0;
 
     pthread_mutex_lock(&mInfo->cb_lock);
@@ -629,7 +635,7 @@ out:
     nl_cb_put(cb);
     mMsg.destroy();
     pthread_mutex_unlock(&mInfo->cb_lock);
-    return mapKernelErrortoWifiHalError(err);
+    return err;
 }
 
 wifi_error WifiCommand::requestEvent(int cmd)
