@@ -293,6 +293,8 @@ wifi_error wifi_get_supported_radio_combinations_matrix(
 
 wifi_error wifi_twt_register_events(wifi_interface_handle iface,
                                     wifi_twt_events events);
+wifi_error wifi_twt_get_capabilities(wifi_interface_handle iface,
+                                     wifi_twt_capabilities* capabilities);
 // some common macros
 
 #define min(x, y)       ((x) < (y) ? (x) : (y))

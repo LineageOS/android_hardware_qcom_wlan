@@ -1185,6 +1185,8 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn) {
     fn->wifi_set_scan_mode = wifi_set_scan_mode_config;
     fn->wifi_get_cached_scan_results = wifi_get_cached_scan_results;
     fn->wifi_twt_register_events = wifi_twt_register_events;
+    fn->wifi_twt_get_capabilities = wifi_twt_get_capabilities;
+
     return WIFI_SUCCESS;
 }
 
