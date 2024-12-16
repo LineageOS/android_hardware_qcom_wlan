@@ -10,6 +10,7 @@ TwtCommand::TwtCommand(wifi_handle handle, int id, u32 vendor_id, u32 subcmd)
 {
     memset(&mHandler, 0, sizeof(mHandler));
     mTWTCapabilities = NULL;
+    mRequestId = 0;
 }
 
 TwtCommand::~TwtCommand()
@@ -146,6 +147,16 @@ void TwtCommand::setTwtCapabilities(wifi_twt_capabilities* capabilities)
     mTWTCapabilities = capabilities;
 }
 
+void TwtCommand::setReqId(wifi_request_id id)
+{
+    mRequestId = id;
+}
+
+void TwtCommand::setTwtFlowId(int flowId)
+{
+    mTwtFlowId = flowId;
+}
+
 int TwtCommand::handleResponse(WifiEvent &reply)
 {
     WifiVendorCommand::handleResponse(reply);
@@ -217,6 +228,100 @@ int TwtCommand::handleResponse(WifiEvent &reply)
                   mTWTCapabilities->max_wake_duration_micros,
                   mTWTCapabilities->min_wake_interval_micros,
                   mTWTCapabilities->max_wake_interval_micros);
+            break;
+        case QCA_WLAN_TWT_GET_STATS:
+            struct nlattr *tb1[QCA_WLAN_VENDOR_ATTR_CONFIG_TWT_MAX + 1];
+            struct nlattr *tb2[QCA_WLAN_VENDOR_ATTR_TWT_STATS_MAX + 1];
+            struct nlattr *attr;
+            wifi_twt_session_stats twtSessionStats;
+            int flow_id, rem;
+
+            if (nla_parse(tb1, QCA_WLAN_VENDOR_ATTR_CONFIG_TWT_MAX,
+                          (struct nlattr *) mVendorData, mDataLen, NULL)) {
+                    ALOGE("Parse TWT get stats failed");
+                    return NL_SKIP;
+            }
+
+            if (!tb1[QCA_WLAN_VENDOR_ATTR_CONFIG_TWT_PARAMS]) {
+                ALOGE("TWT get statistics nested attributes is null");
+                return NL_SKIP;
+            }
+
+            nla_for_each_nested(attr, tb1[QCA_WLAN_VENDOR_ATTR_CONFIG_TWT_PARAMS], rem) {
+                if (nla_parse(tb2, QCA_WLAN_VENDOR_ATTR_TWT_STATS_MAX,
+                              (struct nlattr *)nla_data(attr), nla_len(attr), NULL)) {
+                    ALOGE("TWT parse get stats failed");
+                    return NL_SKIP;
+                }
+
+                flow_id = -1;
+                if (tb2[QCA_WLAN_VENDOR_ATTR_TWT_STATS_FLOW_ID])
+                    flow_id = get_u8(tb2[QCA_WLAN_VENDOR_ATTR_TWT_STATS_FLOW_ID]);
+                else
+                    ALOGE("TWT flow id attribute is not present");
+
+                if (flow_id != mTwtFlowId) {
+                    ALOGE("TWT flow id received:%d is invalid expected flow id:%d",
+                          flow_id, mTwtFlowId);
+                    return NL_SKIP;
+                }
+
+                memset(&twtSessionStats, 0, sizeof(twtSessionStats));
+                if (tb2[QCA_WLAN_VENDOR_ATTR_TWT_STATS_AVERAGE_TX_MPDU])
+                    twtSessionStats.avg_pkt_num_tx =
+                        get_u32(tb2[QCA_WLAN_VENDOR_ATTR_TWT_STATS_AVERAGE_TX_MPDU]);
+                else
+                    ALOGE("Average TX MPDU attribute is not present");
+
+                if (tb2[QCA_WLAN_VENDOR_ATTR_TWT_STATS_AVERAGE_RX_MPDU])
+                    twtSessionStats.avg_pkt_num_rx =
+                        get_u32(tb2[QCA_WLAN_VENDOR_ATTR_TWT_STATS_AVERAGE_RX_MPDU]);
+                else
+                    ALOGE("Average TX MPDU attribute is not present");
+
+                if (tb2[QCA_WLAN_VENDOR_ATTR_TWT_STATS_AVERAGE_TX_PACKET_SIZE])
+                    twtSessionStats.avg_tx_pkt_size =
+                        get_u32(tb2[QCA_WLAN_VENDOR_ATTR_TWT_STATS_AVERAGE_TX_PACKET_SIZE]);
+                else
+                    ALOGE("Average TWT Stats average TX packets size attributes is not present");
+
+                if (tb2[QCA_WLAN_VENDOR_ATTR_TWT_STATS_AVERAGE_RX_PACKET_SIZE])
+                    twtSessionStats.avg_rx_pkt_size =
+                        get_u32(tb2[QCA_WLAN_VENDOR_ATTR_TWT_STATS_AVERAGE_RX_PACKET_SIZE]);
+                else
+                    ALOGE("Average RX packets size attributes is not present");
+
+                if (tb2[QCA_WLAN_VENDOR_ATTR_TWT_STATS_AVG_EOSP_DUR_US])
+                    twtSessionStats.avg_eosp_dur_us =
+                        get_u32(tb2[QCA_WLAN_VENDOR_ATTR_TWT_STATS_AVG_EOSP_DUR_US]);
+                else
+                    ALOGE("Average eosp duration us attribute is not present");
+
+                if (tb2[QCA_WLAN_VENDOR_ATTR_TWT_STATS_EOSP_COUNT])
+                    twtSessionStats.eosp_count =
+                        get_u32(tb2[QCA_WLAN_VENDOR_ATTR_TWT_STATS_EOSP_COUNT]);
+                else
+                    ALOGE("eosp count attribute is not present");
+
+                ALOGV("TWT Session stats: avg_pkt_num_tx:%d avg_pkt_num_rx:%d avg_tx_pkt_size:%d avg_rx_pkt_size:%d avg_eosp_dur_us:%d eosp_count:%d",
+                      twtSessionStats.avg_pkt_num_tx,
+                      twtSessionStats.avg_pkt_num_rx,
+                      twtSessionStats.avg_tx_pkt_size,
+                      twtSessionStats.avg_rx_pkt_size,
+                      twtSessionStats.avg_eosp_dur_us,
+                      twtSessionStats.eosp_count);
+
+                if (mHandler.on_twt_session_stats)
+                    (*mHandler.on_twt_session_stats)(mRequestId, flow_id,
+                                                     twtSessionStats);
+                else
+                    ALOGE("TWT: session stats Callback is not registered:");
+                /*
+                 * Reset the flow id once response is received to avoid
+                 * duplicate event processing
+                 */
+                mTwtFlowId = -1;
+            }
             break;
         default:
             break;
@@ -296,5 +401,82 @@ cleanup:
     if (ret != WIFI_SUCCESS)
         ALOGE("%s: Error:%d", __FUNCTION__, ret);
 
+    return ret;
+}
+
+wifi_error wifi_twt_session_get_stats(wifi_request_id id,
+                                      wifi_interface_handle iface,
+                                      int session_id)
+{
+    wifi_error ret;
+    TwtCommand *ptwtCommand;
+    struct nlattr *nlData, *nlTwtParams;
+    interface_info *iinfo;
+    wifi_handle handle;
+
+    if(!iface){
+        ALOGE("%s: iface is NULL", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+
+    iinfo = getIfaceInfo(iface);
+    if (!iinfo) {
+        ALOGE("%s: iinfo is NULL", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+
+    ALOGV("%s: Enter id:%d session_id:%d", __FUNCTION__, id, session_id);
+    handle = getWifiHandle(iface);
+
+    ptwtCommand = TwtCommand::instance(handle);
+    if (ptwtCommand == NULL) {
+        ALOGE("%s: Error TwtCommand is NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
+    ptwtCommand->setSubCmd(QCA_NL80211_VENDOR_SUBCMD_CONFIG_TWT);
+    ptwtCommand->setTWTRequestType(QCA_WLAN_TWT_GET_STATS);
+    ptwtCommand->setReqId(id);
+    ptwtCommand->setTwtFlowId(session_id);
+
+    /* Create the NL message. */
+    ret = ptwtCommand->create();
+    if (ret != WIFI_SUCCESS)
+        goto cleanup;
+
+    /* Set the interface Id of the message. */
+    ret = ptwtCommand->set_iface_id(iinfo->name);
+    if (ret != WIFI_SUCCESS)
+        goto cleanup;
+
+    /* Add the vendor specific attributes for the NL command. */
+    nlData = ptwtCommand->attr_start(NL80211_ATTR_VENDOR_DATA);
+    if (!nlData){
+        ret = WIFI_ERROR_UNKNOWN;
+        goto cleanup;
+    }
+
+    ret = ptwtCommand->put_u8(QCA_WLAN_VENDOR_ATTR_CONFIG_TWT_OPERATION,
+                              QCA_WLAN_TWT_GET_STATS);
+    if (ret != WIFI_SUCCESS)
+        goto cleanup;
+
+    nlTwtParams =
+        ptwtCommand->attr_start(QCA_WLAN_VENDOR_ATTR_CONFIG_TWT_PARAMS);
+
+    ret = ptwtCommand->put_u8(QCA_WLAN_VENDOR_ATTR_TWT_STATS_FLOW_ID,
+                              session_id);
+    if (ret != WIFI_SUCCESS)
+        goto cleanup;
+
+    ptwtCommand->attr_end(nlTwtParams);
+    ptwtCommand->attr_end(nlData);
+
+    ret = ptwtCommand->requestResponse();
+    if (ret != WIFI_SUCCESS){
+        ALOGE("%s: requestResponse Error:%d", __FUNCTION__, ret);
+        goto cleanup;
+    }
+
+cleanup:
     return ret;
 }
