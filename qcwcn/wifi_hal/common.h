@@ -298,6 +298,9 @@ wifi_error wifi_twt_get_capabilities(wifi_interface_handle iface,
 wifi_error wifi_twt_session_get_stats(wifi_request_id id,
                                       wifi_interface_handle iface,
                                       int session_id);
+wifi_error wifi_twt_session_setup(wifi_request_id id,
+                                  wifi_interface_handle iface,
+                                  wifi_twt_request request);
 // some common macros
 
 #define min(x, y)       ((x) < (y) ? (x) : (y))

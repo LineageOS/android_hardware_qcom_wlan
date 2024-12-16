@@ -17,6 +17,13 @@ extern "C"
 {
 #endif /* __cplusplus */
 
+#define TWT_WAKE_INTERVAL_TU_FACTOR 1024
+#define TWT_WAKE_DURATION_FACTOR 256
+
+/* TWT Flow Types */
+#define TWT_FLOW_TYPE_ANNOUNCED 0
+/* Maximum Mantissa value*/
+#define TWT_SETUP_WAKE_INTVL_MANTISSA_MAX 0xFFFF
 
 class TwtCommand: public WifiVendorCommand
 {
@@ -42,8 +49,13 @@ public:
     virtual void setReqId(wifi_request_id reqid);
     virtual void setTwtFlowId(int flowId);
 
+    virtual wifi_twt_error_code
+    mapDriverStatusToHalErrorCode(enum qca_wlan_vendor_twt_status status);
     virtual wifi_error requestResponse();
+    virtual int requestResponseWithKernelStatus();
     virtual int handleResponse(WifiEvent &reply);
+    virtual int handleEvent(WifiEvent &event);
+    virtual void sendTwtFailure(wifi_request_id id, int ret);
 
 };
 
