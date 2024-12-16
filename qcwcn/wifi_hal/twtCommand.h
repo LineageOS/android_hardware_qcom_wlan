@@ -17,16 +17,21 @@ extern "C"
 {
 #endif /* __cplusplus */
 
+
 class TwtCommand: public WifiVendorCommand
 {
 private:
     wifi_twt_events mHandler;
     wifi_twt_capabilities *mTWTCapabilities;
     u32 mTWTRequestType;
+    wifi_request_id mRequestId;
+    int mTwtFlowId;
 
     TwtCommand(wifi_handle handle, int id, u32 vendor_id, u32 subcmd);
 
 public:
+    wifi_twt_session_stats mTWTSessionStats;
+
     static TwtCommand* instance(wifi_handle handle);
     virtual ~TwtCommand();
     virtual wifi_error setCallbackHandler(wifi_twt_events handler);
@@ -34,6 +39,8 @@ public:
     virtual void setSubCmd(u32 subcmd);
     virtual void setTWTRequestType(enum qca_wlan_twt_operation event);
     virtual void setTwtCapabilities(wifi_twt_capabilities* capabilities);
+    virtual void setReqId(wifi_request_id reqid);
+    virtual void setTwtFlowId(int flowId);
 
     virtual wifi_error requestResponse();
     virtual int handleResponse(WifiEvent &reply);
