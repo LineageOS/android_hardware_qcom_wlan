@@ -675,6 +675,82 @@ cleanup:
     return ret;
 }
 
+wifi_error wifi_twt_session_teardown(wifi_request_id id, wifi_interface_handle iface,
+                                     int session_id)
+{
+    wifi_error ret;
+    TwtCommand *ptwtCommand;
+    struct nlattr *nlData, *nlTwtParams;
+    interface_info *iinfo;
+    wifi_handle handle;
+
+    if(!iface){
+        ALOGE("%s: iface is NULL", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+
+    iinfo = getIfaceInfo(iface);
+    if (!iinfo) {
+        ALOGE("%s: iinfo is NULL", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+
+    ALOGV("%s Enter", __FUNCTION__);
+    handle = getWifiHandle(iface);
+
+    ptwtCommand = TwtCommand::instance(handle);
+    if (ptwtCommand == NULL) {
+        ALOGE("%s: Error TwtCommand NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
+    ptwtCommand->setSubCmd(QCA_NL80211_VENDOR_SUBCMD_CONFIG_TWT);
+    ptwtCommand->setReqId(id);
+
+    /* Create the NL message. */
+    ret = ptwtCommand->create();
+    if (ret != WIFI_SUCCESS)
+        goto cleanup;
+
+    /* Set the interface Id of the message. */
+    ret = ptwtCommand->set_iface_id(iinfo->name);
+    if (ret != WIFI_SUCCESS)
+        goto cleanup;
+
+    /* Add the vendor specific attributes for the NL command. */
+    nlData = ptwtCommand->attr_start(NL80211_ATTR_VENDOR_DATA);
+    if (!nlData){
+        ret = WIFI_ERROR_UNKNOWN;
+        goto cleanup;
+    }
+
+    ret = ptwtCommand->put_u8(QCA_WLAN_VENDOR_ATTR_CONFIG_TWT_OPERATION,
+                              QCA_WLAN_TWT_TERMINATE);
+    if (ret != WIFI_SUCCESS)
+        goto cleanup;
+
+    nlTwtParams = ptwtCommand->attr_start(
+    QCA_WLAN_VENDOR_ATTR_CONFIG_TWT_PARAMS);
+
+    ret = ptwtCommand->put_u8(QCA_WLAN_VENDOR_ATTR_TWT_SETUP_FLOW_ID,
+                              session_id);
+    if (ret != WIFI_SUCCESS)
+        goto cleanup;
+
+    ptwtCommand->attr_end(nlTwtParams);
+    ptwtCommand->attr_end(nlData);
+
+    ret = ptwtCommand->requestResponse();
+    if (ret != WIFI_SUCCESS) {
+        ALOGE("%s: requestResponse Error:%d", __FUNCTION__, ret);
+        goto cleanup;
+    }
+
+   ALOGV("%s: Teardown TWT session:%d", __FUNCTION__, session_id);
+
+cleanup:
+    return ret;
+}
+
 wifi_twt_error_code
 TwtCommand::mapDriverStatusToHalErrorCode(enum qca_wlan_vendor_twt_status status)
 {
@@ -703,6 +779,23 @@ TwtCommand::mapDriverStatusToHalErrorCode(enum qca_wlan_vendor_twt_status status
     }
 }
 
+wifi_twt_teardown_reason_code
+TwtCommand::mapTeardownHalReasonCode(enum qca_wlan_vendor_twt_status status)
+{
+    switch (status) {
+        case QCA_WLAN_VENDOR_TWT_STATUS_OK:
+            return WIFI_TWT_TEARDOWN_REASON_CODE_LOCALLY_REQUESTED;
+        case QCA_WLAN_VENDOR_TWT_STATUS_ROAM_INITIATED_TERMINATE:
+        case QCA_WLAN_VENDOR_TWT_STATUS_SCC_MCC_CONCURRENCY_TERMINATE:
+        case QCA_WLAN_VENDOR_TWT_STATUS_POWER_SAVE_EXIT_TERMINATE:
+            return WIFI_TWT_TEARDOWN_REASON_CODE_INTERNALLY_INITIATED;
+        case QCA_WLAN_VENDOR_TWT_STATUS_PEER_INITIATED_TERMINATE:
+            return WIFI_TWT_TEARDOWN_REASON_CODE_PEER_INITIATED;
+        default:
+            return WIFI_TWT_TEARDOWN_REASON_CODE_UNKNOWN;
+    }
+}
+
 /*
  * This function will be the main handler for incoming event SUBCMD_CONFIG_TWT
  * Call the appropriate callback handler after parsing the vendor data.
@@ -713,6 +806,7 @@ int TwtCommand::handleEvent(WifiEvent &event)
     struct nlattr *tb2[QCA_WLAN_VENDOR_ATTR_TWT_SETUP_MAX + 1];
     int attr_id;
     u8 twt_operation_type;
+    enum qca_wlan_vendor_twt_status resp_status;
 
     WifiVendorCommand::handleEvent(event);
     if (mSubcmd != QCA_NL80211_VENDOR_SUBCMD_CONFIG_TWT)
@@ -737,7 +831,6 @@ int TwtCommand::handleEvent(WifiEvent &event)
         {
             wifi_twt_session twt_session;
             wifi_twt_error_code error_code;
-            enum qca_wlan_vendor_twt_status resp_status;
             u32 exp, mantissa;
 
             if (!tb_vendor[QCA_WLAN_VENDOR_ATTR_CONFIG_TWT_PARAMS]) {
@@ -870,6 +963,58 @@ int TwtCommand::handleEvent(WifiEvent &event)
                   twt_session.is_updatable ? "[Updatable]" : "");
         }
         break;
+        case QCA_WLAN_TWT_TERMINATE:
+        {
+           wifi_twt_teardown_reason_code reason;
+           int flow_id = 0;
+           wifi_twt_error_code error_code;
+
+           if (!tb_vendor[QCA_WLAN_VENDOR_ATTR_CONFIG_TWT_PARAMS]) {
+                ALOGE("TWT teardown nested attributes is null");
+                return NL_SKIP;
+           }
+
+           if (nla_parse_nested(tb2, QCA_WLAN_VENDOR_ATTR_TWT_SETUP_MAX,
+                                tb_vendor[QCA_WLAN_VENDOR_ATTR_CONFIG_TWT_PARAMS],
+                                NULL)) {
+               ALOGE("nla_parse failed for vendor_data");
+               return NL_SKIP;
+           }
+
+           attr_id = QCA_WLAN_VENDOR_ATTR_TWT_SETUP_STATUS;
+           if (tb2[attr_id])
+               resp_status = (enum qca_wlan_vendor_twt_status)get_u8(tb2[attr_id]);
+           else
+               resp_status = QCA_WLAN_VENDOR_TWT_STATUS_DENIED;
+
+           if (resp_status != QCA_WLAN_VENDOR_TWT_STATUS_OK &&
+               resp_status != QCA_WLAN_VENDOR_TWT_STATUS_PEER_INITIATED_TERMINATE &&
+               resp_status != QCA_WLAN_VENDOR_TWT_STATUS_ROAM_INITIATED_TERMINATE &&
+               resp_status != QCA_WLAN_VENDOR_TWT_STATUS_SCC_MCC_CONCURRENCY_TERMINATE &&
+               resp_status != QCA_WLAN_VENDOR_TWT_STATUS_POWER_SAVE_EXIT_TERMINATE) {
+                ALOGE("TWT: Teardown failed resp_status:%d", resp_status);
+                error_code = mapDriverStatusToHalErrorCode(resp_status);
+                if (mHandler.on_twt_failure)
+                    (*mHandler.on_twt_failure)(mRequestId, error_code);
+                else
+                   ALOGE("TWT: Failure Callback is not registered:");
+
+                return NL_SKIP;
+            }
+
+            reason = mapTeardownHalReasonCode(resp_status);
+            ALOGV("TWT: Teardown response flow_id:%d status:%d reason:%d", flow_id,
+                  resp_status, reason);
+
+            if (tb2[QCA_WLAN_VENDOR_ATTR_TWT_SETUP_FLOW_ID])
+                flow_id = get_u8(tb2[QCA_WLAN_VENDOR_ATTR_TWT_SETUP_FLOW_ID]);
+
+            if (mHandler.on_twt_session_teardown)
+                (*mHandler.on_twt_session_teardown)(mRequestId, flow_id, reason);
+            else
+                ALOGE("TWT: No Callback registered:");
+          }
+          break;
         default:
             ALOGV("Unsupported TWT event received");
         break;

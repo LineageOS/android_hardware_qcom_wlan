@@ -51,6 +51,8 @@ public:
 
     virtual wifi_twt_error_code
     mapDriverStatusToHalErrorCode(enum qca_wlan_vendor_twt_status status);
+    virtual wifi_twt_teardown_reason_code
+    mapTeardownHalReasonCode(enum qca_wlan_vendor_twt_status status);
     virtual wifi_error requestResponse();
     virtual int requestResponseWithKernelStatus();
     virtual int handleResponse(WifiEvent &reply);
