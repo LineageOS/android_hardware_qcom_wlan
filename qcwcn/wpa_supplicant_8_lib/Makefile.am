@@ -19,6 +19,7 @@ library_include_HEADERS = $(h_sources)
 
 libwpa_supplicant_8_lib_la_SOURCES = driver_cmd_nl80211.c
 libwpa_supplicant_8_lib_la_SOURCES += driver_cmd_nl80211_sr.c
+libwpa_supplicant_8_lib_la_SOURCES += driver_cmd_nl80211_mon.c
 libwpa_supplicant_8_lib_la_SOURCES += driver_cmd_nl80211_extn.c
 libwpa_supplicant_8_lib_la_CFLAGS = ${AM_CFLAGS} ${LIBNL_CFLAGS}
 
