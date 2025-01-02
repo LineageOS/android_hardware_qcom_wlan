@@ -17,9 +17,11 @@
 #define MGMT_FRAME_RX_TX BIT(0)
 #define DATA_FRAME_RX_TX BIT(1)
 #define CTRL_FRAME_RX_TX BIT(2)
+#define OPERATING_TYPE_OCC BIT(3)
 
 #define MIN_MONITOR_MODE BIT(0)
-#define MAX_MONITOR_MODE (MGMT_FRAME_RX_TX | DATA_FRAME_RX_TX | CTRL_FRAME_RX_TX)
+#define MAX_MONITOR_MODE (MGMT_FRAME_RX_TX | DATA_FRAME_RX_TX | CTRL_FRAME_RX_TX | \
+			  OPERATING_TYPE_OCC)
 
 #define MON_STATUS_RUNNING "running"
 #define MON_STATUS_STOPPED "stopped"
@@ -167,6 +169,12 @@ int wpa_driver_start_mon(struct i802_bss *bss, char *cmd)
 		    nla_put_u32(nlmsg,
 				QCA_WLAN_VENDOR_ATTR_SET_MONITOR_MODE_CTRL_RX_FRAME_TYPE,
 				QCA_WLAN_VENDOR_MONITOR_CTRL_FRAME_TYPE_ALL))
+			goto err;
+	}
+	if (monitor_mode & OPERATING_TYPE_OCC) {
+		if (nla_put_u32(nlmsg,
+				QCA_WLAN_VENDOR_ATTR_SET_MONITOR_MODE_OPERATING_TYPE,
+				QCA_WLAN_VENDOR_MONITOR_OPERATING_TYPE_OCC))
 			goto err;
 	}
 	nla_nest_end(nlmsg, attr);
