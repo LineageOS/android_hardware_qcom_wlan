@@ -118,6 +118,44 @@ wifi_error wifi_get_rtt_capabilities_v3(wifi_interface_handle iface,
     return ret;
 }
 
+wifi_error wifi_get_rtt_capabilities_v4(wifi_interface_handle iface,
+                                     wifi_rtt_capabilities_v4 *capabilities)
+{
+    wifi_error ret;
+    lowi_cb_table_t *lowiWifiHalApi = NULL;
+
+    if (iface == NULL) {
+        ALOGE("wifi_get_rtt_capabilities_v4: NULL iface pointer provided."
+            " Exit.");
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+
+    if (capabilities == NULL) {
+        ALOGE("wifi_get_rtt_capabilities_v4: NULL capabilities pointer provided."
+            " Exit.");
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+
+    /* RTT commands are diverted through LOWI interface. */
+    /* Open LOWI dynamic library, retrieve handler to LOWI APIs and initialize
+     * LOWI if it isn't up yet.
+     */
+    lowiWifiHalApi = getLowiCallbackTable(
+                ONE_SIDED_RANGING_SUPPORTED|DUAL_SIDED_RANGING_SUPPORED);
+    if (lowiWifiHalApi == NULL ||
+        lowiWifiHalApi->get_rtt_capabilities_v4 == NULL) {
+        ALOGE("wifi_get_rtt_capabilities_v4: getLowiCallbackTable returned NULL or "
+            "the function pointer is NULL. Exit.");
+        return WIFI_ERROR_NOT_SUPPORTED;
+    }
+
+    ret = (wifi_error)lowiWifiHalApi->get_rtt_capabilities_v4(iface, capabilities);
+    if (ret != WIFI_SUCCESS)
+        ALOGE("wifi_get_rtt_capabilities_v4: lowi_wifihal_get_rtt_capabilities "
+            "returned error:%d. Exit.", ret);
+
+    return ret;
+}
 
 /* API to request RTT measurement */
 wifi_error wifi_rtt_range_request(wifi_request_id id,
@@ -261,6 +299,76 @@ wifi_error wifi_rtt_range_request_v3(wifi_request_id id,
     return ret;
 }
 
+/* API to request RTT measurement Version 4*/
+wifi_error wifi_rtt_range_request_v4(wifi_request_id id,
+                                    wifi_interface_handle iface,
+                                    unsigned num_rtt_config,
+                                    wifi_rtt_config_v4 rtt_config[],
+                                    wifi_rtt_event_handler_v4 handler)
+{
+    wifi_error ret;
+    lowi_cb_table_t *lowiWifiHalApi = NULL;
+    hal_info *info = NULL;
+
+    if (iface == NULL) {
+        ALOGE("wifi_rtt_range_request_v4: NULL iface pointer provided."
+            " Exit.");
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+
+    wifi_handle wifiHandle = getWifiHandle(iface);
+    info = getHalInfo(wifiHandle);
+    if (!info)
+    {
+        ALOGE("%s: hal_info is null ", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+
+    if (!(info->supported_feature_set & WIFI_FEATURE_D2AP_RTT)) {
+        ALOGE("%s: RTT is not supported by driver", __FUNCTION__);
+        return WIFI_ERROR_NOT_SUPPORTED;
+    }
+
+    if (rtt_config == NULL) {
+        ALOGE("wifi_rtt_range_request_v4: NULL rtt_config pointer provided."
+            " Exit.");
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+
+    if (num_rtt_config <= 0) {
+        ALOGE("wifi_rtt_range_request_v4: number of destination BSSIDs to "
+            "measure RTT on = 0. Exit.");
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+
+    if (handler.on_rtt_results_v4 == NULL) {
+        ALOGE("wifi_rtt_range_request_v4: NULL capabilities pointer provided."
+            " Exit.");
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+
+    /* RTT commands are diverted through LOWI interface. */
+    /* Open LOWI dynamic library, retrieve handler to LOWI APIs and initialize
+     * LOWI if it isn't up yet.
+     */
+    lowiWifiHalApi = getLowiCallbackTable(
+                    ONE_SIDED_RANGING_SUPPORTED|DUAL_SIDED_RANGING_SUPPORED);
+    if (lowiWifiHalApi == NULL ||
+        lowiWifiHalApi->rtt_range_request_v4 == NULL) {
+        ALOGE("wifi_rtt_range_request_v4: getLowiCallbackTable returned NULL or "
+            "the function pointer is NULL. Exit.");
+        return WIFI_ERROR_NOT_SUPPORTED;
+    }
+
+    ret = (wifi_error)lowiWifiHalApi->rtt_range_request_v4(id, iface,
+                                                        num_rtt_config,
+                                                        rtt_config, handler);
+    if (ret != WIFI_SUCCESS)
+        ALOGE("wifi_rtt_range_request_v4: lowi_wifihal_rtt_range_request_v3 "
+            "returned error:%d. Exit.", ret);
+
+    return ret;
+}
 
 /* API to cancel RTT measurements */
 wifi_error wifi_rtt_range_cancel(wifi_request_id id,
