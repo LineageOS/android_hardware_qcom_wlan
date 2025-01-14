@@ -54,6 +54,8 @@
 
 struct wpa_driver_nl80211_data *drv;
 struct i802_bss *bss;
+struct nl_msg *prepare_nlmsg(struct wpa_driver_nl80211_data *drv,
+		             char *ifname, int cmdid, int subcmd, int flag);
 struct nl_msg *prepare_vendor_nlmsg(struct wpa_driver_nl80211_data *drv,
 		                    char *ifname, int subcmd);
 
@@ -69,3 +71,8 @@ int wpa_driver_sr_event(struct wpa_driver_nl80211_data *drv,
 char *skip_white_space(char *cmd);
 char *get_next_arg(char *cmd);
 s32 get_s32_from_string(char *cmd_string, int *ret);
+
+int wpa_driver_start_mon(struct i802_bss *bss, char *cmd);
+int wpa_driver_stop_mon(struct i802_bss *bss, char *cmd);
+int wpa_driver_get_mon_status(struct i802_bss *bss, char *cmd, char *buf, size_t buf_len);
+void mon_response_handler(struct resp_info *info, struct nlattr *vendata, int datalen);

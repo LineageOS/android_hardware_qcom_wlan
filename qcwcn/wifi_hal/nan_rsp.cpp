@@ -617,6 +617,8 @@ int NanCommand::getNanResponse(transaction_id *id, NanResponseMsg *pRsp)
         {
             pNanCapabilitiesRspMsg pFwRsp = \
                 (pNanCapabilitiesRspMsg)mNanVendorEvent;
+            u32 capab_len = mNanDataLen;
+
             *id = (transaction_id)pFwRsp->fwHeader.transactionId;
             NanErrorTranslation((NanInternalStatusType)pFwRsp->status, pFwRsp->value, pRsp, false);
             pRsp->response_type = NAN_GET_CAPABILITIES;
@@ -670,6 +672,15 @@ int NanCommand::getNanResponse(transaction_id *id, NanResponseMsg *pRsp)
                        pFwRsp->nan_pairing_supported;
             mNanCommandInstance->mNanFollowupRxSupport = \
                        pFwRsp->nan_followup_rx_forward_supported;
+
+            if (capab_len <= offsetof(NanCapabilitiesRspMsg, nan_group_mfp_cap)
+                             + sizeof(pFwRsp->nan_group_mfp_cap))
+                break;
+
+            pRsp->body.nan_capabilities.is_6g_supported = \
+                       pFwRsp->is_6g_supported;
+            pRsp->body.nan_capabilities.is_he_supported = \
+                       pFwRsp->is_he_supported;
 
             break;
         }

@@ -55,7 +55,6 @@ class TCPParamCommand: public WifiVendorCommand
 {
 private:
 	TCPParamCommand(wifi_handle handle, int id, u32 vendor_id, u32 subcmd);
-	int wlan_service_set_tcp_adv_win_scale(char *str);
 	int wlan_service_set_tcp_use_userconfig(const char *str);
 	int wlan_service_set_tcp_delack_seg(char *str);
 	int wlan_service_set_tcp_limit_output_bytes(char *str);
@@ -67,8 +66,6 @@ public:
 	virtual int handleEvent(WifiEvent &event);
 	char def_tcp_limit_output_bytes[SIZE_TCP_PARAM];
 	bool def_tcp_limit_output_bytes_valid;
-	char def_tcp_adv_win_scale[SIZE_TCP_PARAM];
-	bool def_tcp_adv_win_scale_valid;
 };
 
 /* Used to clean TCPParam object*/

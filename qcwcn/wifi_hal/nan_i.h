@@ -1513,6 +1513,9 @@ typedef struct PACKED
     u32 max_subscribe_address;
     u32 max_nan_pairing_sessions;
     u32 nan_group_mfp_cap;
+    u32 is_6g_supported:1;
+    u32 is_he_supported:1;
+    u32 reserved:30;
 
 } NanCapabilitiesRspMsg, *pNanCapabilitiesRspMsg;
 
@@ -2089,6 +2092,8 @@ struct nan_pairing_peer_info {
     u16 dcea_cap_info;
     /* publisher ID in CSIA attribute */
     u8 csia_pub_id;
+    /* capability info in CSIA attribute */
+    u8 csia_cap_info;
     struct pasn_auth_frame *frame;
 };
 
@@ -2133,6 +2138,8 @@ struct wpa_secure_nan {
     u8 pn_bitmap;
     /* peer for which skda send is pending */
     struct nan_pairing_peer_info* pending_peer;
+    /* device group keys capability info*/
+    u8 csia_cap_info;
 };
 
 /***************************************************
@@ -2255,7 +2262,7 @@ int nan_pairing_responder_pmksa_cache_add(struct rsn_pmksa_cache *pmksa,
 int nan_pairing_responder_pmksa_cache_get(struct rsn_pmksa_cache *pmksa,
                                           u8 *bssid, u8 *pmkid);
 void nan_pairing_responder_pmksa_cache_flush(struct rsn_pmksa_cache *pmksa);
-void nan_pairing_derive_grp_keys(hal_info *info, u8* addr, u32 cipher_caps);
+void nan_pairing_derive_grp_keys(hal_info *info, u8* addr, u8 cipher_caps);
 bool is_nira_present(struct wpa_secure_nan *secure_nan, const u8 *frame,
                      size_t len);
 struct nan_pairing_peer_info*
