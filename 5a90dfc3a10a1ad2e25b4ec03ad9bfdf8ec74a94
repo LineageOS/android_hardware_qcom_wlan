@@ -16,6 +16,23 @@
       "message": "hardware/qcom-caf/wlan/qcwcn/wifi_hal/nan_pairing_responder.cpp:282:11: error: no matching function for call to \u0027handle_auth_pasn_1\u0027\n  282 |     ret \u003d handle_auth_pasn_1(pasn, pasn-\u003eown_addr, (u8 *)mgmt-\u003esa, mgmt,\n      |           ^~~~~~~~~~~~~~~~~~",
       "revId": "5a90dfc3a10a1ad2e25b4ec03ad9bfdf8ec74a94",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "c5d2829f_dda311b2",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 16185
+      },
+      "writtenOn": "2025-01-17T18:19:57Z",
+      "side": 1,
+      "message": "commit stacked on to fix it.",
+      "revId": "5a90dfc3a10a1ad2e25b4ec03ad9bfdf8ec74a94",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
