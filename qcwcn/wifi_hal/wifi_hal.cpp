@@ -96,6 +96,7 @@
 #include "tcp_params_update.h"
 #include "wificonfigcommand.h"
 #include "wifi_cached_scan_result.h"
+#include "twtCommand.h"
 
 /*
  BUGBUG: normally, libnl allocates ports for all connections it makes; but
@@ -1089,8 +1090,10 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn) {
     fn->wifi_clear_link_stats = wifi_clear_link_stats;
     fn->wifi_get_valid_channels = wifi_get_valid_channels;
     fn->wifi_rtt_range_request = wifi_rtt_range_request;
+    fn->wifi_rtt_range_request_v3 = wifi_rtt_range_request_v3;
     fn->wifi_rtt_range_cancel = wifi_rtt_range_cancel;
     fn->wifi_get_rtt_capabilities = wifi_get_rtt_capabilities;
+    fn->wifi_get_rtt_capabilities_v3 = wifi_get_rtt_capabilities_v3;
     fn->wifi_rtt_get_responder_info = wifi_rtt_get_responder_info;
     fn->wifi_enable_responder = wifi_enable_responder;
     fn->wifi_disable_responder = wifi_disable_responder;
@@ -1183,6 +1186,11 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn) {
 
     fn->wifi_set_scan_mode = wifi_set_scan_mode_config;
     fn->wifi_get_cached_scan_results = wifi_get_cached_scan_results;
+    fn->wifi_twt_register_events = wifi_twt_register_events;
+    fn->wifi_twt_get_capabilities = wifi_twt_get_capabilities;
+    fn->wifi_twt_session_get_stats = wifi_twt_session_get_stats;
+    fn->wifi_twt_session_setup = wifi_twt_session_setup;
+
     return WIFI_SUCCESS;
 }
 
@@ -1574,6 +1582,7 @@ unload:
             cleanupRSSIMonitorHandler(info);
             cleanupRadioHandler(info);
             cleanupTCPParamCommand(info);
+            cleanupTwtCommand(info);
             free(info->event_cb);
             if (info->driver_supported_features.flags) {
                 free(info->driver_supported_features.flags);
@@ -1709,6 +1718,7 @@ static void internal_cleaned_up_handler(wifi_handle handle)
     cleanupRSSIMonitorHandler(info);
     cleanupRadioHandler(info);
     cleanupTCPParamCommand(info);
+    cleanupTwtCommand(info);
     if (secure_nan_deinit(info))
         ALOGE("%s: secure nan deinit failed", __FUNCTION__);
 

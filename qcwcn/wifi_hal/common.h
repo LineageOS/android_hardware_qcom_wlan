@@ -221,6 +221,7 @@ typedef struct hal_info_s {
     pthread_mutex_t pkt_fate_stats_lock;
     struct rssi_monitor_event_handler_s *rssi_handlers;
     struct radio_event_handler_s *radio_handlers;
+    struct twt_cmd_handler_s *twt_cmd_handler;
     wifi_capa capa;
     void *cldctx;
     bool apf_enabled;
@@ -289,6 +290,17 @@ wifi_error wifi_disable_next_cac(wifi_interface_handle handle);
 wifi_error wifi_get_supported_radio_combinations_matrix(
         wifi_handle handle, u32 max_size, u32 *size,
         wifi_radio_combination_matrix *radio_combination_matrix);
+
+wifi_error wifi_twt_register_events(wifi_interface_handle iface,
+                                    wifi_twt_events events);
+wifi_error wifi_twt_get_capabilities(wifi_interface_handle iface,
+                                     wifi_twt_capabilities* capabilities);
+wifi_error wifi_twt_session_get_stats(wifi_request_id id,
+                                      wifi_interface_handle iface,
+                                      int session_id);
+wifi_error wifi_twt_session_setup(wifi_request_id id,
+                                  wifi_interface_handle iface,
+                                  wifi_twt_request request);
 // some common macros
 
 #define min(x, y)       ((x) < (y) ? (x) : (y))
