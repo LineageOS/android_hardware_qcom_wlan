@@ -113,6 +113,7 @@ private:
     u32 mNanMaxSubscribes;
     NanStoreSvcParams *mStorePubParams;
     NanStoreSvcParams *mStoreSubParams;
+    pthread_mutex_t mSvcLock;
     u32 mConfigDiscoveryIndications;
     std::queue<transaction_id> mNdiTransactionId;
     std::vector<std::pair<transaction_id, NanResponseMsg> > mNanResponseMsgVec;

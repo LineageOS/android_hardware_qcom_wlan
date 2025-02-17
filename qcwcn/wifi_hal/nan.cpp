@@ -2107,6 +2107,7 @@ NanCommand::NanCommand(wifi_handle handle, int id, u32 vendor_id, u32 subcmd)
     memset(mClusterAddr, 0, sizeof(mClusterAddr));
     mStorePubParams = NULL;
     mStoreSubParams = NULL;
+    pthread_mutex_init(&mSvcLock, NULL);
     mNanMaxPublishes = 0;
     mNanMaxSubscribes = 0;
     mConfigDiscoveryIndications = 0;
@@ -2166,6 +2167,7 @@ void NanCommand::cleanup()
 
 NanCommand::~NanCommand()
 {
+    pthread_mutex_destroy(&mSvcLock);
     ALOGV("NanCommand %p destroyed", this);
 }
 
@@ -2240,10 +2242,13 @@ void NanCommand::saveServiceId(u8 *service_id, u16 sub_pub_handle,
               __FUNCTION__, sub_pub_handle, instance_id);
         return;
     }
+
+    pthread_mutex_lock(&mSvcLock);
+
     switch(pool) {
     case NAN_ROLE_PUBLISHER:
         if ((mStorePubParams == NULL) || !mNanMaxPublishes)
-            return;
+            goto end;
         for (i = 0; i < mNanMaxPublishes; i++) {
             /* In 1:n case there can be multiple publish entries with same
              * publish ID, hence save the new entry if instance ID doesn't match
@@ -2263,14 +2268,14 @@ void NanCommand::saveServiceId(u8 *service_id, u16 sub_pub_handle,
                   "Publish ID=%d and Instance ID=%d", i,
                   mStorePubParams[i].subscriber_publisher_id,
                   mStorePubParams[i].instance_id);
-            return;
+            goto end;
         }
         if (i == mNanMaxPublishes)
             ALOGV("No empty slot found in publisher pool, entry not saved");
     break;
     case NAN_ROLE_SUBSCRIBER:
         if ((mStoreSubParams == NULL) || !mNanMaxSubscribes)
-            return;
+            goto end;
         for (i = 0; i < mNanMaxSubscribes; i++) {
             /* In 1:n case there can be multiple subscribe entries with same
              * subscribe ID, hence save new entry if instance ID doesn't match
@@ -2290,7 +2295,7 @@ void NanCommand::saveServiceId(u8 *service_id, u16 sub_pub_handle,
                   "Subscribe ID=%d and Instance ID=%d", i,
                   mStoreSubParams[i].subscriber_publisher_id,
                   mStoreSubParams[i].instance_id);
-            return;
+            goto end;
         }
         if (i == mNanMaxSubscribes)
             ALOGV("No empty slot found in subscriber pool, entry not saved");
@@ -2299,6 +2304,9 @@ void NanCommand::saveServiceId(u8 *service_id, u16 sub_pub_handle,
         ALOGE("Invalid Pool: %d", pool);
     break;
     }
+
+end:
+    pthread_mutex_unlock(&mSvcLock);
 }
 
 /*
@@ -2311,61 +2319,81 @@ void NanCommand::saveServiceId(u8 *service_id, u16 sub_pub_handle,
 u8 *NanCommand::getServiceId(u32 instance_id, NanRole pool)
 {
     int i;
+    u8 *service_id = NULL;
+
+    pthread_mutex_lock(&mSvcLock);
 
     switch(pool) {
     case NAN_ROLE_PUBLISHER:
         if ((mStorePubParams == NULL) || (!instance_id) || !mNanMaxPublishes)
-            return NULL;
+            goto end;
         ALOGV("Getting Service ID from publisher pool for instance ID=%d", instance_id);
         for (i = 0; i < mNanMaxPublishes; i++) {
-            if (mStorePubParams[i].instance_id == instance_id)
-                return mStorePubParams[i].service_id;
+            if (mStorePubParams[i].instance_id == instance_id) {
+                service_id = mStorePubParams[i].service_id;
+                goto end;
+            }
         }
     break;
     case NAN_ROLE_SUBSCRIBER:
         if ((mStoreSubParams == NULL )|| (!instance_id) || !mNanMaxSubscribes)
-            return NULL;
+            goto end;
         ALOGV("Getting Service ID from subscriber pool for instance ID=%d", instance_id);
         for (i = 0; i < mNanMaxSubscribes; i++) {
-            if (mStoreSubParams[i].instance_id == instance_id)
-                return mStoreSubParams[i].service_id;
+            if (mStoreSubParams[i].instance_id == instance_id) {
+                service_id = mStoreSubParams[i].service_id;
+                goto end;
+            }
         }
     break;
     default:
         ALOGE("Invalid Pool: %d", pool);
     break;
     }
-    return NULL;
+
+end:
+    pthread_mutex_unlock(&mSvcLock);
+    return service_id;
 }
 
 u16 NanCommand::getPubSubId(u32 instance_id, NanRole pool)
 {
     u32 i;
+    u16 id = 0;
+
+    pthread_mutex_lock(&mSvcLock);
 
     switch(pool) {
     case NAN_ROLE_PUBLISHER:
         if ((mStorePubParams == NULL) || (!instance_id) || !mNanMaxPublishes)
-            return 0;
+            goto end;
         ALOGV("Getting PubSub ID from publisher pool for instance ID=%d", instance_id);
         for (i = 0; i < mNanMaxPublishes; i++) {
-            if (mStorePubParams[i].instance_id == instance_id)
-                return mStorePubParams[i].subscriber_publisher_id;
+            if (mStorePubParams[i].instance_id == instance_id) {
+                id = mStorePubParams[i].subscriber_publisher_id;
+                goto end;
+            }
         }
     break;
     case NAN_ROLE_SUBSCRIBER:
         if ((mStoreSubParams == NULL) || (!instance_id) || !mNanMaxSubscribes)
-            return 0;
+            goto end;
         ALOGV("Getting PubSub ID from subscriber pool for instance ID=%d", instance_id);
         for (i = 0; i < mNanMaxSubscribes; i++) {
-            if (mStoreSubParams[i].instance_id == instance_id)
-                return mStoreSubParams[i].subscriber_publisher_id;
+            if (mStoreSubParams[i].instance_id == instance_id) {
+                id = mStoreSubParams[i].subscriber_publisher_id;
+                goto end;
+            }
         }
     break;
     default:
         ALOGE("Invalid Pool: %d", pool);
     break;
     }
-    return 0;
+
+end:
+    pthread_mutex_unlock(&mSvcLock);
+    return id;
 }
 
 u32 NanCommand::getNanMatchHandle(u16 requestor_id, u8 *service_id,
@@ -2376,15 +2404,19 @@ u32 NanCommand::getNanMatchHandle(u16 requestor_id, u8 *service_id,
     if (mStoreSubParams == NULL)
         return 0;
 
+    pthread_mutex_lock(&mSvcLock);
+
     for (i = 0; i < mNanMaxSubscribes; i++) {
         if (mStoreSubParams[i].subscriber_publisher_id == requestor_id &&
             !memcmp(mStoreSubParams[i].service_id, service_id,
              NAN_SD_ATTR_SERVICE_ID_LEN) &&
             !memcmp(mStoreSubParams[i].peer_mac, peer, NAN_MAC_ADDR_LEN)) {
+            pthread_mutex_unlock(&mSvcLock);
             return mStoreSubParams[i].instance_id;
         }
     }
 
+    pthread_mutex_unlock(&mSvcLock);
     return 0;
 }
 
@@ -2399,10 +2431,12 @@ void NanCommand::deleteServiceId(u16 sub_handle,
 {
     int i;
 
+    pthread_mutex_lock(&mSvcLock);
+
     switch(pool) {
     case NAN_ROLE_PUBLISHER:
         if ((mStorePubParams == NULL) || (!instance_id) || !mNanMaxPublishes)
-            return;
+            goto end;
         for (i = 0; i < mNanMaxPublishes; i++) {
             /* Delete all the entries that has the matching Instance ID */
             if (mStorePubParams[i].instance_id == instance_id) {
@@ -2416,7 +2450,7 @@ void NanCommand::deleteServiceId(u16 sub_handle,
     break;
     case NAN_ROLE_SUBSCRIBER:
         if ((mStoreSubParams == NULL) || (!sub_handle) || !mNanMaxSubscribes)
-            return;
+            goto end;
         for (i = 0; i < mNanMaxSubscribes; i++) {
             /* Delete all the entries that has the matching subscribe ID */
             if (mStoreSubParams[i].subscriber_publisher_id == sub_handle) {
@@ -2432,6 +2466,9 @@ void NanCommand::deleteServiceId(u16 sub_handle,
         ALOGE("Invalid Pool: %d", pool);
     break;
     }
+
+end:
+    pthread_mutex_unlock(&mSvcLock);
 }
 
 /*
@@ -2446,13 +2483,15 @@ void NanCommand::allocSvcParams()
     if (mNanMaxSubscribes < NAN_DEF_PUB_SUB)
         mNanMaxSubscribes = NAN_DEF_PUB_SUB;
 
+    pthread_mutex_lock(&mSvcLock);
+
     if ((mStorePubParams == NULL) && mNanMaxPublishes) {
         mStorePubParams =
         (NanStoreSvcParams *)malloc(mNanMaxPublishes*sizeof(NanStoreSvcParams));
         if (mStorePubParams == NULL) {
             ALOGE("%s: Publish pool malloc failed", __FUNCTION__);
             deallocSvcParams();
-            return;
+            goto end;
         }
         ALOGV("%s: Allocated the Publish pool for max %d entries",
               __FUNCTION__, mNanMaxPublishes);
@@ -2463,11 +2502,14 @@ void NanCommand::allocSvcParams()
         if (mStoreSubParams == NULL) {
             ALOGE("%s: Subscribe pool malloc failed", __FUNCTION__);
             deallocSvcParams();
-            return;
+            goto end;
         }
         ALOGV("%s: Allocated the Subscribe pool for max %d entries",
               __FUNCTION__, mNanMaxSubscribes);
     }
+
+end:
+    pthread_mutex_unlock(&mSvcLock);
 }
 
 /*
@@ -2477,6 +2519,8 @@ void NanCommand::allocSvcParams()
  */
 void NanCommand::reallocSvcParams(NanRole pool)
 {
+    pthread_mutex_lock(&mSvcLock);
+
     switch(pool) {
     case NAN_ROLE_PUBLISHER:
         if ((mStorePubParams != NULL) && mNanMaxPublishes) {
@@ -2486,7 +2530,7 @@ void NanCommand::reallocSvcParams(NanRole pool)
             if (mStorePubParams == NULL) {
                 ALOGE("%s: Publish pool realloc failed", __FUNCTION__);
                 deallocSvcParams();
-                return;
+                goto end;
             }
             ALOGV("%s: Reallocated the Publish pool for max %d entries",
                    __FUNCTION__, mNanMaxPublishes);
@@ -2500,7 +2544,7 @@ void NanCommand::reallocSvcParams(NanRole pool)
             if (mStoreSubParams == NULL) {
                 ALOGE("%s: Subscribe pool realloc failed", __FUNCTION__);
                 deallocSvcParams();
-                return;
+                goto end;
             }
             ALOGV("%s: Reallocated the Subscribe pool for max %d entries",
                   __FUNCTION__, mNanMaxSubscribes);
@@ -2510,6 +2554,9 @@ void NanCommand::reallocSvcParams(NanRole pool)
         ALOGE("Invalid Pool: %d", pool);
     break;
     }
+
+end:
+    pthread_mutex_unlock(&mSvcLock);
 }
 
 /*
@@ -2519,6 +2566,8 @@ void NanCommand::reallocSvcParams(NanRole pool)
  */
 void NanCommand::deallocSvcParams()
 {
+    pthread_mutex_lock(&mSvcLock);
+
     if (mStorePubParams != NULL) {
         free(mStorePubParams);
         mStorePubParams = NULL;
@@ -2529,6 +2578,8 @@ void NanCommand::deallocSvcParams()
         mStoreSubParams = NULL;
         ALOGV("%s: Deallocated Subscribe pool", __FUNCTION__);
     }
+
+    pthread_mutex_unlock(&mSvcLock);
 }
 
 void NanCommand::saveNanResponseMsg(transaction_id id, NanResponseMsg &msg)
