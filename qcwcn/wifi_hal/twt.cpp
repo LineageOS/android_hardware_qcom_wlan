@@ -26,10 +26,15 @@ TwtCommand* TwtCommand::instance(wifi_handle handle)
         ALOGE("Interface Handle is invalid");
         return NULL;
     }
+
     hal_info* info = getHalInfo(handle);
-    if (!info || !info->twt_cmd_handler) {
-        ALOGE("twt_cmd_handler is invalid");
-        return NULL;
+    if (!info->twt_cmd_handler) {
+        info->twt_cmd_handler = (twt_cmd_handler *)malloc(sizeof(twt_cmd_handler));
+        if (info->twt_cmd_handler == NULL) {
+            ALOGE("%s: Allocation of twt handler failed",__FUNCTION__);
+            return NULL;
+        }
+        info->twt_cmd_handler->pTwtCommand = NULL;
     }
 
     TwtCommand* pTwtCommand = info->twt_cmd_handler->pTwtCommand;
@@ -89,15 +94,6 @@ wifi_error wifi_twt_register_events(wifi_interface_handle iface,
     if (!info) {
         ALOGE("%s: Hal Info is NULL");
         return WIFI_ERROR_UNKNOWN;
-    }
-
-    if (!info->twt_cmd_handler) {
-        info->twt_cmd_handler = (twt_cmd_handler *)malloc(sizeof(twt_cmd_handler));
-        if (info->twt_cmd_handler == NULL) {
-            ALOGE("%s: Allocation of twt handler failed",__FUNCTION__);
-            return WIFI_ERROR_OUT_OF_MEMORY;
-        }
-        info->twt_cmd_handler->pTwtCommand = NULL;
     }
 
     pTwtCommand = TwtCommand::instance(wifiHandle);
@@ -416,6 +412,7 @@ wifi_error wifi_twt_session_get_stats(wifi_request_id id,
                                       int session_id)
 {
     wifi_error ret;
+    int kernelError;
     TwtCommand *ptwtCommand;
     struct nlattr *nlData, *nlTwtParams;
     interface_info *iinfo;
@@ -478,14 +475,15 @@ wifi_error wifi_twt_session_get_stats(wifi_request_id id,
     ptwtCommand->attr_end(nlTwtParams);
     ptwtCommand->attr_end(nlData);
 
-    ret = ptwtCommand->requestResponse();
-    if (ret != WIFI_SUCCESS){
+    kernelError = ptwtCommand->requestResponseWithKernelStatus();
+    ret = mapKernelErrortoWifiHalError(kernelError);
+    if (ret != WIFI_SUCCESS) {
+        ptwtCommand->sendTwtFailure(id, kernelError);
         ALOGE("%s: requestResponse Error:%d", __FUNCTION__, ret);
-        goto cleanup;
     }
 
 cleanup:
-    return ret;
+    return WIFI_SUCCESS;
 }
 
 void TwtCommand::sendTwtFailure(wifi_request_id id, int ret)
@@ -668,17 +666,17 @@ wifi_error wifi_twt_session_setup(wifi_request_id id,
     if (ret != WIFI_SUCCESS) {
         ptwtCommand->sendTwtFailure(id, kernelError);
         ALOGE("%s: requestResponse Error:%d", __FUNCTION__, ret);
-        goto cleanup;
     }
 
 cleanup:
-    return ret;
+    return WIFI_SUCCESS;
 }
 
 wifi_error wifi_twt_session_teardown(wifi_request_id id, wifi_interface_handle iface,
                                      int session_id)
 {
     wifi_error ret;
+    int kernelError;
     TwtCommand *ptwtCommand;
     struct nlattr *nlData, *nlTwtParams;
     interface_info *iinfo;
@@ -739,16 +737,17 @@ wifi_error wifi_twt_session_teardown(wifi_request_id id, wifi_interface_handle i
     ptwtCommand->attr_end(nlTwtParams);
     ptwtCommand->attr_end(nlData);
 
-    ret = ptwtCommand->requestResponse();
+    kernelError = ptwtCommand->requestResponseWithKernelStatus();
+    ret = mapKernelErrortoWifiHalError(kernelError);
     if (ret != WIFI_SUCCESS) {
+        ptwtCommand->sendTwtFailure(id, kernelError);
         ALOGE("%s: requestResponse Error:%d", __FUNCTION__, ret);
-        goto cleanup;
     }
 
-   ALOGV("%s: Teardown TWT session:%d", __FUNCTION__, session_id);
+    ALOGV("%s: Teardown TWT session:%d", __FUNCTION__, session_id);
 
 cleanup:
-    return ret;
+    return WIFI_SUCCESS;
 }
 
 wifi_twt_error_code
