@@ -160,6 +160,7 @@ cc_library {
         "rtt.cpp",
         "tcp_params_update.cpp",
         "tdls.cpp",
+        "twt.cpp",
         "wifi_cached_scan_result.cpp",
         "wifi_hal.cpp",
         "wifihal_vendor.cpp",
