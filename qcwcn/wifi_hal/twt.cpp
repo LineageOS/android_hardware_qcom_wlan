@@ -13,6 +13,7 @@ TwtCommand::TwtCommand(wifi_handle handle, int id, u32 vendor_id, u32 subcmd)
     memset(&mHandler, 0, sizeof(mHandler));
     mTWTCapabilities = NULL;
     mRequestId = 0;
+    mWakeTwtCapabilities = false;
 }
 
 TwtCommand::~TwtCommand()
@@ -160,6 +161,16 @@ void TwtCommand::setTwtFlowId(int flowId)
     mTwtFlowId = flowId;
 }
 
+bool TwtCommand::getWakeTwtCapabilities()
+{
+    return mWakeTwtCapabilities;
+}
+
+void TwtCommand::setWakeTwtCapabilities(bool WakeTwtCapabilities)
+{
+    mWakeTwtCapabilities = WakeTwtCapabilities;
+}
+
 int TwtCommand::handleResponse(WifiEvent &reply)
 {
     WifiVendorCommand::handleResponse(reply);
@@ -181,10 +192,10 @@ int TwtCommand::handleResponse(WifiEvent &reply)
 
             ALOGV("QCA_WLAN_TWT_GET_CAPABILITIES response Received");
 
-            if (tb_vendor[QCA_WLAN_VENDOR_ATTR_TWT_CAPABILITIES_SELF])
+            if (tb_vendor[QCA_WLAN_VENDOR_ATTR_TWT_CAPABILITIES_SELF]) {
                 self_capabilities =
                     get_u16(tb_vendor[QCA_WLAN_VENDOR_ATTR_TWT_CAPABILITIES_SELF]);
-            else {
+            } else {
                 ALOGE("Get capabilities self attribute is not present");
                 return NL_SKIP;
             }
@@ -198,29 +209,37 @@ int TwtCommand::handleResponse(WifiEvent &reply)
             mTWTCapabilities->is_flexible_twt_supported =
                 (self_capabilities & QCA_WLAN_TWT_CAPA_FLEXIBLE) ? 1 : 0;
 
-            if (tb_vendor[QCA_WLAN_VENDOR_ATTR_TWT_CAPABILITIES_MIN_WAKE_DURATION])
+            if (tb_vendor[QCA_WLAN_VENDOR_ATTR_TWT_CAPABILITIES_MIN_WAKE_DURATION]) {
                 mTWTCapabilities->min_wake_duration_micros =
                     get_u32(tb_vendor[QCA_WLAN_VENDOR_ATTR_TWT_CAPABILITIES_MIN_WAKE_DURATION]);
-            else
+                mWakeTwtCapabilities = true;
+            } else {
                 ALOGE("min wake duration attribute is not present");
+            }
 
-            if (tb_vendor[QCA_WLAN_VENDOR_ATTR_TWT_CAPABILITIES_MAX_WAKE_DURATION])
+            if (tb_vendor[QCA_WLAN_VENDOR_ATTR_TWT_CAPABILITIES_MAX_WAKE_DURATION]) {
                 mTWTCapabilities->max_wake_duration_micros =
                     get_u32(tb_vendor[QCA_WLAN_VENDOR_ATTR_TWT_CAPABILITIES_MAX_WAKE_DURATION]);
-            else
+                mWakeTwtCapabilities = true;
+            } else {
                 ALOGE("max wake duration attribute is not present");
+            }
 
-            if (tb_vendor[QCA_WLAN_VENDOR_ATTR_TWT_CAPABILITIES_MIN_WAKE_INTVL])
+            if (tb_vendor[QCA_WLAN_VENDOR_ATTR_TWT_CAPABILITIES_MIN_WAKE_INTVL]) {
                 mTWTCapabilities->min_wake_interval_micros =
                     get_u32(tb_vendor[QCA_WLAN_VENDOR_ATTR_TWT_CAPABILITIES_MIN_WAKE_INTVL]);
-            else
+                mWakeTwtCapabilities = true;
+            } else {
                 ALOGE("min wake interval attribute is not present here");
+            }
 
-            if (tb_vendor[QCA_WLAN_VENDOR_ATTR_TWT_CAPABILITIES_MAX_WAKE_INTVL])
+            if (tb_vendor[QCA_WLAN_VENDOR_ATTR_TWT_CAPABILITIES_MAX_WAKE_INTVL]) {
                 mTWTCapabilities->max_wake_interval_micros =
                     get_u32(tb_vendor[QCA_WLAN_VENDOR_ATTR_TWT_CAPABILITIES_MAX_WAKE_INTVL]);
-            else
+                mWakeTwtCapabilities = true;
+            } else {
                 ALOGE("max wake interval attribute is not present");
+            }
 
             ALOGV("TWT caps: %s%s%s%s SP:[min:%d max:%d] SI:[min:%d max:%d]",
                   mTWTCapabilities->is_twt_requester_supported ? "[Requestor]" : "",
@@ -396,9 +415,16 @@ wifi_error wifi_twt_get_capabilities(wifi_interface_handle iface,
 
     ptwtCommand->setTwtCapabilities(capabilities);
 
+    ptwtCommand->setWakeTwtCapabilities(false);
     ret = ptwtCommand->requestResponse();
     if (ret != WIFI_SUCCESS)
         goto cleanup;
+
+    if (!ptwtCommand->getWakeTwtCapabilities()) {
+        ALOGE("%s: driver doesn't support framework TWT APIs if wake duration and interval capabilities are not advertised.", __FUNCTION__);
+        ret = WIFI_ERROR_NOT_SUPPORTED;
+        goto cleanup;
+    }
 
 cleanup:
     if (ret != WIFI_SUCCESS)
