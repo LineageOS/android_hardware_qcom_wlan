@@ -33,6 +33,7 @@ private:
     u32 mTWTRequestType;
     wifi_request_id mRequestId;
     int mTwtFlowId;
+    bool mWakeTwtCapabilities;
 
     TwtCommand(wifi_handle handle, int id, u32 vendor_id, u32 subcmd);
 
@@ -48,6 +49,9 @@ public:
     virtual void setTwtCapabilities(wifi_twt_capabilities* capabilities);
     virtual void setReqId(wifi_request_id reqid);
     virtual void setTwtFlowId(int flowId);
+    virtual bool getWakeTwtCapabilities();
+    virtual void setWakeTwtCapabilities(bool WakeTwtCapabilities);
+
 
     virtual wifi_twt_error_code
     mapDriverStatusToHalErrorCode(enum qca_wlan_vendor_twt_status status);
