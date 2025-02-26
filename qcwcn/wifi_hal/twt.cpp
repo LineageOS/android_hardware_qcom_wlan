@@ -776,6 +776,82 @@ cleanup:
     return WIFI_SUCCESS;
 }
 
+wifi_error wifi_twt_session_teardown(wifi_request_id id, wifi_interface_handle iface,
+                                     int session_id)
+{
+    wifi_error ret;
+    TwtCommand *ptwtCommand;
+    struct nlattr *nlData, *nlTwtParams;
+    interface_info *iinfo;
+    wifi_handle handle;
+
+    if(!iface){
+        ALOGE("%s: iface is NULL", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+
+    iinfo = getIfaceInfo(iface);
+    if (!iinfo) {
+        ALOGE("%s: iinfo is NULL", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+
+    ALOGV("%s Enter", __FUNCTION__);
+    handle = getWifiHandle(iface);
+
+    ptwtCommand = TwtCommand::instance(handle);
+    if (ptwtCommand == NULL) {
+        ALOGE("%s: Error TwtCommand NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
+    ptwtCommand->setSubCmd(QCA_NL80211_VENDOR_SUBCMD_CONFIG_TWT);
+    ptwtCommand->setReqId(id);
+
+    /* Create the NL message. */
+    ret = ptwtCommand->create();
+    if (ret != WIFI_SUCCESS)
+        goto cleanup;
+
+    /* Set the interface Id of the message. */
+    ret = ptwtCommand->set_iface_id(iinfo->name);
+    if (ret != WIFI_SUCCESS)
+        goto cleanup;
+
+    /* Add the vendor specific attributes for the NL command. */
+    nlData = ptwtCommand->attr_start(NL80211_ATTR_VENDOR_DATA);
+    if (!nlData){
+        ret = WIFI_ERROR_UNKNOWN;
+        goto cleanup;
+    }
+
+    ret = ptwtCommand->put_u8(QCA_WLAN_VENDOR_ATTR_CONFIG_TWT_OPERATION,
+                              QCA_WLAN_TWT_TERMINATE);
+    if (ret != WIFI_SUCCESS)
+        goto cleanup;
+
+    nlTwtParams = ptwtCommand->attr_start(
+    QCA_WLAN_VENDOR_ATTR_CONFIG_TWT_PARAMS);
+
+    ret = ptwtCommand->put_u8(QCA_WLAN_VENDOR_ATTR_TWT_SETUP_FLOW_ID,
+                              session_id);
+    if (ret != WIFI_SUCCESS)
+        goto cleanup;
+
+    ptwtCommand->attr_end(nlTwtParams);
+    ptwtCommand->attr_end(nlData);
+
+    ret = ptwtCommand->requestResponse();
+    if (ret != WIFI_SUCCESS) {
+        ALOGE("%s: requestResponse Error:%d", __FUNCTION__, ret);
+        goto cleanup;
+    }
+
+   ALOGV("%s: Teardown TWT session:%d", __FUNCTION__, session_id);
+
+cleanup:
+    return ret;
+}
+
 wifi_twt_error_code
 TwtCommand::mapDriverStatusToHalErrorCode(enum qca_wlan_vendor_twt_status status)
 {
