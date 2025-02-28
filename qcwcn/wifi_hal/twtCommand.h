@@ -28,21 +28,22 @@ extern "C"
 class TwtCommand: public WifiVendorCommand
 {
 private:
-    wifi_twt_events mHandler;
     wifi_twt_capabilities *mTWTCapabilities;
     u32 mTWTRequestType;
     wifi_request_id mRequestId;
     int mTwtFlowId;
     bool mWakeTwtCapabilities;
 
-    TwtCommand(wifi_handle handle, int id, u32 vendor_id, u32 subcmd);
 
 public:
     wifi_twt_session_stats mTWTSessionStats;
+    wifi_twt_events mHandler;
 
-    static TwtCommand* instance(wifi_handle handle);
+    static TwtCommand* handlerInstance(wifi_handle handle);
+    TwtCommand(wifi_handle handle, int id, u32 vendor_id, u32 subcmd);
     virtual ~TwtCommand();
     virtual wifi_error setCallbackHandler(wifi_twt_events handler);
+    virtual void removeCallbackHandler();
 
     virtual void setSubCmd(u32 subcmd);
     virtual void setTWTRequestType(enum qca_wlan_twt_operation event);
@@ -62,7 +63,6 @@ public:
     virtual int handleResponse(WifiEvent &reply);
     virtual int handleEvent(WifiEvent &event);
     virtual void sendTwtFailure(wifi_request_id id, int ret);
-
 };
 
 typedef struct twt_cmd_handler_s {
