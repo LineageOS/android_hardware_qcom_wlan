@@ -1,4 +1,3 @@
-
 package {
     default_applicable_licenses: ["hardware_qcom_wlan_license"],
 }
@@ -66,13 +65,17 @@ wifihal_qcom_defaults {
                 ],
             },
             wcn3990: {
-                whole_static_libs: [
-                    "//hardware/qcom/sw5100/wlan/qcwcn/wifi_hal:libwifi-hal-qcom",
-                ],
-                shared_libs: [
-                    "//hardware/qcom/sw5100/wlan/cld80211-lib:libcld80211",
-                    "libcrypto",
-                ],
+                whole_static_libs: select(soong_config_variable("pixel_watch", "bsp_dir"), {
+                    any @ bsp_dir: [
+                        "//hardware/qcom/" + bsp_dir + "/wlan/qcwcn/wifi_hal:libwifi-hal-qcom",
+                    ],
+                }),
+                shared_libs: select(soong_config_variable("pixel_watch", "bsp_dir"), {
+                    any @ bsp_dir: [
+                        "//hardware/qcom/" + bsp_dir + "/wlan/cld80211-lib:libcld80211",
+                        "libcrypto",
+                    ],
+                }),
             },
             conditions_default: {
                 whole_static_libs: [
