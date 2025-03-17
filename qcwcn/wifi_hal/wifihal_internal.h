@@ -38,7 +38,7 @@
 #include "wifihal_list.h"
 #include "sys/un.h"
 
-#define WIFIHAL_LOWI_MAJOR_VERSION      3
+#define WIFIHAL_LOWI_MAJOR_VERSION      4
 #define WIFIHAL_LOWI_MINOR_VERSION      1
 #define WIFIHAL_LOWI_MICRO_VERSION      1
 
@@ -183,6 +183,14 @@ typedef struct
                            u32 num_rtt_config,
                            wifi_rtt_config_v3 rtt_config[],
                            wifi_rtt_event_handler_v3 handler);
+  int (*get_rtt_capabilities_v4)(wifi_interface_handle iface,
+                              wifi_rtt_capabilities_v4*capabilities);
+  int (*rtt_range_request_v4)(u32 request_id,
+                           wifi_interface_handle iface,
+                           u32 num_rtt_config,
+                           wifi_rtt_config_v4 rtt_config[],
+                           wifi_rtt_event_handler_v4 handler);
+
 } lowi_cb_table_t;
 
 /*

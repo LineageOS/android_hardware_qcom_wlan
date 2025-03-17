@@ -1095,9 +1095,11 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn) {
     fn->wifi_get_valid_channels = wifi_get_valid_channels;
     fn->wifi_rtt_range_request = wifi_rtt_range_request;
     fn->wifi_rtt_range_request_v3 = wifi_rtt_range_request_v3;
+    fn->wifi_rtt_range_request_v4 = wifi_rtt_range_request_v4;
     fn->wifi_rtt_range_cancel = wifi_rtt_range_cancel;
     fn->wifi_get_rtt_capabilities = wifi_get_rtt_capabilities;
     fn->wifi_get_rtt_capabilities_v3 = wifi_get_rtt_capabilities_v3;
+    fn->wifi_get_rtt_capabilities_v4 = wifi_get_rtt_capabilities_v4;
     fn->wifi_rtt_get_responder_info = wifi_rtt_get_responder_info;
     fn->wifi_enable_responder = wifi_enable_responder;
     fn->wifi_disable_responder = wifi_disable_responder;
