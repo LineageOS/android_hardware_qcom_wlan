@@ -198,6 +198,7 @@ private:
     int getNanRangeRequestReceivedInd(NanRangeRequestInd *event);
     int getNanRangeReportInd(NanRangeReportInd *event);
     int getNdpScheduleUpdate(struct nlattr **tb_vendor, NanDataPathScheduleUpdateInd *event);
+    int getNanContinuousRangingResult();
 
     // Function used for vendor nan
     int getNanVendorResponse(transaction_id *id, NanVendorResponseMsg *pRsp);
@@ -294,6 +295,7 @@ public:
     /* Functions for Vendor Nan commands and events */
     vendor_nan_error setVendorCallbackHandler(VendorNanCallbackHandler nHandler);
     vendor_nan_error putNanCommandData(transaction_id id, NanVendorCmdData *pReq);
+
+    int convert_periodic_interval(u32 periodic_interval);
 };
 #endif /* __WIFI_HAL_NAN_COMMAND_H__ */
-

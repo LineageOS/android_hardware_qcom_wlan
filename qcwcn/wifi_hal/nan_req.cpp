@@ -831,7 +831,12 @@ wifi_error NanCommand::putNanPublish(transaction_id id, const NanPublishRequest 
           SIZEOF_TLV_HDR + sizeof(NanFWPairingConfigParams) : 0)  +
         (pReq->sdea_service_specific_info_len ? SIZEOF_TLV_HDR + pReq->sdea_service_specific_info_len : 0) +
          (pReq->s3_capabilities ? SIZEOF_TLV_HDR + sizeof(u32) : 0) +
-         (pReq->cipher_capabilities ? SIZEOF_TLV_HDR + sizeof(u8) : 0);
+         (pReq->cipher_capabilities ? SIZEOF_TLV_HDR + sizeof(u8) : 0) +
+        ((pReq->ranging_cfg.preamble || pReq->ranging_cfg.rtt_burst_size ||
+          pReq->ranging_cfg.channel_info.center_freq ||
+          pReq->ranging_cfg.channel_info.center_freq0 ||
+          pReq->ranging_cfg.channel_info.center_freq1
+          ) ? SIZEOF_TLV_HDR + sizeof(NanFWRangeReqMsgExt) : 0);
 
     if ((pReq->key_info.key_type ==  NAN_SECURITY_KEY_INPUT_PMK) &&
         (pReq->key_info.body.pmk_info.pmk_len == NAN_PMK_INFO_LEN))
@@ -1013,8 +1018,15 @@ wifi_error NanCommand::putNanPublish(transaction_id id, const NanPublishRequest 
             ((pReq->ranging_cfg.config_ranging_indications & NAN_RANGING_INDICATE_CONTINUOUS_MASK) |
             (pReq->ranging_cfg.config_ranging_indications & NAN_RANGING_INDICATE_INGRESS_MET_MASK) |
             (pReq->ranging_cfg.config_ranging_indications & NAN_RANGING_INDICATE_EGRESS_MET_MASK));
+        /* This check is reqd for Continuous Nan Ranging */
+        if ((pReq->ranging_cfg.ranging_interval_msec > 0)) {
+            pNanFWRangingCfg.ranging_indication_event = NAN_RANGE_IND_MASK_CONTINUOUS_RESULT;
+            pNanFWRangingCfg.range_interval = convert_periodic_interval(pReq->ranging_cfg.ranging_interval_msec);
+        } else {
+            pNanFWRangingCfg.ranging_indication_event =
+                                          pReq->ranging_cfg.config_ranging_indications;
+        }
 
-        pNanFWRangingCfg.ranging_indication_event = pReq->ranging_cfg.config_ranging_indications;
         if (pReq->ranging_cfg.config_ranging_indications & NAN_RANGING_INDICATE_INGRESS_MET_MASK)
             pNanFWRangingCfg.geo_fence_threshold.inner_threshold =
                                         pReq->ranging_cfg.distance_ingress_mm;
@@ -1092,6 +1104,26 @@ wifi_error NanCommand::putNanPublish(transaction_id id, const NanPublishRequest 
         tlvs = addTlv(NAN_TLV_TYPE_SEC_BIGTK_KDE,
                       NAN_BIGTK_KDE_PREFIX_LEN + grpKeys->bigtk_len,
                       (const u8*)bigtk_kde, tlvs);
+    }
+
+    if (pReq->ranging_cfg.preamble || pReq->ranging_cfg.rtt_burst_size ||
+        pReq->ranging_cfg.channel_info.center_freq ||
+        pReq->ranging_cfg.channel_info.center_freq0 ||
+        pReq->ranging_cfg.channel_info.center_freq1) {
+        NanFWRangeReqMsgExt pNanFWRangeReqMsgExt;
+
+        memset(&pNanFWRangeReqMsgExt, 0, sizeof(NanFWRangeReqMsgExt));
+
+        pNanFWRangeReqMsgExt.preamble = pReq->ranging_cfg.preamble;
+        pNanFWRangeReqMsgExt.burst_size = pReq->ranging_cfg.rtt_burst_size;
+        pNanFWRangeReqMsgExt.freq_mhz_hint =
+                     pReq->ranging_cfg.channel_info.center_freq;
+        pNanFWRangeReqMsgExt.cf0_mhz_hint =
+                    pReq->ranging_cfg.channel_info.center_freq0;
+        pNanFWRangeReqMsgExt.cf1_mhz_hint =
+                    pReq->ranging_cfg.channel_info.center_freq1;
+        tlvs = addTlv(NAN_TLV_TYPE_SERVICE_RANGE_PARAM_EXT, sizeof(NanFWRangeReqMsgExt),
+                      (const u8*)&pNanFWRangeReqMsgExt, tlvs);
     }
 
     mVendorData = (char *)pFwReq;
@@ -1182,6 +1214,42 @@ wifi_error NanCommand::putNanPublishCancel(transaction_id id, const NanPublishCa
     return ret;
 }
 
+int NanCommand::convert_periodic_interval(u32 periodic_interval)
+{
+    int interval = 0;
+    switch (periodic_interval)
+    {
+    case PERIODIC_RANGING_INTERVAL_NONE:
+         interval = 0;
+         break;
+    case PERIODIC_RANGING_INTERVAL_128TU:
+        interval = 1;
+        break;
+    case PERIODIC_RANGING_INTERVAL_256TU:
+        interval = 2;
+        break;
+    case PERIODIC_RANGING_INTERVAL_512TU:
+        interval = 3;
+        break;
+    case PERIODIC_RANGING_INTERVAL_1024TU:
+        interval = 4;
+        break;
+    case PERIODIC_RANGING_INTERVAL_2048TU:
+        interval = 5;
+        break;
+    case PERIODIC_RANGING_INTERVAL_4096TU:
+        interval = 6;
+        break;
+    case PERIODIC_RANGING_INTERVAL_8192TU:
+        interval = 7;
+        break;
+    default:
+        interval = -1;
+        break;
+    }
+    return interval;
+}
+
 wifi_error NanCommand::putNanSubscribe(transaction_id id,
                                 const NanSubscribeRequest *pReq,
                                 const nanGrpKey *grpKeys)
@@ -1219,7 +1287,12 @@ wifi_error NanCommand::putNanSubscribe(transaction_id id,
           pReq->nan_pairing_config.supported_bootstrapping_methods) ?
           SIZEOF_TLV_HDR + sizeof(NanFWPairingConfigParams) : 0)  +
         (pReq->sdea_service_specific_info_len ? SIZEOF_TLV_HDR + pReq->sdea_service_specific_info_len : 0) +
-        (pReq->cipher_capabilities ? SIZEOF_TLV_HDR + sizeof(u8) : 0);
+        (pReq->cipher_capabilities ? SIZEOF_TLV_HDR + sizeof(u8) : 0) +
+        ((pReq->ranging_cfg.preamble || pReq->ranging_cfg.rtt_burst_size ||
+          pReq->ranging_cfg.channel_info.center_freq ||
+          pReq->ranging_cfg.channel_info.center_freq0 ||
+          pReq->ranging_cfg.channel_info.center_freq1
+          ) ? SIZEOF_TLV_HDR + sizeof(NanFWRangeReqMsgExt) : 0);
 
     message_len += \
         (pReq->num_intf_addr_present * (SIZEOF_TLV_HDR + NAN_MAC_ADDR_LEN));
@@ -1406,9 +1479,16 @@ wifi_error NanCommand::putNanSubscribe(transaction_id id,
             ((pReq->ranging_cfg.config_ranging_indications & NAN_RANGING_INDICATE_CONTINUOUS_MASK) |
             (pReq->ranging_cfg.config_ranging_indications & NAN_RANGING_INDICATE_INGRESS_MET_MASK) |
             (pReq->ranging_cfg.config_ranging_indications & NAN_RANGING_INDICATE_EGRESS_MET_MASK));
-
-        pNanFWRangingCfg.ranging_indication_event =
+        /* This check is reqd for Continuous Nan Ranging */
+        if ((pReq->ranging_cfg.ranging_interval_msec > 0)) {
+            pNanFWRangingCfg.ranging_indication_event = NAN_RANGE_IND_MASK_CONTINUOUS_RESULT;
+            pNanFWRangingCfg.range_interval = convert_periodic_interval(pReq->ranging_cfg.ranging_interval_msec);
+            ALOGD("pNanFWRangingCfg.range_interval:%d", pNanFWRangingCfg.range_interval);
+        } else {
+            pNanFWRangingCfg.ranging_indication_event =
                                           pReq->ranging_cfg.config_ranging_indications;
+        }
+
         if (pReq->ranging_cfg.config_ranging_indications & NAN_RANGING_INDICATE_INGRESS_MET_MASK)
             pNanFWRangingCfg.geo_fence_threshold.inner_threshold =
                                         pReq->ranging_cfg.distance_ingress_mm;
@@ -1417,6 +1497,26 @@ wifi_error NanCommand::putNanSubscribe(transaction_id id,
                                        pReq->ranging_cfg.distance_egress_mm;
         tlvs = addTlv(NAN_TLV_TYPE_NAN_RANGING_CFG, sizeof(NanFWRangeConfigParams),
                                                     (const u8*)&pNanFWRangingCfg, tlvs);
+    }
+
+    if (pReq->ranging_cfg.preamble || pReq->ranging_cfg.rtt_burst_size ||
+        pReq->ranging_cfg.channel_info.center_freq ||
+        pReq->ranging_cfg.channel_info.center_freq0 ||
+        pReq->ranging_cfg.channel_info.center_freq1) {
+        NanFWRangeReqMsgExt pNanFWRangeReqMsgExt;
+
+        memset(&pNanFWRangeReqMsgExt, 0, sizeof(NanFWRangeReqMsgExt));
+
+        pNanFWRangeReqMsgExt.preamble = pReq->ranging_cfg.preamble;
+        pNanFWRangeReqMsgExt.burst_size = pReq->ranging_cfg.rtt_burst_size;
+        pNanFWRangeReqMsgExt.freq_mhz_hint =
+                     pReq->ranging_cfg.channel_info.center_freq;
+        pNanFWRangeReqMsgExt.cf0_mhz_hint =
+                    pReq->ranging_cfg.channel_info.center_freq0;
+        pNanFWRangeReqMsgExt.cf1_mhz_hint =
+                    pReq->ranging_cfg.channel_info.center_freq1;
+        tlvs = addTlv(NAN_TLV_TYPE_SERVICE_RANGE_PARAM_EXT, sizeof(NanFWRangeReqMsgExt),
+                      (const u8*)&pNanFWRangeReqMsgExt, tlvs);
     }
 
     if (pReq->nan_pairing_config.enable_pairing_setup ||
