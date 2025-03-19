@@ -155,6 +155,9 @@ wifi_error
     wifi_init_tcp_param_change_event_handler(wifi_interface_handle iface);
 
 wifi_error
+    wifi_set_voip_mode(wifi_interface_handle iface, wifi_voip_mode mode);
+
+wifi_error
     wifi_get_cached_scan_results(wifi_interface_handle iface,
                                  wifi_cached_scan_result_handler handler);
 
@@ -172,6 +175,7 @@ void wifihal_event_mgmt_tx_status(wifi_handle handle, struct nlattr *cookie,
 #endif
 void wifihal_event_mgmt(wifi_handle handle, struct nlattr *freq, const u8 *frame,
                         size_t len);
+
 /* Initialize/Cleanup */
 
 wifi_interface_handle wifi_get_iface_handle(wifi_handle handle, char *name)
@@ -1090,8 +1094,10 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn) {
     fn->wifi_clear_link_stats = wifi_clear_link_stats;
     fn->wifi_get_valid_channels = wifi_get_valid_channels;
     fn->wifi_rtt_range_request = wifi_rtt_range_request;
+    fn->wifi_rtt_range_request_v3 = wifi_rtt_range_request_v3;
     fn->wifi_rtt_range_cancel = wifi_rtt_range_cancel;
     fn->wifi_get_rtt_capabilities = wifi_get_rtt_capabilities;
+    fn->wifi_get_rtt_capabilities_v3 = wifi_get_rtt_capabilities_v3;
     fn->wifi_rtt_get_responder_info = wifi_rtt_get_responder_info;
     fn->wifi_enable_responder = wifi_enable_responder;
     fn->wifi_disable_responder = wifi_disable_responder;
@@ -1167,6 +1173,7 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn) {
     fn->wifi_multi_sta_set_use_case = wifi_multi_sta_set_use_case;
     fn->wifi_set_coex_unsafe_channels = wifi_set_coex_unsafe_channels;
     fn->wifi_set_dtim_config = wifi_set_dtim_config;
+    fn->wifi_set_voip_mode = wifi_set_voip_mode;
     fn->wifi_get_usable_channels = wifi_get_usable_channels;
     fn->wifi_get_supported_radio_combinations_matrix =
                                 wifi_get_supported_radio_combinations_matrix;

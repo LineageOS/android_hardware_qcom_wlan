@@ -13,6 +13,7 @@ TwtCommand::TwtCommand(wifi_handle handle, int id, u32 vendor_id, u32 subcmd)
     memset(&mHandler, 0, sizeof(mHandler));
     mTWTCapabilities = NULL;
     mRequestId = 0;
+    mWakeTwtCapabilities = false;
 }
 
 TwtCommand::~TwtCommand()
@@ -26,10 +27,15 @@ TwtCommand* TwtCommand::instance(wifi_handle handle)
         ALOGE("Interface Handle is invalid");
         return NULL;
     }
+
     hal_info* info = getHalInfo(handle);
-    if (!info || !info->twt_cmd_handler) {
-        ALOGE("twt_cmd_handler is invalid");
-        return NULL;
+    if (!info->twt_cmd_handler) {
+        info->twt_cmd_handler = (twt_cmd_handler *)malloc(sizeof(twt_cmd_handler));
+        if (info->twt_cmd_handler == NULL) {
+            ALOGE("%s: Allocation of twt handler failed",__FUNCTION__);
+            return NULL;
+        }
+        info->twt_cmd_handler->pTwtCommand = NULL;
     }
 
     TwtCommand* pTwtCommand = info->twt_cmd_handler->pTwtCommand;
@@ -89,15 +95,6 @@ wifi_error wifi_twt_register_events(wifi_interface_handle iface,
     if (!info) {
         ALOGE("%s: Hal Info is NULL");
         return WIFI_ERROR_UNKNOWN;
-    }
-
-    if (!info->twt_cmd_handler) {
-        info->twt_cmd_handler = (twt_cmd_handler *)malloc(sizeof(twt_cmd_handler));
-        if (info->twt_cmd_handler == NULL) {
-            ALOGE("%s: Allocation of twt handler failed",__FUNCTION__);
-            return WIFI_ERROR_OUT_OF_MEMORY;
-        }
-        info->twt_cmd_handler->pTwtCommand = NULL;
     }
 
     pTwtCommand = TwtCommand::instance(wifiHandle);
@@ -164,6 +161,16 @@ void TwtCommand::setTwtFlowId(int flowId)
     mTwtFlowId = flowId;
 }
 
+bool TwtCommand::getWakeTwtCapabilities()
+{
+    return mWakeTwtCapabilities;
+}
+
+void TwtCommand::setWakeTwtCapabilities(bool WakeTwtCapabilities)
+{
+    mWakeTwtCapabilities = WakeTwtCapabilities;
+}
+
 int TwtCommand::handleResponse(WifiEvent &reply)
 {
     WifiVendorCommand::handleResponse(reply);
@@ -185,10 +192,10 @@ int TwtCommand::handleResponse(WifiEvent &reply)
 
             ALOGV("QCA_WLAN_TWT_GET_CAPABILITIES response Received");
 
-            if (tb_vendor[QCA_WLAN_VENDOR_ATTR_TWT_CAPABILITIES_SELF])
+            if (tb_vendor[QCA_WLAN_VENDOR_ATTR_TWT_CAPABILITIES_SELF]) {
                 self_capabilities =
                     get_u16(tb_vendor[QCA_WLAN_VENDOR_ATTR_TWT_CAPABILITIES_SELF]);
-            else {
+            } else {
                 ALOGE("Get capabilities self attribute is not present");
                 return NL_SKIP;
             }
@@ -202,29 +209,37 @@ int TwtCommand::handleResponse(WifiEvent &reply)
             mTWTCapabilities->is_flexible_twt_supported =
                 (self_capabilities & QCA_WLAN_TWT_CAPA_FLEXIBLE) ? 1 : 0;
 
-            if (tb_vendor[QCA_WLAN_VENDOR_ATTR_TWT_CAPABILITIES_MIN_WAKE_DURATION])
+            if (tb_vendor[QCA_WLAN_VENDOR_ATTR_TWT_CAPABILITIES_MIN_WAKE_DURATION]) {
                 mTWTCapabilities->min_wake_duration_micros =
                     get_u32(tb_vendor[QCA_WLAN_VENDOR_ATTR_TWT_CAPABILITIES_MIN_WAKE_DURATION]);
-            else
+                mWakeTwtCapabilities = true;
+            } else {
                 ALOGE("min wake duration attribute is not present");
+            }
 
-            if (tb_vendor[QCA_WLAN_VENDOR_ATTR_TWT_CAPABILITIES_MAX_WAKE_DURATION])
+            if (tb_vendor[QCA_WLAN_VENDOR_ATTR_TWT_CAPABILITIES_MAX_WAKE_DURATION]) {
                 mTWTCapabilities->max_wake_duration_micros =
                     get_u32(tb_vendor[QCA_WLAN_VENDOR_ATTR_TWT_CAPABILITIES_MAX_WAKE_DURATION]);
-            else
+                mWakeTwtCapabilities = true;
+            } else {
                 ALOGE("max wake duration attribute is not present");
+            }
 
-            if (tb_vendor[QCA_WLAN_VENDOR_ATTR_TWT_CAPABILITIES_MIN_WAKE_INTVL])
+            if (tb_vendor[QCA_WLAN_VENDOR_ATTR_TWT_CAPABILITIES_MIN_WAKE_INTVL]) {
                 mTWTCapabilities->min_wake_interval_micros =
                     get_u32(tb_vendor[QCA_WLAN_VENDOR_ATTR_TWT_CAPABILITIES_MIN_WAKE_INTVL]);
-            else
+                mWakeTwtCapabilities = true;
+            } else {
                 ALOGE("min wake interval attribute is not present here");
+            }
 
-            if (tb_vendor[QCA_WLAN_VENDOR_ATTR_TWT_CAPABILITIES_MAX_WAKE_INTVL])
+            if (tb_vendor[QCA_WLAN_VENDOR_ATTR_TWT_CAPABILITIES_MAX_WAKE_INTVL]) {
                 mTWTCapabilities->max_wake_interval_micros =
                     get_u32(tb_vendor[QCA_WLAN_VENDOR_ATTR_TWT_CAPABILITIES_MAX_WAKE_INTVL]);
-            else
+                mWakeTwtCapabilities = true;
+            } else {
                 ALOGE("max wake interval attribute is not present");
+            }
 
             ALOGV("TWT caps: %s%s%s%s SP:[min:%d max:%d] SI:[min:%d max:%d]",
                   mTWTCapabilities->is_twt_requester_supported ? "[Requestor]" : "",
@@ -400,9 +415,16 @@ wifi_error wifi_twt_get_capabilities(wifi_interface_handle iface,
 
     ptwtCommand->setTwtCapabilities(capabilities);
 
+    ptwtCommand->setWakeTwtCapabilities(false);
     ret = ptwtCommand->requestResponse();
     if (ret != WIFI_SUCCESS)
         goto cleanup;
+
+    if (!ptwtCommand->getWakeTwtCapabilities()) {
+        ALOGE("%s: driver doesn't support framework TWT APIs if wake duration and interval capabilities are not advertised.", __FUNCTION__);
+        ret = WIFI_ERROR_NOT_SUPPORTED;
+        goto cleanup;
+    }
 
 cleanup:
     if (ret != WIFI_SUCCESS)
@@ -416,6 +438,7 @@ wifi_error wifi_twt_session_get_stats(wifi_request_id id,
                                       int session_id)
 {
     wifi_error ret;
+    int kernelError;
     TwtCommand *ptwtCommand;
     struct nlattr *nlData, *nlTwtParams;
     interface_info *iinfo;
@@ -478,14 +501,15 @@ wifi_error wifi_twt_session_get_stats(wifi_request_id id,
     ptwtCommand->attr_end(nlTwtParams);
     ptwtCommand->attr_end(nlData);
 
-    ret = ptwtCommand->requestResponse();
-    if (ret != WIFI_SUCCESS){
+    kernelError = ptwtCommand->requestResponseWithKernelStatus();
+    ret = mapKernelErrortoWifiHalError(kernelError);
+    if (ret != WIFI_SUCCESS) {
+        ptwtCommand->sendTwtFailure(id, kernelError);
         ALOGE("%s: requestResponse Error:%d", __FUNCTION__, ret);
-        goto cleanup;
     }
 
 cleanup:
-    return ret;
+    return WIFI_SUCCESS;
 }
 
 void TwtCommand::sendTwtFailure(wifi_request_id id, int ret)
@@ -668,17 +692,17 @@ wifi_error wifi_twt_session_setup(wifi_request_id id,
     if (ret != WIFI_SUCCESS) {
         ptwtCommand->sendTwtFailure(id, kernelError);
         ALOGE("%s: requestResponse Error:%d", __FUNCTION__, ret);
-        goto cleanup;
     }
 
 cleanup:
-    return ret;
+    return WIFI_SUCCESS;
 }
 
 wifi_error wifi_twt_session_teardown(wifi_request_id id, wifi_interface_handle iface,
                                      int session_id)
 {
     wifi_error ret;
+    int kernelError;
     TwtCommand *ptwtCommand;
     struct nlattr *nlData, *nlTwtParams;
     interface_info *iinfo;
@@ -739,16 +763,17 @@ wifi_error wifi_twt_session_teardown(wifi_request_id id, wifi_interface_handle i
     ptwtCommand->attr_end(nlTwtParams);
     ptwtCommand->attr_end(nlData);
 
-    ret = ptwtCommand->requestResponse();
+    kernelError = ptwtCommand->requestResponseWithKernelStatus();
+    ret = mapKernelErrortoWifiHalError(kernelError);
     if (ret != WIFI_SUCCESS) {
+        ptwtCommand->sendTwtFailure(id, kernelError);
         ALOGE("%s: requestResponse Error:%d", __FUNCTION__, ret);
-        goto cleanup;
     }
 
-   ALOGV("%s: Teardown TWT session:%d", __FUNCTION__, session_id);
+    ALOGV("%s: Teardown TWT session:%d", __FUNCTION__, session_id);
 
 cleanup:
-    return ret;
+    return WIFI_SUCCESS;
 }
 
 wifi_twt_error_code
