@@ -55,8 +55,6 @@ TwtCommand* TwtCommand::instance(wifi_handle handle)
         pTwtCommand->mInfo = (hal_info *)handle;
     }
 
-    pTwtCommand->mVendorData = NULL;
-    pTwtCommand->mDataLen = 0;
     ALOGV("TwtCommand instance has already been created");
 
     return pTwtCommand;
