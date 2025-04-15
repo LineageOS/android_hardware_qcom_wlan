@@ -1647,8 +1647,7 @@ wifi_error wifi_multi_sta_set_use_case(wifi_handle handle,
         break;
     default:
         ALOGE("%s: Unknown use case %d", __FUNCTION__, case_info);
-        ret = WIFI_ERROR_UNKNOWN;
-        goto cleanup;;
+        return WIFI_ERROR_UNKNOWN;
     }
 
     requestId = get_requestid();
