@@ -18,10 +18,9 @@ TwtCommand::TwtCommand(wifi_handle handle, int id, u32 vendor_id, u32 subcmd)
 
 TwtCommand::~TwtCommand()
 {
-    unregisterVendorHandler(mVendor_id, QCA_NL80211_VENDOR_SUBCMD_CONFIG_TWT);
 }
 
-TwtCommand* TwtCommand::instance(wifi_handle handle)
+TwtCommand* TwtCommand::handlerInstance(wifi_handle handle)
 {
     if (handle == NULL) {
         ALOGE("Interface Handle is invalid");
@@ -44,8 +43,10 @@ TwtCommand* TwtCommand::instance(wifi_handle handle)
         pTwtCommand = new TwtCommand(handle, 0,
                 OUI_QCA,
                 QCA_NL80211_VENDOR_SUBCMD_CONFIG_TWT);
-        ALOGV("TwtCommand instance is created");
+        ALOGV("TwtCommand handler instance is created");
         info->twt_cmd_handler->pTwtCommand = pTwtCommand;
+
+        return pTwtCommand;
     } else if (handle != getWifiHandle(pTwtCommand->mInfo)) {
         /*
          * upper layer must have cleaned up the handle and reinitialized,
@@ -55,7 +56,7 @@ TwtCommand* TwtCommand::instance(wifi_handle handle)
         pTwtCommand->mInfo = (hal_info *)handle;
     }
 
-    ALOGV("TwtCommand instance has already been created");
+    ALOGV("TwtCommand handler instance has already been created");
 
     return pTwtCommand;
 }
@@ -97,7 +98,7 @@ wifi_error wifi_twt_register_events(wifi_interface_handle iface,
         return WIFI_ERROR_UNKNOWN;
     }
 
-    pTwtCommand = TwtCommand::instance(wifiHandle);
+    pTwtCommand = TwtCommand::handlerInstance(wifiHandle);
     if (!pTwtCommand) {
         ALOGE("%s: Error while fetching twtCommand instance", __FUNCTION__);
         free(info->twt_cmd_handler);
@@ -106,6 +107,11 @@ wifi_error wifi_twt_register_events(wifi_interface_handle iface,
     }
 
     return pTwtCommand->setCallbackHandler(events);
+}
+
+void TwtCommand::removeCallbackHandler()
+{
+    unregisterVendorHandler(mVendor_id, QCA_NL80211_VENDOR_SUBCMD_CONFIG_TWT);
 }
 
 void cleanupTwtCommand(hal_info *info)
@@ -117,9 +123,10 @@ void cleanupTwtCommand(hal_info *info)
         return;
 
     pTwtCommand = info->twt_cmd_handler->pTwtCommand;
-    if (pTwtCommand)
+    if (pTwtCommand) {
+        pTwtCommand->removeCallbackHandler();
         delete pTwtCommand;
-
+    }
     free(info->twt_cmd_handler);
     info->twt_cmd_handler = NULL;
 
@@ -176,8 +183,10 @@ int TwtCommand::handleResponse(WifiEvent &reply)
     WifiVendorCommand::handleResponse(reply);
     u16 self_capabilities = 0;
 
-    if (mSubcmd != QCA_NL80211_VENDOR_SUBCMD_CONFIG_TWT)
+    if (mSubcmd != QCA_NL80211_VENDOR_SUBCMD_CONFIG_TWT) {
+        ALOGE("Invalid Subcmd:%d received", mSubcmd);
         return NL_SKIP;
+    }
 
     switch (mTWTRequestType) {
         case QCA_WLAN_TWT_GET_CAPABILITIES:
@@ -373,11 +382,6 @@ wifi_error wifi_twt_get_capabilities(wifi_interface_handle iface,
     }
 
     handle = getWifiHandle(iface);
-    ptwtCommand = TwtCommand::instance(handle);
-    if (ptwtCommand == NULL) {
-        ALOGE("%s: Error TwtCommand NULL", __FUNCTION__);
-        return WIFI_ERROR_UNKNOWN;
-    }
 
     if (capabilities == NULL) {
         ALOGE("%s: capabilities is NULL", __FUNCTION__);
@@ -385,6 +389,13 @@ wifi_error wifi_twt_get_capabilities(wifi_interface_handle iface,
     }
 
     memset(capabilities, 0, sizeof(wifi_twt_capabilities));
+
+    ptwtCommand = new TwtCommand(handle, 0, OUI_QCA,
+                                 QCA_NL80211_VENDOR_SUBCMD_CONFIG_TWT);
+    if (ptwtCommand == NULL) {
+        ALOGE("%s: Error TwtCommand NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
 
     ptwtCommand->setSubCmd(QCA_NL80211_VENDOR_SUBCMD_CONFIG_TWT);
     ptwtCommand->setTWTRequestType(QCA_WLAN_TWT_GET_CAPABILITIES);
@@ -430,6 +441,7 @@ cleanup:
     if (ret != WIFI_SUCCESS)
         ALOGE("%s: Error:%d", __FUNCTION__, ret);
 
+    delete ptwtCommand;
     return ret;
 }
 
@@ -440,6 +452,7 @@ wifi_error wifi_twt_session_get_stats(wifi_request_id id,
     wifi_error ret;
     int kernelError;
     TwtCommand *ptwtCommand;
+    TwtCommand *twtCommandHandler;
     struct nlattr *nlData, *nlTwtParams;
     interface_info *iinfo;
     wifi_handle handle;
@@ -458,11 +471,13 @@ wifi_error wifi_twt_session_get_stats(wifi_request_id id,
     ALOGV("%s: Enter id:%d session_id:%d", __FUNCTION__, id, session_id);
     handle = getWifiHandle(iface);
 
-    ptwtCommand = TwtCommand::instance(handle);
+    ptwtCommand = new TwtCommand(handle, 0, OUI_QCA,
+                                 QCA_NL80211_VENDOR_SUBCMD_CONFIG_TWT);
     if (ptwtCommand == NULL) {
         ALOGE("%s: Error TwtCommand is NULL", __FUNCTION__);
         return WIFI_ERROR_UNKNOWN;
     }
+
     ptwtCommand->setSubCmd(QCA_NL80211_VENDOR_SUBCMD_CONFIG_TWT);
     ptwtCommand->setTWTRequestType(QCA_WLAN_TWT_GET_STATS);
     ptwtCommand->setReqId(id);
@@ -493,6 +508,12 @@ wifi_error wifi_twt_session_get_stats(wifi_request_id id,
     nlTwtParams =
         ptwtCommand->attr_start(QCA_WLAN_VENDOR_ATTR_CONFIG_TWT_PARAMS);
 
+    if(!nlTwtParams) {
+        ALOGE("%s: nlTwtParams is NULL",  __FUNCTION__);
+        ret = WIFI_ERROR_UNKNOWN;
+        goto cleanup;
+    }
+
     ret = ptwtCommand->put_u8(QCA_WLAN_VENDOR_ATTR_TWT_STATS_FLOW_ID,
                               session_id);
     if (ret != WIFI_SUCCESS)
@@ -500,6 +521,10 @@ wifi_error wifi_twt_session_get_stats(wifi_request_id id,
 
     ptwtCommand->attr_end(nlTwtParams);
     ptwtCommand->attr_end(nlData);
+
+    twtCommandHandler = TwtCommand::handlerInstance(handle);
+    if (twtCommandHandler)
+        ptwtCommand->mHandler = twtCommandHandler->mHandler;
 
     kernelError = ptwtCommand->requestResponseWithKernelStatus();
     ret = mapKernelErrortoWifiHalError(kernelError);
@@ -509,6 +534,7 @@ wifi_error wifi_twt_session_get_stats(wifi_request_id id,
     }
 
 cleanup:
+    delete ptwtCommand;
     return WIFI_SUCCESS;
 }
 
@@ -542,6 +568,7 @@ wifi_error wifi_twt_session_setup(wifi_request_id id,
     wifi_error ret;
     int kernelError;
     TwtCommand *ptwtCommand;
+    TwtCommand *twtCommandHandler;
     struct nlattr *nlData, *nlTwtParams;
     interface_info *iinfo;
     wifi_handle handle;
@@ -563,14 +590,19 @@ wifi_error wifi_twt_session_setup(wifi_request_id id,
     ALOGV("%s: Enter id:%d", __FUNCTION__, id);
     handle = getWifiHandle(iface);
 
-    ptwtCommand = TwtCommand::instance(handle);
+    ptwtCommand = new TwtCommand(handle, 0, OUI_QCA,
+                                 QCA_NL80211_VENDOR_SUBCMD_CONFIG_TWT);
     if (ptwtCommand == NULL) {
         ALOGE("%s: Error TwtCommand NULL", __FUNCTION__);
         return WIFI_ERROR_UNKNOWN;
     }
 
-    ptwtCommand->setSubCmd(QCA_NL80211_VENDOR_SUBCMD_CONFIG_TWT);
-    ptwtCommand->setReqId(id);
+    twtCommandHandler = TwtCommand::handlerInstance(handle);
+    if (twtCommandHandler) {
+        ptwtCommand->mHandler = twtCommandHandler->mHandler;
+        twtCommandHandler->setSubCmd(QCA_NL80211_VENDOR_SUBCMD_CONFIG_TWT);
+        twtCommandHandler->setReqId(id);
+    }
 
     /* Create the NL message. */
     ret = ptwtCommand->create();
@@ -596,6 +628,12 @@ wifi_error wifi_twt_session_setup(wifi_request_id id,
 
     nlTwtParams = ptwtCommand->attr_start(
     QCA_WLAN_VENDOR_ATTR_CONFIG_TWT_PARAMS);
+
+    if(!nlTwtParams) {
+        ALOGE("%s: nlTwtParams is NULL",  __FUNCTION__);
+        ret = WIFI_ERROR_UNKNOWN;
+        goto cleanup;
+    }
 
     ret = ptwtCommand->put_u32(QCA_WLAN_VENDOR_ATTR_TWT_SETUP_MIN_WAKE_INTVL,
                                request.min_wake_interval_micros);
@@ -695,6 +733,7 @@ wifi_error wifi_twt_session_setup(wifi_request_id id,
     }
 
 cleanup:
+    delete ptwtCommand;
     return WIFI_SUCCESS;
 }
 
@@ -703,6 +742,7 @@ wifi_error wifi_twt_session_teardown(wifi_request_id id, wifi_interface_handle i
 {
     wifi_error ret;
     int kernelError;
+    TwtCommand *twtCommandHandler;
     TwtCommand *ptwtCommand;
     struct nlattr *nlData, *nlTwtParams;
     interface_info *iinfo;
@@ -722,13 +762,19 @@ wifi_error wifi_twt_session_teardown(wifi_request_id id, wifi_interface_handle i
     ALOGV("%s Enter", __FUNCTION__);
     handle = getWifiHandle(iface);
 
-    ptwtCommand = TwtCommand::instance(handle);
+    ptwtCommand = new TwtCommand(handle, 0, OUI_QCA,
+                                 QCA_NL80211_VENDOR_SUBCMD_CONFIG_TWT);
     if (ptwtCommand == NULL) {
         ALOGE("%s: Error TwtCommand NULL", __FUNCTION__);
         return WIFI_ERROR_UNKNOWN;
     }
-    ptwtCommand->setSubCmd(QCA_NL80211_VENDOR_SUBCMD_CONFIG_TWT);
-    ptwtCommand->setReqId(id);
+
+    twtCommandHandler = TwtCommand::handlerInstance(handle);
+    if (twtCommandHandler) {
+        ptwtCommand->mHandler = twtCommandHandler->mHandler;
+        twtCommandHandler->setSubCmd(QCA_NL80211_VENDOR_SUBCMD_CONFIG_TWT);
+        twtCommandHandler->setReqId(id);
+    }
 
     /* Create the NL message. */
     ret = ptwtCommand->create();
@@ -742,7 +788,7 @@ wifi_error wifi_twt_session_teardown(wifi_request_id id, wifi_interface_handle i
 
     /* Add the vendor specific attributes for the NL command. */
     nlData = ptwtCommand->attr_start(NL80211_ATTR_VENDOR_DATA);
-    if (!nlData){
+    if (!nlData) {
         ret = WIFI_ERROR_UNKNOWN;
         goto cleanup;
     }
@@ -754,6 +800,12 @@ wifi_error wifi_twt_session_teardown(wifi_request_id id, wifi_interface_handle i
 
     nlTwtParams = ptwtCommand->attr_start(
     QCA_WLAN_VENDOR_ATTR_CONFIG_TWT_PARAMS);
+
+    if(!nlTwtParams) {
+        ALOGE("%s: nlTwtParams is NULL",  __FUNCTION__);
+        ret = WIFI_ERROR_UNKNOWN;
+        goto cleanup;
+    }
 
     ret = ptwtCommand->put_u8(QCA_WLAN_VENDOR_ATTR_TWT_SETUP_FLOW_ID,
                               session_id);
@@ -773,6 +825,7 @@ wifi_error wifi_twt_session_teardown(wifi_request_id id, wifi_interface_handle i
     ALOGV("%s: Teardown TWT session:%d", __FUNCTION__, session_id);
 
 cleanup:
+    delete ptwtCommand;
     return WIFI_SUCCESS;
 }
 
