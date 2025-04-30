@@ -72,6 +72,7 @@
 #include "driver_cmd_nl80211_extn.h"
 #include "driver_cmd_nl80211_common.h"
 #include "driver_cmd_nl80211_mlo.h"
+#include <inttypes.h>
 
 #define WPA_PS_ENABLED		0
 #define WPA_PS_DISABLED		1
@@ -2135,7 +2136,7 @@ static int wpa_driver_get_sta_info(struct i802_bss *bss, u8 *mac,
 		}
 	}
 
-	if(wpa_driver_ioctl(bss, "GETCOUNTRYREV", buf, sizeof(buf), &status, drv) == 0){
+	if(wpa_driver_ioctl(bss, "GETCOUNTRYREV", buf, sizeof(buf), status, drv) == 0){
 		p = strstr(buf, " ");
 		if(p != NULL)
 			memcpy(g_sta_info.country, (p+1), strlen(p+1)+1);//length of p including null
@@ -2939,7 +2940,7 @@ void print_setup_cmd_values(struct twt_setup_parameters *twt_setup_params)
 		   twt_setup_params->min_wake_duration);
 	wpa_printf(MSG_DEBUG, "TWT: max wake duration: %d ",
 		   twt_setup_params->max_wake_duration);
-	wpa_printf(MSG_DEBUG, "TWT: wake tsf: 0x%llx ",
+	wpa_printf(MSG_DEBUG, "TWT: wake tsf: 0x%"PRIx64,
 		   twt_setup_params->wake_tsf);
 	wpa_printf(MSG_DEBUG, "TWT: announce timeout(in us): %u",
 		   twt_setup_params->announce_timeout_us);
@@ -4380,7 +4381,8 @@ static int wpa_get_twt_setup_resp_val(struct nlattr **tb2, char *buf,
  *
  * @Returns 0 on Success, -1 on Failure
  */
-static int unpack_twt_get_params_nlmsg(struct nl_msg **tb, char *buf, int buf_len)
+static int
+unpack_twt_get_params_nlmsg(struct nlattr **tb, char *buf, int buf_len)
 {
 	int ret, rem, id, len = 0, num_twt_sessions = 0;
 	struct nlattr *config_attr[QCA_WLAN_VENDOR_ATTR_CONFIG_TWT_MAX + 1];
@@ -4593,8 +4595,8 @@ static int wpa_get_twt_stats_resp_val(struct nlattr **tb2, char *buf,
  *
  * @Returns 0 on Success, -1 on Failure
  */
-static
-int unpack_twt_get_stats_nlmsg(struct nl_msg **tb, char *buf, int buf_len)
+static int
+unpack_twt_get_stats_nlmsg(struct nlattr **tb, char *buf, int buf_len)
 {
 	int ret, rem, id, len = 0, num_twt_sessions = 0;
 	struct nlattr *config_attr[QCA_WLAN_VENDOR_ATTR_CONFIG_TWT_MAX + 1];
@@ -4683,7 +4685,8 @@ static int wpa_get_twt_capabilities_resp_val(struct nlattr **tb2, char *buf,
  *
  * @Returns 0 on Success, -1 on Failure
  */
-static int unpack_twt_get_capab_nlmsg(struct nl_msg **tb, char *buf, int buf_len)
+static int
+unpack_twt_get_capab_nlmsg(struct nlattr **tb, char *buf, int buf_len)
 {
 	int ret, id;
 	struct nlattr *config_attr[QCA_WLAN_VENDOR_ATTR_CONFIG_TWT_MAX + 1];
@@ -5791,7 +5794,8 @@ static int wpa_driver_tsf_cmd_resp_handler(struct resp_info *info,
 		return NL_SKIP;
 	}
 	ret = os_snprintf(info->reply_buf, info->reply_buf_len,
-			  "tsf_value:%llu host_time:%llu", tsf_value, host_time);
+			  "tsf_value:%"PRIu64" host_time:%"PRIu64,
+			  tsf_value, host_time);
 	if (os_snprintf_error(info->reply_buf_len, ret)) {
 		wpa_printf(MSG_ERROR, "%s:Fail to print buffer", __func__);
 		return -ENOMEM;
