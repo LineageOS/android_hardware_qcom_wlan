@@ -39,6 +39,7 @@ ifdef CONFIG_DRIVER_NL80211
 WPA_SUPPL_DIR_INCLUDE += external/libnl/include
 WPA_SRC_FILE += driver_cmd_nl80211_extn.c \
 		driver_cmd_nl80211_sr.c \
+		driver_cmd_nl80211_mlo.c \
 		driver_cmd_nl80211.c
 endif
 
