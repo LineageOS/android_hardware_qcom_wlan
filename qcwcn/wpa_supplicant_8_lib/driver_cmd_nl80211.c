@@ -5732,8 +5732,7 @@ int wpa_driver_cmd_send_peer_flush_queue_config(struct i802_bss *bss, char *cmd)
 static int wpa_driver_check_for_tsf_cmd(char *cmd, enum qca_tsf_cmd *tsf_cmd, u32 *interval)
 {
 	int ret;
-	if (os_strlen(cmd) == 7 &&
-	    os_strncasecmp(cmd, "TSF_GET", 7) == 0) {
+	if (os_strncasecmp(cmd, "TSF_GET", 7) == 0) {
 		*tsf_cmd = QCA_TSF_GET;
 		cmd += 7;
 	} else if (os_strncasecmp(cmd, "TSF_SYNC_START", 14) == 0) {
@@ -5750,10 +5749,15 @@ static int wpa_driver_check_for_tsf_cmd(char *cmd, enum qca_tsf_cmd *tsf_cmd, u3
 				return -EINVAL;
 			}
 		}
-	} else if (os_strlen(cmd) == 13 &&
-		   os_strncasecmp(cmd, "TSF_SYNC_STOP", 13) == 0) {
+	} else if (os_strncasecmp(cmd, "TSF_SYNC_STOP", 13) == 0) {
 		*tsf_cmd = QCA_TSF_SYNC_STOP;
 		cmd += 13;
+	} else if (os_strncasecmp(cmd, "TSF_CAPTURE", 11) == 0) {
+		*tsf_cmd = QCA_TSF_CAPTURE;
+		cmd += 11;
+	} else if (os_strncasecmp(cmd, "TSF_SYNC_GET", 12) == 0) {
+		*tsf_cmd = QCA_TSF_SYNC_GET;
+		cmd += 12;
 	} else
 		return -EINVAL;
 
@@ -5852,7 +5856,7 @@ static int wpa_driver_tsf_cmd(struct i802_bss *bss, char *cmd, char *buf, size_t
 		}
 	}
 	nla_nest_end(tsf_nlmsg, tsf_attr);
-	if (tsf_cmd == QCA_TSF_GET)
+	if ((tsf_cmd == QCA_TSF_GET) || (tsf_cmd == QCA_TSF_SYNC_GET))
 		ret = send_nlmsg((struct nl_sock *)drv->global->nl, tsf_nlmsg,
 				 response_handler, &info);
 	else
