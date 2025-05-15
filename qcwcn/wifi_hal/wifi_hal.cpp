@@ -2294,8 +2294,7 @@ static int internal_valid_message_handler(nl_msg *msg, void *arg)
             ALOGI("event received %s, vendor_id = 0x%0x, subcmd = 0x%0x",
                   event.get_cmdString(), vendor_id, subcmd);
         }
-    }
-    else if(cmd == NL80211_CMD_FRAME ||
+    } else if(cmd == NL80211_CMD_FRAME ||
         cmd == NL80211_CMD_FRAME_TX_STATUS)
     {
         size_t len;
@@ -2303,7 +2302,11 @@ static int internal_valid_message_handler(nl_msg *msg, void *arg)
         int ifidx = -1;
         struct nlattr *frame;
         struct nlattr *tb[NL80211_ATTR_MAX + 1];
-        struct genlmsghdr *gnlh = (genlmsghdr *) nlmsg_data(nlmsg_hdr(msg));
+        struct  nlmsghdr *nlh = nlmsg_hdr(msg);
+        struct genlmsghdr *gnlh = (genlmsghdr *) nlmsg_data(nlh);
+        wifihal_ctrl_event_t *ctrl_evt;
+        char *buff;
+        wifihal_mon_sock_t *reg;
 
         nla_parse(tb, NL80211_ATTR_MAX, genlmsg_attrdata(gnlh, 0),
                   genlmsg_attrlen(gnlh, 0), NULL);
@@ -2326,73 +2329,46 @@ static int internal_valid_message_handler(nl_msg *msg, void *arg)
 
         if (cmd == NL80211_CMD_FRAME) {
             wifihal_event_mgmt(handle, tb[NL80211_ATTR_WIPHY_FREQ],
-                               (const u8*) nla_data(frame), nla_len(frame));
+                               data, nla_len(frame));
+            ctrl_evt = (wifihal_ctrl_event_t *)malloc(sizeof(*ctrl_evt) +
+                        nlh->nlmsg_len);
+            if (ctrl_evt == NULL)
+            {
+                ALOGE("Memory allocation failure");
+                return -1;
+            }
+            memset((char *)ctrl_evt, 0, sizeof(*ctrl_evt) + nlh->nlmsg_len);
+            ctrl_evt->family_name = GENERIC_NL_FAMILY;
+            ctrl_evt->cmd_id = cmd;
+            ctrl_evt->data_len = nlh->nlmsg_len;
+            memcpy(ctrl_evt->data, (char *)nlh, ctrl_evt->data_len);
+
+            buff = (char *)nla_data(tb[NL80211_ATTR_FRAME]) + 24;
+            list_for_each_entry(reg, &info->monitor_sockets, list) {
+                if (memcmp(reg->match, buff, reg->match_len))
+                    continue;
+
+                /* found match! */
+                /* Indicate the received Action frame to respective client */
+                ALOGI("send gennl msg of len : %d to apps", ctrl_evt->data_len);
+                if (sendto(info->wifihal_ctrl_sock.s, (char *)ctrl_evt,
+                    sizeof(*ctrl_evt) + ctrl_evt->data_len,
+                    0, (struct sockaddr *)&reg->monsock, reg->monsock_len) < 0)
+                {
+                    int _errno = errno;
+                    ALOGE("socket send failed : %d",_errno);
+                }
+
+            }
+            free(ctrl_evt);
 #ifdef WPA_PASN_LIB
         } else {
             wifihal_event_mgmt_tx_status(handle, tb[NL80211_ATTR_COOKIE],
-                                         (const u8*) nla_data(frame),
-                                         nla_len(frame), tb[NL80211_ATTR_ACK]);
+                                         data, nla_len(frame),
+                                         tb[NL80211_ATTR_ACK]);
+        }
 #endif
-        }
-    }
-    else if((info->wifihal_ctrl_sock.s > 0) && (cmd == NL80211_CMD_FRAME))
-    {
-       struct genlmsghdr *genlh;
-       struct  nlmsghdr *nlh = nlmsg_hdr(msg);
-       genlh = (struct genlmsghdr *)nlmsg_data(nlh);
-       struct nlattr *nlattrs[NL80211_ATTR_MAX + 1];
-
-       wifihal_ctrl_event_t *ctrl_evt;
-       char *buff;
-       wifihal_mon_sock_t *reg;
-
-       nla_parse(nlattrs, NL80211_ATTR_MAX, genlmsg_attrdata(genlh, 0),
-                 genlmsg_attrlen(genlh, 0), NULL);
-
-       if (!nlattrs[NL80211_ATTR_FRAME])
-       {
-         ALOGD("No Frame body");
-         return WIFI_SUCCESS;
-       }
-       ctrl_evt = (wifihal_ctrl_event_t *)malloc(sizeof(*ctrl_evt) + nlh->nlmsg_len);
-       if(ctrl_evt == NULL)
-       {
-         ALOGE("Memory allocation failure");
-         return -1;
-       }
-       memset((char *)ctrl_evt, 0, sizeof(*ctrl_evt) + nlh->nlmsg_len);
-       ctrl_evt->family_name = GENERIC_NL_FAMILY;
-       ctrl_evt->cmd_id = cmd;
-       ctrl_evt->data_len = nlh->nlmsg_len;
-       memcpy(ctrl_evt->data, (char *)nlh, ctrl_evt->data_len);
-
-
-       buff = (char *)nla_data(nlattrs[NL80211_ATTR_FRAME]) + 24; //! Size of Wlan80211FrameHeader
-
-       list_for_each_entry(reg, &info->monitor_sockets, list) {
-
-                 if (memcmp(reg->match, buff, reg->match_len))
-                     continue;
-
-                 /* found match! */
-                 /* Indicate the received Action frame to respective client */
-                 ALOGI("send gennl msg of len : %d to apps", ctrl_evt->data_len);
-                 if (sendto(info->wifihal_ctrl_sock.s, (char *)ctrl_evt,
-                            sizeof(*ctrl_evt) + ctrl_evt->data_len,
-                            0, (struct sockaddr *)&reg->monsock, reg->monsock_len) < 0)
-                 {
-                   int _errno = errno;
-                   ALOGE("socket send failed : %d",_errno);
-
-                   if (_errno == ENOBUFS || _errno == EAGAIN) {
-                   }
-                 }
-
-        }
-        free(ctrl_evt);
-    }
-
-    else {
+    } else {
         ALOGV("event received %s", event.get_cmdString());
     }
 
