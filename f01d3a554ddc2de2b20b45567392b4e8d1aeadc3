@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "9a61c62a_42143570",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 11
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 16185
+      },
+      "writtenOn": "2025-05-18T17:13:58Z",
+      "side": 1,
+      "message": "lets just keep this on 22.2... no devices died here that\u0027d benefit.",
+      "revId": "f01d3a554ddc2de2b20b45567392b4e8d1aeadc3",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    }
+  ]
+}
