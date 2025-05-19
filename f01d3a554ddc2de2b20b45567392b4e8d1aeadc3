@@ -16,6 +16,23 @@
       "message": "lets just keep this on 22.2... no devices died here that\u0027d benefit.",
       "revId": "f01d3a554ddc2de2b20b45567392b4e8d1aeadc3",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "cee12bbb_262793b3",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 11
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 26777
+      },
+      "writtenOn": "2025-05-19T17:26:23Z",
+      "side": 1,
+      "message": "right, let\u0027s abandon it and keep it as reference.\nthough the hal has remained unchanged since 20.",
+      "revId": "f01d3a554ddc2de2b20b45567392b4e8d1aeadc3",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
