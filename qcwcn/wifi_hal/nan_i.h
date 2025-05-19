@@ -207,11 +207,6 @@ extern "C"
          ((mac_addr)[4] | ((mac_addr)[5] << 8));          \
 } while (0)
 
-#define RTT_CAP_20M  (0x0)
-#define RTT_CAP_40M  (0x01)
-#define RTT_CAP_80M  (0x02)
-#define RTT_CAP_160M (0x03)
-
 #ifndef WPA_PASN_LIB
 /* Macros for handling unaligned memory accesses */
 
