@@ -43,8 +43,11 @@
 #include <unistd.h>
 #include "cld80211_lib.h"
 #include "cld80211_lib_int.h"
-
-#ifndef LE_BUILD
+#ifdef __LINUX__
+  #include <netlink-private/object-api.h>
+  #include <netlink-private/types_modified.h>
+#endif
+#if !(defined(LE_BUILD) || defined(__LINUX__))
  #include <log/log.h>
  #undef LOG_TAG
  #define LOG_TAG "CLD80211"
@@ -59,6 +62,20 @@
 #endif
 
 #define SOCK_BUF_SIZE (256*1024)
+
+#ifdef __LINUX__
+  #define LOG_TAG "CLD80211"
+#endif
+
+#ifndef TEMP_FAILURE_RETRY
+/* Used to retry syscalls that can return EINTR. */
+#define TEMP_FAILURE_RETRY(exp) ({     \
+typeof (exp) _rc;                      \
+do {                                   \
+    _rc = (exp);                       \
+} while (_rc == -1 && errno == EINTR); \
+_rc; })
+#endif
 
 struct family_data {
 	const char *group;
@@ -476,6 +493,9 @@ int cld80211_recv(void *cldctx, int timeout, bool recv_multi_msg,
 
 void *cld80211_init(void)
 {
+	#ifdef __LINUX__
+		openlog("[" LOG_TAG "]", LOG_CONS|LOG_NDELAY|LOG_PERROR|LOG_PID, LOG_SYSLOG);
+	#endif
 	struct cld80211_ctx *ctx;
 
 	ctx = (struct cld80211_ctx *)malloc(sizeof(struct cld80211_ctx));

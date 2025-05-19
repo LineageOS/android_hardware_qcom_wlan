@@ -10,7 +10,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022,2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -71,11 +71,11 @@
 #endif
 #include "driver_cmd_nl80211_extn.h"
 #include "driver_cmd_nl80211_common.h"
+#include "driver_cmd_nl80211_mlo.h"
 
 #define WPA_PS_ENABLED		0
 #define WPA_PS_DISABLED		1
 #define UNUSED(x)	(void)(x)
-#define NL80211_ATTR_MAX_INTERNAL 256
 #define CSI_STATUS_REJECTED      -1
 #define CSI_STATUS_SUCCESS        0
 #define ENHANCED_CFR_VER          2
@@ -2853,7 +2853,7 @@ s32 get_s32_from_string(char *cmd_string, int *ret)
 	return val;
 }
 
-static u8 get_u8_from_string(char *cmd_string, int *ret)
+u8 get_u8_from_string(char *cmd_string, int *ret)
 {
 	long val = 0;
 	char *endptr = NULL;
@@ -6487,26 +6487,90 @@ nlmsg_fail:
 	return ret;
 }
 
+struct mlo_ul_mu_info {
+	u8 num_links;
+	struct mlo_link_state {
+		u8 link_id;
+		u8 ul_mu_mode;
+	} link_ul_mu_info[MAX_NUM_MLO_LINKS + 1];
+};
+
+static bool mlo_ul_mu_process_cmd_string(char *cmd, struct mlo_ul_mu_info *info)
+{
+	char *context = NULL;
+	char *token = cmd;
+	int ret;
+
+	if (*token == '\0') {
+		wpa_printf(MSG_ERROR,
+			   "Link_id and ulmu cfg not present");
+		return false;
+	}
+
+	/*
+	 * Input command examples
+	 * SET_UL_MU_CONFIG link_id 1 ul_mu_mode 0 link_id 2 ul_mu_mode 1
+	 */
+
+	os_memset(info, 0, sizeof(struct mlo_ul_mu_info));
+	while (*token != '\0') {
+		if (info->num_links > MAX_NUM_MLD_LINKS)
+			return false;
+		if (os_strncasecmp(token, "link_id ", 8) != 0) {
+			wpa_printf(MSG_ERROR,
+				   "link_id param is missing");
+			return false;
+		}
+		token = move_to_next_str(token);
+		info->link_ul_mu_info[info->num_links].link_id =
+			get_u8_from_string(token, &ret);
+		if (ret < 0 ||
+		    info->link_ul_mu_info[info->num_links].link_id >=
+		    MAX_NUM_MLD_LINKS) {
+			wpa_printf(MSG_ERROR, "Link_id:%d is invalid",
+				   info->link_ul_mu_info[info->num_links].link_id);
+			return false;
+		}
+		token = move_to_next_str(token);
+		if (os_strncasecmp(token, "ul_mu_mode ", 11) != 0) {
+			wpa_printf(MSG_ERROR,
+				   "ul_mu_mode param is missing");
+			return false;
+		}
+		token = move_to_next_str(token);
+		info->link_ul_mu_info[info->num_links].ul_mu_mode =
+			get_u8_from_string(token, &ret);
+		if (ret < 0 ||
+		    info->link_ul_mu_info[info->num_links].ul_mu_mode >
+		    QCA_UL_MU_ENABLE) {
+			wpa_printf(MSG_ERROR,
+				   "Link_id:%d ul_mu_mode:%d invalid",
+				   info->link_ul_mu_info[info->num_links].link_id,
+				   info->link_ul_mu_info[info->num_links].ul_mu_mode);
+			return false;
+		}
+		wpa_printf(MSG_DEBUG,
+			   "Link_id = %d ul_mu_mode = %d num_links = %d",
+			   info->link_ul_mu_info[info->num_links].link_id,
+			   info->link_ul_mu_info[info->num_links].ul_mu_mode,
+			   info->num_links);
+		info->num_links++;
+		token = move_to_next_str(token);
+	}
+	return true;
+}
+
 static int wpa_driver_set_ul_mu_cfg(struct i802_bss *bss, char *cmd)
 {
 	struct wpa_driver_nl80211_data *drv = bss->drv;
-	struct nlattr *attr;
+	struct nlattr *attr, *mlo_link, *nest_link;
 	struct nl_msg *nlmsg = NULL;
-	int ret = 0;
+	int ret = 0, i;
 	u8 ulmu;
 	enum qca_ul_mu_config val;
+	struct mlo_ul_mu_info info;
 
-	ulmu = get_u8_from_string(cmd, &ret);
-	if (ret || ulmu > 1) {
-		wpa_printf(MSG_ERROR, "set_ul_mu_cfg: input error");
-		return -EINVAL;
-	}
-
-	if (ulmu)
-		val = QCA_UL_MU_ENABLE;
-	else
-		val = QCA_UL_MU_SUSPEND;
-
+	cmd = skip_white_space(cmd);
 	nlmsg =
 	prepare_vendor_nlmsg(drv, bss->ifname,
 			     QCA_NL80211_VENDOR_SUBCMD_SET_WIFI_CONFIGURATION);
@@ -6521,13 +6585,64 @@ static int wpa_driver_set_ul_mu_cfg(struct i802_bss *bss, char *cmd)
 		ret = -ENOMEM;
 		goto fail;
 	}
-
-	ret = nla_put_u8(nlmsg, QCA_WLAN_VENDOR_ATTR_CONFIG_UL_MU_CONFIG, val);
-	if (ret) {
-		wpa_printf(MSG_ERROR, "set_ul_mu_cfg:Fail to put ulmu");
-		goto fail;
+	/* Non-MLO case */
+	if (os_strncasecmp(cmd, "link_id ", 8) != 0) {
+		ulmu = get_u8_from_string(cmd, &ret);
+		if (ret || ulmu > 1) {
+			wpa_printf(MSG_ERROR, "set_ul_mu_cfg: input error");
+			return -EINVAL;
+		}
+		if (ulmu)
+			val = QCA_UL_MU_ENABLE;
+		else
+			val = QCA_UL_MU_SUSPEND;
+		ret = nla_put_u8(nlmsg, QCA_WLAN_VENDOR_ATTR_CONFIG_UL_MU_CONFIG, val);
+		if (ret) {
+			wpa_printf(MSG_ERROR, "set_ul_mu_cfg:Fail to put ulmu");
+			ret = -ENOMEM;
+			goto fail;
+		}
 	}
+	else {
+		if (mlo_ul_mu_process_cmd_string(cmd, &info) == false) {
+			wpa_printf(MSG_ERROR, "set_ul_mu_cfg:Invalid argument");
+			ret = -EINVAL;
+			goto fail;
+		}
+		mlo_link = nla_nest_start(nlmsg, QCA_WLAN_VENDOR_ATTR_CONFIG_MLO_LINKS);
+		if (!mlo_link) {
+			wpa_printf(MSG_ERROR, "set_ul_mu_config: Failed to alloc nest");
+			ret = -ENOMEM;
+			goto fail;
+		}
+		for (i = 0; i < info.num_links; i++) {
+			nest_link = nla_nest_start(nlmsg, i);
+			if (!nest_link) {
+				wpa_printf(MSG_ERROR,
+					   "Failed to create nest");
+				ret = -ENOMEM;
+				goto fail;
+			}
 
+			if (nla_put_u8(nlmsg,
+				       QCA_WLAN_VENDOR_ATTR_CONFIG_UL_MU_CONFIG,
+				       info.link_ul_mu_info[i].ul_mu_mode)) {
+				wpa_printf(MSG_ERROR,
+					   "Failed to put ul_mu_mode");
+				ret = -ENOMEM;
+				goto fail;
+			}
+			if (nla_put_u8(nlmsg,
+					QCA_WLAN_VENDOR_ATTR_CONFIG_MLO_LINK_ID,
+					info.link_ul_mu_info[i].link_id)) {
+				wpa_printf(MSG_ERROR, "Failed to put link_id");
+				ret = -ENOMEM;
+				goto fail;
+			}
+			nla_nest_end(nlmsg, nest_link);
+		}
+		nla_nest_end(nlmsg, mlo_link);
+	}
 	nla_nest_end(nlmsg, attr);
 
 	ret = send_nlmsg((struct nl_sock *)drv->global->nl, nlmsg, NULL, NULL);
@@ -7083,6 +7198,25 @@ int wpa_driver_nl80211_driver_cmd(void *priv, char *cmd, char *buf,
 	} else if (os_strncasecmp(cmd, "ISMONITORRUNNING ", 17) == 0) {
 		cmd += 17;
 		return wpa_driver_get_mon_status(bss, cmd, buf, buf_len);
+	} else if (os_strncasecmp(cmd, "GET_ML_LINK_CONTROL_MODE", 24) == 0) {
+		/**
+		 * Driver command to get ML configurations
+		 * Syntax: DRIVER GET_ML_LINK_CONTROL_MODE
+		 */
+		cmd += 24;
+		return wpa_driver_get_mlo_links_control_mode(bss, buf, buf_len);
+	} else if (os_strncasecmp(cmd, "SET_ML_LINK_CONTROL_MODE ", 25) == 0) {
+		/**
+		 * Driver command to set ML configurations
+		 * Syntax: DRIVER SET_ML_LINK_CONTROL_MODE config_mode
+		 * <mode> [link_id <id> link_state <state>..]
+		 * <mode> 0 for default, 1 for user configured
+		 * <id> id is link id
+		 * <state> 0 for inactive, 1 for active
+		 */
+		cmd += 25;
+		return wpa_driver_set_mlo_links_control_mode(bss, cmd, buf,
+							     buf_len);
 	} else { /* Use private command */
 		memset(&ifr, 0, sizeof(ifr));
 		memset(&priv_cmd, 0, sizeof(priv_cmd));

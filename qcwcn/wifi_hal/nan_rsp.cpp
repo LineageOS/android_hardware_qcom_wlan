@@ -450,6 +450,30 @@ void NanCommand::NanErrorTranslation(NanInternalStatusType firmwareErrorRecvd,
     }
 }
 
+wifi_rtt_bw get_wifi_rtt_bw(u32 cap)
+{
+    wifi_rtt_bw rtt_bw;
+
+    switch (cap) {
+        case RTT_CAP_20M:
+            rtt_bw = WIFI_RTT_BW_20;
+            break;
+        case RTT_CAP_40M:
+            rtt_bw = WIFI_RTT_BW_40;
+            break;
+        case RTT_CAP_80M:
+            rtt_bw = WIFI_RTT_BW_80;
+            break;
+        case RTT_CAP_160M:
+            rtt_bw = WIFI_RTT_BW_160;
+            break;
+        default:
+            rtt_bw = WIFI_RTT_BW_UNSPECIFIED;
+            break;
+    }
+    return rtt_bw;
+}
+
 int NanCommand::getNanResponse(transaction_id *id, NanResponseMsg *pRsp)
 {
     NanCommand *t_nanCommand = NULL;
@@ -684,7 +708,7 @@ int NanCommand::getNanResponse(transaction_id *id, NanResponseMsg *pRsp)
             pRsp->body.nan_capabilities.is_he_supported = \
                        pFwRsp->is_he_supported;
             pRsp->body.nan_capabilities.supported_bw = \
-                       (wifi_rtt_bw)pFwRsp->maxSupportedBandWidth;
+                       get_wifi_rtt_bw(pFwRsp->maxSupportedBandWidth);
             pRsp->body.nan_capabilities.num_rx_chains_supported = \
                        pFwRsp->numRxChainsSupported;
 
