@@ -410,8 +410,8 @@ static wifi_error wifi_get_capabilities(wifi_interface_handle handle)
     hal_info *info = getHalInfo(wifiHandle);
 
     if (!(info->supported_feature_set & WIFI_FEATURE_GSCAN)) {
-        ALOGE("%s: GSCAN is not supported by driver", __FUNCTION__);
-        return WIFI_ERROR_NOT_SUPPORTED;
+        ALOGV("%s: GSCAN is not supported by driver", __FUNCTION__);
+        return WIFI_SUCCESS;
     }
 
     /* No request id from caller, so generate one and pass it on to the driver.
