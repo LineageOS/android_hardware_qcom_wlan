@@ -2221,6 +2221,7 @@ typedef struct PACKED {
     u8 avg_rssi;
     u32 distance_mm;
     u32 distance_stdev_mm;
+    u64 meas_start_time;
 } NanContinuousRangeResult, *pNanContinuousRangeResult;
 
 /* NAN Continuous Ranging RTT Interval Values */
