@@ -5164,14 +5164,10 @@ static int wpa_driver_twt_async_resp_event(struct wpa_driver_nl80211_data *drv,
 					   u32 vendor_id, u32 subcmd, u8 *data, size_t len)
 {
 	int ret = 0;
-	char *buf;
-	buf = (char *)malloc(TWT_RESP_BUF_LEN);
+	char buf[TWT_RESP_BUF_LEN] = {};
 	int buf_len = TWT_RESP_BUF_LEN;
 	struct nlattr *tb[QCA_WLAN_VENDOR_ATTR_CONFIG_TWT_MAX + 1];
 	u8 twt_operation_type;
-
-	if (!buf)
-		return -1;
 
 	ret = nla_parse(tb, QCA_WLAN_VENDOR_ATTR_CONFIG_TWT_MAX,
 			(struct nlattr *) data, len, NULL);
@@ -5179,13 +5175,6 @@ static int wpa_driver_twt_async_resp_event(struct wpa_driver_nl80211_data *drv,
 		wpa_printf(MSG_ERROR, "nla_parse failed %d", ret);
 		goto fail;
 	}
-
-	if (!buf) {
-		wpa_printf(MSG_ERROR, "buf not allocated");
-		return -1;
-	}
-
-	memset(buf, 0, TWT_RESP_BUF_LEN);
 
 	twt_operation_type = nla_get_u8(tb[QCA_WLAN_VENDOR_ATTR_CONFIG_TWT_OPERATION]);
 
@@ -5217,7 +5206,6 @@ static int wpa_driver_twt_async_resp_event(struct wpa_driver_nl80211_data *drv,
 	wpa_printf(MSG_ERROR,"%s", buf);
 	wpa_msg(drv->ctx, MSG_INFO, "%s", buf);
 fail:
-	free(buf);
 	return ret;
 }
 
