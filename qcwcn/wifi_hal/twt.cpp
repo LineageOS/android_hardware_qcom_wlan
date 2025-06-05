@@ -947,6 +947,9 @@ int TwtCommand::handleEvent(WifiEvent &event)
             }
 
             memset(&twt_session, 0, sizeof(twt_session));
+            //Initializing the invalid MLO_LINK_ID
+            twt_session.mlo_link_id = -1;
+
             attr_id = QCA_WLAN_VENDOR_ATTR_TWT_SETUP_FLOW_ID;
             if (tb2[attr_id])
                 twt_session.session_id = get_u8(tb2[attr_id]);
