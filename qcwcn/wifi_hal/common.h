@@ -311,6 +311,9 @@ wifi_error wifi_twt_session_update(wifi_request_id id,
                                    wifi_interface_handle iface,
                                    int session_id,
                                    wifi_twt_request request);
+wifi_error wifi_twt_session_suspend(wifi_request_id id,
+                                    wifi_interface_handle iface,
+                                    int session_id);
 // some common macros
 
 #define min(x, y)       ((x) < (y) ? (x) : (y))
