@@ -34,6 +34,7 @@ private:
     wifi_request_id mRequestId;
     int mTwtFlowId;
     bool mWakeTwtCapabilities;
+    bool mTwtIsSessionUpdateCmd;
 
 
 public:
@@ -53,6 +54,7 @@ public:
     virtual void setTwtFlowId(int flowId);
     virtual bool getWakeTwtCapabilities();
     virtual void setWakeTwtCapabilities(bool WakeTwtCapabilities);
+    virtual void setTwtIsSessionUpdateCmd(bool TwtIsSessionUpdateCmd);
 
 
     virtual wifi_twt_error_code
