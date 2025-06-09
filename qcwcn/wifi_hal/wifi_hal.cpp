@@ -1205,6 +1205,7 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn) {
     fn->wifi_enable_tx_power_limits = wifi_enable_tx_power_limits;
     fn->wifi_twt_session_update = wifi_twt_session_update;
     fn->wifi_twt_session_suspend = wifi_twt_session_suspend;
+    fn->wifi_twt_session_resume = wifi_twt_session_resume;
 
     return WIFI_SUCCESS;
 }
