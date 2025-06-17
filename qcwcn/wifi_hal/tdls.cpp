@@ -109,6 +109,7 @@ int TdlsCommand::handleEvent(WifiEvent &event)
                     + 1];
                 mac_addr addr;
                 wifi_tdls_status status;
+                size_t mac_len;
 
                 memset(&addr, 0, sizeof(mac_addr));
                 memset(&status, 0, sizeof(wifi_tdls_status));
@@ -123,9 +124,13 @@ int TdlsCommand::handleEvent(WifiEvent &event)
                             __FUNCTION__);
                     return WIFI_ERROR_INVALID_ARGS;
                 }
+                mac_len =
+                   nla_len(tb_vendor[QCA_WLAN_VENDOR_ATTR_TDLS_STATE_MAC_ADDR]);
+                mac_len =
+                   (mac_len > sizeof(mac_addr))? sizeof(mac_addr): mac_len;
                 memcpy(addr,
                   (u8 *)nla_data(tb_vendor[QCA_WLAN_VENDOR_ATTR_TDLS_STATE_MAC_ADDR]),
-                  nla_len(tb_vendor[QCA_WLAN_VENDOR_ATTR_TDLS_STATE_MAC_ADDR]));
+                  mac_len);
 
                 ALOGV(MAC_ADDR_STR, MAC_ADDR_ARRAY(addr));
 
