@@ -2348,8 +2348,8 @@ static int internal_valid_message_handler(nl_msg *msg, void *arg)
             wifihal_event_mgmt_tx_status(handle, tb[NL80211_ATTR_COOKIE],
                                          data, nla_len(frame),
                                          tb[NL80211_ATTR_ACK]);
-        }
 #endif
+        }
     } else {
         ALOGV("event received %s", event.get_cmdString());
     }
