@@ -1838,6 +1838,11 @@ int NanCommand::getNanRangeReportInd(NanRangeReportInd *event)
     return WIFI_SUCCESS;
 }
 
+/*
+ * Function: getNanContinuousRangingResult
+ * Populates periodic ranging result from FW
+ * @callback:- EventRangingResults
+*/
 int NanCommand::getNanContinuousRangingResult()
 {
     if (mNanVendorEvent == NULL) {
@@ -1928,15 +1933,18 @@ int NanCommand::getNanContinuousRangingResult()
                 result[index]->rssi = (wifi_rssi)rangeResult.avg_rssi+100;
                 result[index]->distance_mm = (int)rangeResult.distance_mm;
                 result[index]->distance_sd_mm = (int)rangeResult.distance_stdev_mm;
+                result[index]->ts = static_cast<wifi_timestamp>(rangeResult.meas_start_time);
                 result[index]->type = RTT_TYPE_2_SIDED_11MC;
-                ALOGV("Mac Address: " MAC_ADDR_STR
-                      "\n measurement_number:%u\n"
+                ALOGV("Mac Address: " MAC_ADDR_STR "\n"
+                      "timestamp:%" PRIu64 "\n"
+                      "measurement_number:%u\n"
                       "success_number:%u\n"
                       "number_per_burst_peer:%u\n"
                       "burst_duration:%d\n"
                       "distance_mm:%d\n"
                       "distance_sd_mm:%d\n",
                       MAC_ADDR_ARRAY(result[index]->addr),
+                      result[index]->ts,
                       result[index]->measurement_number,
                       result[index]->success_number,
                       result[index]->number_per_burst_peer,
