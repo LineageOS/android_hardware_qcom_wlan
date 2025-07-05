@@ -1,3 +1,5 @@
+soong_namespace {
+}
 
 package {
     default_applicable_licenses: ["hardware_qcom_wlan_license"],
