@@ -63,10 +63,10 @@ wifihal_qcom_defaults {
         qcom_wlan_hal: {
             conditions_default: {
                 whole_static_libs: [
-                    "//hardware/qcom/wlan/qcwcn:libwifi-hal-qcom",
+                    "//hardware/qcom-caf/wlan/qcwcn:libwifi-hal-qcom",
                 ],
                 shared_libs: [
-                    "//hardware/qcom/wlan:libcld80211",
+                    "//hardware/qcom-caf/wlan:libcld80211",
                     "libcrypto",
                 ],
             },
