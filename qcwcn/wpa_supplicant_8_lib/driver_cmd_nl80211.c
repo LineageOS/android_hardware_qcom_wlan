@@ -186,6 +186,14 @@
 #define OPM_MODE_ENABLE          1
 #define OPM_MODE_USER_DEFINED    2
 
+#define HEXA_0X_STR             "0x"
+#define HEXA_0X_STR_LENGTH       2
+#define HEXA_DECIMAL             16
+#define CSI_MASK_STR_LENGTH      10
+#define MGMT_FRAME_VALUE_MAX     0x2FFF
+#define CTRL_FRAME_VALUE_MAX     0x8FFF
+#define DATA_FRAME_VALUE_MAX     0x8FFF
+
 static int twt_async_support = -1;
 
 struct twt_setup_parameters {
@@ -257,6 +265,15 @@ static struct csi_global_params g_csi_param = {0};
 
 static wpa_driver_oem_cb_table_t *oem_cb_table = NULL;
 
+/* === CSI Frame Mask  === */
+struct csi_frame_mask {
+	u32 management_mask;
+	u32 control_mask;
+	u32 data_mask;
+};
+
+struct csi_frame_mask global_frame_mask = {0};
+
 #define MCC_QUOTA_MIN 10
 #define MCC_QUOTA_MAX 90
 /* Only one quota entry for now */
@@ -266,7 +283,6 @@ struct mcc_quota {
        uint32_t if_idx;
        uint32_t quota;
 };
-
 
 char *get_next_arg(char *cmd)
 {
@@ -2335,7 +2351,7 @@ static int wpa_driver_send_get_scan_cmd(struct i802_bss *bss, int *status)
 }
 
 static int wpa_driver_start_csi_capture(struct i802_bss *bss, int *status,
-					int transport_mode)
+					int transport_mode, struct csi_frame_mask *frame_mask)
 {
 	struct wpa_driver_nl80211_data *drv = bss->drv;
 	struct nl_msg *nlmsg;
@@ -2406,10 +2422,36 @@ static int wpa_driver_start_csi_capture(struct i802_bss *bss, int *status,
 		return WPA_DRIVER_OEM_STATUS_FAILURE;
 	}
 
-	if (nla_put_u32(nlmsg, QCA_WLAN_VENDOR_ATTR_PEER_CFR_GROUP_MGMT_FILTER,
-			CSI_MGMT_BEACON)) {
-		nlmsg_free(nlmsg);
-		return WPA_DRIVER_OEM_STATUS_FAILURE;
+	/* When mask is not configured, use CSI_MGMT_BEACON as default mask */
+	if (frame_mask->management_mask == 0 &&
+	    frame_mask->control_mask == 0 &&
+	    frame_mask->data_mask == 0) {
+	    if (nla_put_u32(nlmsg, QCA_WLAN_VENDOR_ATTR_PEER_CFR_GROUP_MGMT_FILTER,
+				CSI_MGMT_BEACON)) {
+		    nlmsg_free(nlmsg);
+		    return WPA_DRIVER_OEM_STATUS_FAILURE;
+		}
+	} else {
+		if (nla_put_u32(nlmsg, QCA_WLAN_VENDOR_ATTR_PEER_CFR_GROUP_MGMT_FILTER,
+				frame_mask->management_mask)) {
+			wpa_printf(MSG_ERROR, "Failed to set management frame mask");
+			nlmsg_free(nlmsg);
+			return WPA_DRIVER_OEM_STATUS_FAILURE;
+		}
+
+		if (nla_put_u32(nlmsg, QCA_WLAN_VENDOR_ATTR_PEER_CFR_GROUP_CTRL_FILTER,
+				frame_mask->control_mask)) {
+			wpa_printf(MSG_ERROR, "Failed to set control frame mask");
+			nlmsg_free(nlmsg);
+			return WPA_DRIVER_OEM_STATUS_FAILURE;
+		}
+
+		if (nla_put_u32(nlmsg, QCA_WLAN_VENDOR_ATTR_PEER_CFR_GROUP_DATA_FILTER,
+				frame_mask->data_mask)) {
+			wpa_printf(MSG_ERROR, "Failed to set data frame mask");
+			nlmsg_free(nlmsg);
+			return WPA_DRIVER_OEM_STATUS_FAILURE;
+		}
 	}
 
 	if (nla_put(nlmsg, QCA_WLAN_VENDOR_ATTR_PEER_CFR_GROUP_TA,
@@ -2488,6 +2530,29 @@ static void stop_csi_callback(int nsec)
 		wpa_printf(MSG_ERROR, "Stop CSI failed");
 }
 
+static u32 get_frame_mask(char *cmd_string, int *ret)
+{
+	long value = 0;
+	char *endptr = NULL;
+
+	*ret = 0;
+	if (cmd_string) {
+		cmd_string += CSI_MASK_STR_LENGTH;
+		if (os_strncasecmp(cmd_string, HEXA_0X_STR, HEXA_0X_STR_LENGTH) != 0) {
+			wpa_printf(MSG_ERROR, "Mask value not in correct format or not present");
+			*ret = -EINVAL;
+			return (u32)value;
+		}
+		cmd_string += HEXA_0X_STR_LENGTH;
+		value = strtoul(cmd_string, &endptr, HEXA_DECIMAL);
+		if (*cmd_string == *endptr || value < 0) {
+			wpa_printf(MSG_ERROR, "Invalid Mask");
+			*ret = -EINVAL;
+		}
+	}
+	return (u32)value;
+}
+
 static int wpa_driver_handle_csi_cmd(struct i802_bss *bss, char *cmd,
 				     char *buf, size_t buf_len,
 				     int *status)
@@ -2495,12 +2560,76 @@ static int wpa_driver_handle_csi_cmd(struct i802_bss *bss, char *cmd,
 	int csi_duration = -1;
 	int transport_mode = -1;
 	char *next_arg;
+	bool duration_str_present = false;
+	memset(&global_frame_mask, 0, sizeof(struct csi_frame_mask));
+	int ret = 0;
 
 	cmd = skip_white_space(cmd);
 	wpa_printf(MSG_DEBUG, "cmd:%s", cmd);
 	if (os_strncasecmp(cmd, "start", 5) == 0) {
-		next_arg = get_next_arg(cmd);
-		csi_duration = atoi(next_arg);
+		char *traverse = cmd;
+		while (traverse && *traverse != '\0') {
+			if (os_strncasecmp(traverse, "Duration=", 9) == 0) {
+				duration_str_present = true;
+				traverse += 9;
+				if (*traverse != '\0' && *traverse != ' ')
+					csi_duration = atoi(traverse);
+			}
+
+			if (os_strncasecmp(traverse, "TransportMode=", 14) == 0) {
+				traverse += 14;
+				if (*traverse != '\0' && *traverse != ' ')
+					transport_mode = atoi(traverse);
+			}
+			/* Parsing of management, control and data frame mask*/
+			if (os_strncasecmp(traverse, "MGMT_MASK=", CSI_MASK_STR_LENGTH) == 0) {
+				global_frame_mask.management_mask = get_frame_mask(traverse, &ret);
+				if (ret < 0)
+					return WPA_DRIVER_OEM_STATUS_FAILURE;
+
+				wpa_printf(MSG_DEBUG, "CSI:Management Frame Mask:%u", global_frame_mask.management_mask);
+				global_frame_mask.management_mask &= MGMT_FRAME_VALUE_MAX;
+			}
+
+			if (os_strncasecmp(traverse, "DATA_MASK=", CSI_MASK_STR_LENGTH) == 0) {
+				global_frame_mask.data_mask = get_frame_mask(traverse, &ret);
+				if (ret < 0)
+					return WPA_DRIVER_OEM_STATUS_FAILURE;
+
+				wpa_printf(MSG_DEBUG, "CSI:Data Frame Mask:%u", global_frame_mask.data_mask);
+				global_frame_mask.data_mask &= DATA_FRAME_VALUE_MAX;
+			}
+
+			if (os_strncasecmp(traverse, "CTRL_MASK=", CSI_MASK_STR_LENGTH) == 0) {
+				global_frame_mask.control_mask = get_frame_mask(traverse, &ret);
+				if (ret < 0)
+					return WPA_DRIVER_OEM_STATUS_FAILURE;
+
+				wpa_printf(MSG_DEBUG, "CSI:Control Frame Mask:%u", global_frame_mask.control_mask);
+				global_frame_mask.control_mask &= CTRL_FRAME_VALUE_MAX;
+			}
+
+			traverse = get_next_arg(traverse);
+			traverse = skip_white_space(traverse);
+		}
+
+		/* This if condition maintains the legacy behavior */
+		/* when no duration or transport mode string is passed*/
+		if (duration_str_present == false) {
+			next_arg = get_next_arg(cmd);
+			csi_duration = atoi(next_arg);
+			cmd += 6;
+			next_arg = get_next_arg(cmd);
+			if (*next_arg != '\0' && *next_arg == ' ')
+				transport_mode = atoi(next_arg);
+		}
+
+		if (transport_mode == -1)
+			transport_mode = 1;
+		g_csi_param.transport_mode = transport_mode;
+
+		wpa_printf(MSG_DEBUG, "CSI:Duration Value = %d", csi_duration);
+		wpa_printf(MSG_DEBUG, "CSI:Transport Mode Value= %d", transport_mode);
 
 		if (csi_duration < 0) {
 			wpa_printf(MSG_ERROR, "Invalid duration");
@@ -2523,16 +2652,9 @@ static int wpa_driver_handle_csi_cmd(struct i802_bss *bss, char *cmd,
 		}
 
 		g_csi_param.bss = bss;
-		cmd += 6;
-		next_arg = get_next_arg(cmd);
-		if (*next_arg != '\0' && *next_arg == ' ')
-			transport_mode = atoi(next_arg);
-
-		if (transport_mode == 1 || transport_mode == -1)
-			transport_mode = 1;
 		g_csi_param.transport_mode = transport_mode;
 
-		wpa_driver_start_csi_capture(bss, status, transport_mode);
+		wpa_driver_start_csi_capture(bss, status, transport_mode, &global_frame_mask);
 		if (*status == 0 && csi_duration > 0) {
 			signal(SIGALRM, stop_csi_callback);
 			alarm(csi_duration);
@@ -2568,7 +2690,7 @@ static int wpa_driver_restart_csi(struct i802_bss *bss, int *status)
 	}
 	g_csi_param.bss = bss;
 	if(wpa_driver_start_csi_capture(g_csi_param.bss, status,
-				g_csi_param.transport_mode)) {
+				g_csi_param.transport_mode, &global_frame_mask)) {
 		*status = CSI_STATUS_REJECTED;
 		return WPA_DRIVER_OEM_STATUS_FAILURE;
 	}
