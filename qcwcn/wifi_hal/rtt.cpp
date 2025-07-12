@@ -110,6 +110,12 @@ wifi_error wifi_get_rtt_capabilities_v3(wifi_interface_handle iface,
         return WIFI_ERROR_NOT_SUPPORTED;
     }
 
+    if (getLowiMajorVersion() < 3) {
+        ALOGE("wifi_get_rtt_capabilities_v3: getLowiMajorVersion returned value "
+            "lower than 3");
+        return WIFI_ERROR_NOT_SUPPORTED;
+    }
+
     ret = (wifi_error)lowiWifiHalApi->get_rtt_capabilities_v3(iface, capabilities);
     if (ret != WIFI_SUCCESS)
         ALOGE("wifi_get_rtt_capabilities_v3: lowi_wifihal_get_rtt_capabilities "
@@ -146,6 +152,12 @@ wifi_error wifi_get_rtt_capabilities_v4(wifi_interface_handle iface,
         lowiWifiHalApi->get_rtt_capabilities_v4 == NULL) {
         ALOGE("wifi_get_rtt_capabilities_v4: getLowiCallbackTable returned NULL or "
             "the function pointer is NULL. Exit.");
+        return WIFI_ERROR_NOT_SUPPORTED;
+    }
+
+    if (getLowiMajorVersion() < 4) {
+        ALOGE("wifi_get_rtt_capabilities_v4: getLowiMajorVersion returned value "
+            "lower than 4");
         return WIFI_ERROR_NOT_SUPPORTED;
     }
 
@@ -289,6 +301,12 @@ wifi_error wifi_rtt_range_request_v3(wifi_request_id id,
         return WIFI_ERROR_NOT_SUPPORTED;
     }
 
+    if (getLowiMajorVersion() < 3) {
+        ALOGE("wifi_rtt_range_request_v3: getLowiMajorVersion returned value "
+            "lower than 3");
+        return WIFI_ERROR_NOT_SUPPORTED;
+    }
+
     ret = (wifi_error)lowiWifiHalApi->rtt_range_request_v3(id, iface,
                                                         num_rtt_config,
                                                         rtt_config, handler);
@@ -357,6 +375,12 @@ wifi_error wifi_rtt_range_request_v4(wifi_request_id id,
         lowiWifiHalApi->rtt_range_request_v4 == NULL) {
         ALOGE("wifi_rtt_range_request_v4: getLowiCallbackTable returned NULL or "
             "the function pointer is NULL. Exit.");
+        return WIFI_ERROR_NOT_SUPPORTED;
+    }
+
+    if (getLowiMajorVersion() < 4) {
+        ALOGE("wifi_rtt_range_request_v4: getLowiMajorVersion returned value "
+            "lower than 4");
         return WIFI_ERROR_NOT_SUPPORTED;
     }
 

@@ -244,6 +244,7 @@ u8 get_rssi(u8 rssi_wo_noise_floor)
 
 /* Pointer to the table of LOWI callback funcs */
 lowi_cb_table_t *LowiWifiHalApi = NULL;
+u16 lowiMajorVersion = 0;
 /* LowiSupportedCapabilities read */
 u32 lowiSupportedCapabilities = 0;
 bool lowiUnsupported = false;
@@ -308,7 +309,7 @@ wifi_error fetchLowiCbTableAndCapabilities(lowi_cb_table_t **lowi_wifihal_api,
      */
     if ((dlsym(lowi_handle, "lowi_wifihal_get_lowi_version") != NULL) &&
         ((*lowi_wifihal_api)->get_lowi_version != NULL)) {
-        u16 lowiMajorVersion = WIFIHAL_LOWI_MAJOR_VERSION;
+        lowiMajorVersion = WIFIHAL_LOWI_MAJOR_VERSION;
         u16 lowiMinorVersion = WIFIHAL_LOWI_MINOR_VERSION;
         u16 lowiMicroVersion = WIFIHAL_LOWI_MICRO_VERSION;
         int versionCheck = -1;
@@ -424,6 +425,11 @@ cleanup:
     lowiSupportedCapabilities = 0;
     lowiUnsupported = true;
     return LowiWifiHalApi;
+}
+
+u16 getLowiMajorVersion()
+{
+    return lowiMajorVersion;
 }
 
 wifi_error mapKernelErrortoWifiHalError(int kern_err)
