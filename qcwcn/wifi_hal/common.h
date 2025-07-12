@@ -267,6 +267,7 @@ wifi_error initializeRadioHandler(hal_info *info);
 wifi_error cleanupRadioHandler(hal_info *info);
 
 lowi_cb_table_t *getLowiCallbackTable(u32 requested_lowi_capabilities);
+u16 getLowiMajorVersion();
 
 wifi_error wifi_start_sending_offloaded_packet(wifi_request_id id,
         wifi_interface_handle iface, u8 *ip_packet, u16 ip_packet_len,
