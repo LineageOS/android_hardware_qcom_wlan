@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "91f9047b_d0439446",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 3
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 10067
+      },
+      "writtenOn": "2025-07-12T19:13:58Z",
+      "side": 1,
+      "message": "spotted on OnePlus SM8150, somehow didn\u0027t hit this on other devices, but I\u0027m pretty sure they\u0027d crash here too.",
+      "revId": "8047b16e040f00060240b2033b465d432b51a8f1",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    }
+  ]
+}
