@@ -120,8 +120,6 @@ private:
     VendorNanCallbackHandler mVendorHandler;
     u8 mNanFollowupRxSupport;
     bool mNanEnabled;
-    u16 local_sdea_ssi_len;
-    u8 local_sdea_ssi[NAN_MAX_SERVICE_SPECIFIC_INFO_LEN];
 
     //Function to check the initial few bytes of data to
     //determine whether NanResponse or NanEvent
