@@ -1585,7 +1585,7 @@ wifi_error NanCommand::putNanSharedKeyDescriptorReq(transaction_id id,
         (pReq->shared_key_attr_len ? SIZEOF_TLV_HDR + pReq->shared_key_attr_len : 0);
 
     /* SDA Attribute */
-    message_len += (SIZEOF_TLV_HDR + strlen("SHARED_KEY_DESCRIPTOR_REQUEST"));
+    message_len += SIZEOF_TLV_HDR;
     /* Mac address needs to be added in TLV */
     message_len += (SIZEOF_TLV_HDR + sizeof(pReq->peer_disc_mac_addr));
 
@@ -1617,8 +1617,8 @@ wifi_error NanCommand::putNanSharedKeyDescriptorReq(transaction_id id,
 
     u16 tlv_type = NAN_TLV_TYPE_SERVICE_SPECIFIC_INFO;
 
-    tlvs = addTlv(tlv_type, strlen("SHARED_KEY_DESCRIPTOR_REQUEST"),
-                  (const u8*)"SHARED_KEY_DESCRIPTOR_REQUEST", tlvs);
+    /* Pass empty SSI */
+    tlvs = addTlv(tlv_type, 0, (const u8*)"", tlvs);
 
     if (pReq->shared_key_attr_len) {
         ALOGI("Adding Shared Key Attr");
