@@ -856,6 +856,10 @@ wifi_error NanCommand::putNanPublish(transaction_id id, const NanPublishRequest 
         );
     }
 
+    if (pReq->service_specific_info_len && !pReq->sdea_service_specific_info_len) {
+        /* For SSI in SDEA */
+        message_len += SIZEOF_TLV_HDR + pReq->service_specific_info_len;
+    }
     pNanPublishServiceReqMsg pFwReq = (pNanPublishServiceReqMsg)malloc(message_len);
     if (pFwReq == NULL) {
         cleanup();
@@ -1042,6 +1046,9 @@ wifi_error NanCommand::putNanPublish(transaction_id id, const NanPublishRequest 
     if (pReq->sdea_service_specific_info_len) {
         tlvs = addTlv(NAN_TLV_TYPE_SDEA_SERVICE_SPECIFIC_INFO, pReq->sdea_service_specific_info_len,
                       (const u8*)&pReq->sdea_service_specific_info[0], tlvs);
+    } else if (pReq->service_specific_info_len) {
+        tlvs = addTlv(NAN_TLV_TYPE_SDEA_SERVICE_SPECIFIC_INFO, pReq->service_specific_info_len,
+                      (const u8*)&pReq->service_specific_info[0], tlvs);
     }
 
     if (pReq->range_response_cfg.publish_id || pReq->range_response_cfg.ranging_response) {
@@ -1293,6 +1300,10 @@ wifi_error NanCommand::putNanSubscribe(transaction_id id,
     if (pReq->service_specific_info_len) {
         tlvs = addTlv(NAN_TLV_TYPE_SERVICE_SPECIFIC_INFO, pReq->service_specific_info_len,
                       (const u8*)&pReq->service_specific_info[0], tlvs);
+        std::memset(local_sdea_ssi, 0, NAN_MAX_SERVICE_SPECIFIC_INFO_LEN);
+        local_sdea_ssi_len = pReq->service_specific_info_len;
+        std::memcpy(local_sdea_ssi, (const u8*)&pReq->service_specific_info[0],
+                    local_sdea_ssi_len);
     }
     if (pReq->rx_match_filter_len) {
         tlvs = addTlv(NAN_TLV_TYPE_RX_MATCH_FILTER, pReq->rx_match_filter_len,
@@ -1676,6 +1687,10 @@ wifi_error NanCommand::putNanBootstrappingReq(transaction_id id,
     /* Add bootstrapping parameters */
     message_len += (SIZEOF_TLV_HDR + sizeof(NanFWBootstrappingParams));
 
+    /* Add same SSI from subscriber request */
+    if (!pReq->sdea_service_specific_info_len)
+        message_len += (local_sdea_ssi_len ? SIZEOF_TLV_HDR + local_sdea_ssi_len : 0);
+
     pNanTransmitFollowupReqMsg pFwReq = (pNanTransmitFollowupReqMsg)malloc(message_len);
     if (pFwReq == NULL) {
         cleanup();
@@ -1712,6 +1727,9 @@ wifi_error NanCommand::putNanBootstrappingReq(transaction_id id,
     if (pReq->sdea_service_specific_info_len) {
         tlvs = addTlv(NAN_TLV_TYPE_SDEA_SERVICE_SPECIFIC_INFO, pReq->sdea_service_specific_info_len,
                       (const u8*)&pReq->sdea_service_specific_info[0], tlvs);
+    } else if (local_sdea_ssi_len) {
+        tlvs = addTlv(NAN_TLV_TYPE_SDEA_SERVICE_SPECIFIC_INFO, local_sdea_ssi_len,
+                      (const u8*)&local_sdea_ssi[0], tlvs);
     }
 
     NanFWBootstrappingParams pNanFWBootstrappingParams;
