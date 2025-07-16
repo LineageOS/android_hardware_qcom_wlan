@@ -259,6 +259,7 @@ static int nan_get_npba_attr(const u8* buf, size_t buf_len,
 {
     u16 attr_len;
     u8 type_status = 0;
+    u8 type, dialog_token;
 
     if (!buf || buf_len < 3) {
         ALOGE("%s: Invalid attribute", __FUNCTION__);
@@ -274,12 +275,20 @@ static int nan_get_npba_attr(const u8* buf, size_t buf_len,
         return -1;
     }
 
-    npba->dialog_token = *buf++;
+    dialog_token = *buf++;
     attr_len--;
 
     type_status = *buf++;
     attr_len--;
-    npba->type = type_status & 0x0F;
+    type = type_status & 0x0F;
+
+    if (type == NAN_BS_TYPE_ADVERTISE) {
+        ALOGV("Discard NPBA of type 'Advertise' in followup frames");
+        return 0;
+    }
+
+    npba->dialog_token = dialog_token;
+    npba->type = type;
     npba->status = (type_status & 0xF0) >> 4;
 
     npba->reason_code = *buf++;
