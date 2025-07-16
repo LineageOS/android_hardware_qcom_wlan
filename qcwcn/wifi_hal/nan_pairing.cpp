@@ -1488,7 +1488,12 @@ wifi_error nan_get_shared_key_descriptor(hal_info *info, const u8 *addr,
     pos += sizeof(struct sharedKeyDesc);
 
     key_desc = (struct keyDescriptor *)pos;
-    WPA_PUT_BE16((u8 *)&key_desc->keyInfo, NAN_ENCRYPT_KEY_DATA);
+    /* Need to set key descriptor type to 0x2 for EAPOL Key packet */
+    key_desc->descriptorType = 0x02;
+    /* Setting required flags in Keyinfo field */
+    WPA_PUT_BE16((u8 *)&key_desc->keyInfo, (NAN_ENCRYPT_KEY_DATA | NAN_SECURE |
+                                            NAN_INSTALL_KEY | NAN_KEY_ACK |
+                                            NAN_KEY_MIC | NAN_KEY_TYPE));
     WPA_PUT_BE16((u8 *)&key_desc->keyDataLen, key_data_len);
     pos += sizeof(struct keyDescriptor);
 

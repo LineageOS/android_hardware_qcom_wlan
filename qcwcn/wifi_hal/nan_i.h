@@ -1007,6 +1007,11 @@ enum nan_attr_id {
 #define NAN_SHARED_KEY_ATTR_ID 0x24
 #define NAN_ENCRYPT_KEY_DATA   BIT(12)
 #define NAN_VENDOR_ATTR_TYPE   0xdd
+#define NAN_KEY_TYPE BIT(3)
+#define NAN_INSTALL_KEY BIT(6)
+#define NAN_KEY_ACK BIT(7)
+#define NAN_KEY_MIC BIT(8)
+#define NAN_SECURE BIT(9)
 
 #define NAN_KDE_TYPE_IGTK                 0x09
 #define NAN_KDE_TYPE_BIGTK                0x0E
