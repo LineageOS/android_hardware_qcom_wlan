@@ -2148,6 +2148,8 @@ struct wpa_secure_nan {
     u8 csia_cap_info;
     /* dialog token in bootstrapping request */
     u8 dialog_token;
+    /* instance is in publisher role */
+    bool is_publish;
 };
 
 /***************************************************
