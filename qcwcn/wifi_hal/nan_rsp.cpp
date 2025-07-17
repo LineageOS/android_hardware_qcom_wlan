@@ -673,7 +673,7 @@ int NanCommand::getNanResponse(transaction_id *id, NanResponseMsg *pRsp)
                 mNanCommandInstance->reallocSvcParams(NAN_ROLE_SUBSCRIBER);
             }
             pRsp->body.nan_capabilities.is_pairing_supported = \
-                       pFwRsp->nan_pairing_supported;
+                       info->secure_nan && pFwRsp->nan_pairing_supported;
             mNanCommandInstance->mNanFollowupRxSupport = \
                        pFwRsp->nan_followup_rx_forward_supported;
 
