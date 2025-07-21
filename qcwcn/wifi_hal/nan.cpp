@@ -786,7 +786,9 @@ wifi_error nan_transmit_followup_request(transaction_id id,
     interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
     hal_info *info = getHalInfo(wifiHandle);
+    struct nan_pairing_peer_info *entry;
     NanSharedKeyRequest key;
+    u16 pub_sub_id = 0;
 
     if (info == NULL) {
         ALOGE("%s: Error hal_info NULL", __FUNCTION__);
@@ -823,6 +825,30 @@ wifi_error nan_transmit_followup_request(transaction_id id,
     if (ret != WIFI_SUCCESS) {
         ALOGE("%s: putNanTransmitFollowup Error:%d", __FUNCTION__, ret);
         goto cleanup;
+    }
+
+    if (info->secure_nan) {
+        pub_sub_id = msg->publish_subscribe_id & 0xFF;
+        entry = nan_pairing_get_peer_from_list(info->secure_nan, msg->addr);
+        if (entry) {
+            if (pub_sub_id && entry->pub_sub_id != pub_sub_id) {
+                ALOGI("Update previous pub sub id: %d with new id: %d",
+                      entry->pub_sub_id, pub_sub_id);
+                entry->pub_sub_id = pub_sub_id;
+            }
+            if (msg->requestor_instance_id &&
+                entry->requestor_instance_id != msg->requestor_instance_id) {
+                ALOGI("Update previous requestor instance id: %d with new id: %d",
+                      entry->requestor_instance_id, msg->requestor_instance_id);
+                entry->requestor_instance_id = msg->requestor_instance_id;
+            }
+        } else {
+            entry = nan_pairing_add_peer_to_list(info->secure_nan, msg->addr);
+            if (entry) {
+                entry->pub_sub_id = pub_sub_id;
+                entry->requestor_instance_id = msg->requestor_instance_id;
+            }
+        }
     }
 
     ret = nanCommand->requestEvent();
