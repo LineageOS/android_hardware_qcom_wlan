@@ -305,6 +305,8 @@ wifi_error wifi_twt_session_teardown(wifi_request_id id,
                                      wifi_interface_handle iface,
                                      int session_id);
 int is_feature_supported(wifi_interface_handle iface_handle, int feature);
+wifi_error wifi_enable_tx_power_limits(wifi_interface_handle iface,
+                                       bool isEnable);
 // some common macros
 
 #define min(x, y)       ((x) < (y) ? (x) : (y))
