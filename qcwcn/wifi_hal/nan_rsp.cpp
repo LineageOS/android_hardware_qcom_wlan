@@ -673,6 +673,36 @@ int NanCommand::getNanResponse(transaction_id *id, NanResponseMsg *pRsp)
             mNanCommandInstance->mNanFollowupRxSupport = \
                        pFwRsp->nan_followup_rx_forward_supported;
 
+            ALOGI("Nan Capabilities: Max concurrent clusters: %d, Max publishers: %d,\n"
+                  "Max subscribers: %d, Max servicename len: %d, Max match filter len %d,\n"
+                  "Max total matchfilter len: %d, Max ssi len: %d, Max vsa data len: %d,\n"
+                  "Max mesh data len: %d, Max NDI ifaces %d, Max NDP sesssions %d,\n"
+                  "Max APP info len: %d, Max queued transmit followup msgs: %d,\n"
+                  "NDP supported bands: %d, cipher suites: %d, Max scid len %d,\n"
+                  "NDP security supported: %s, Max SDEA SSI len: %d, Max subscribe addr: %d,\n"
+                  "Pairing supported: %s, FollowupRxsupport: %s",
+                  pRsp->body.nan_capabilities.max_concurrent_nan_clusters,
+                  pRsp->body.nan_capabilities.max_publishes,
+                  pRsp->body.nan_capabilities.max_subscribes,
+                  pRsp->body.nan_capabilities.max_service_name_len,
+                  pRsp->body.nan_capabilities.max_match_filter_len,
+                  pRsp->body.nan_capabilities.max_total_match_filter_len,
+                  pRsp->body.nan_capabilities.max_service_specific_info_len,
+                  pRsp->body.nan_capabilities.max_vsa_data_len,
+                  pRsp->body.nan_capabilities.max_mesh_data_len,
+                  pRsp->body.nan_capabilities.max_ndi_interfaces,
+                  pRsp->body.nan_capabilities.max_ndp_sessions,
+                  pRsp->body.nan_capabilities.max_app_info_len,
+                  pRsp->body.nan_capabilities.max_queued_transmit_followup_msgs,
+                  pRsp->body.nan_capabilities.ndp_supported_bands,
+                  pRsp->body.nan_capabilities.cipher_suites_supported,
+                  pRsp->body.nan_capabilities.max_scid_len,
+                  pRsp->body.nan_capabilities.is_ndp_security_supported ? "yes" : "no",
+                  pRsp->body.nan_capabilities.max_sdea_service_specific_info_len,
+                  pRsp->body.nan_capabilities.max_subscribe_address,
+                  pRsp->body.nan_capabilities.is_pairing_supported ? "yes" : "no",
+                  pFwRsp->nan_followup_rx_forward_supported ? "yes" : "no");
+
             if (capab_len <= offsetof(NanCapabilitiesRspMsg, nan_group_mfp_cap)
                              + sizeof(pFwRsp->nan_group_mfp_cap))
                 break;
@@ -681,6 +711,10 @@ int NanCommand::getNanResponse(transaction_id *id, NanResponseMsg *pRsp)
                        pFwRsp->is_6g_supported;
             pRsp->body.nan_capabilities.is_he_supported = \
                        pFwRsp->is_he_supported;
+
+            ALOGI("Nan Capabilities: 6g supported: %s, HE supported: %s",
+                  pRsp->body.nan_capabilities.is_6g_supported ? "yes" : "no",
+                  pRsp->body.nan_capabilities.is_he_supported ? "yes" : "no");
 
             break;
         }
