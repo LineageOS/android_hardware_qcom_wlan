@@ -295,6 +295,7 @@ static int nan_get_npba_attr(const u8* buf, size_t buf_len,
                 return -1;
             }
             npba->comeback_after = WPA_GET_LE16(buf);
+            buf += 2;
             attr_len -= 2;
         }
 
