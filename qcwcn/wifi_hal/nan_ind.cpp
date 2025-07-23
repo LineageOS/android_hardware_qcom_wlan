@@ -713,7 +713,7 @@ int NanCommand::handleNanBootstrappingIndication()
            bootstrapConfirmInd->reason_code =
                                           (NanStatusType)params->reason_code;
            bootstrapConfirmInd->come_back_delay =
-                                          (NanStatusType)params->comeback_after;
+                                          params->comeback_after;
            bootstrapConfirmInd->cookie_length = cookie_length;
            if (cookie_length)
                memcpy(bootstrapConfirmInd->cookie, cookie, cookie_length);

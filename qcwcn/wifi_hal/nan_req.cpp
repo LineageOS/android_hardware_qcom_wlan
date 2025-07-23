@@ -1808,7 +1808,8 @@ wifi_error NanCommand::putNanBootstrappingIndicationRsp(transaction_id id,
         (pRsp->service_specific_info_len ? SIZEOF_TLV_HDR +
          pRsp->service_specific_info_len : 0) +
         (pRsp->sdea_service_specific_info_len ? SIZEOF_TLV_HDR +
-         pRsp->sdea_service_specific_info_len : 0);
+         pRsp->sdea_service_specific_info_len : 0) +
+        (pRsp->cookie_length ? SIZEOF_TLV_HDR + pRsp->cookie_length : 0);
 
     /* Mac address needs to be added in TLV */
     message_len += (SIZEOF_TLV_HDR + sizeof(pRsp->peer_disc_mac_addr));
@@ -1886,6 +1887,9 @@ wifi_error NanCommand::putNanBootstrappingIndicationRsp(transaction_id id,
     tlvs = addTlv(NAN_TLV_TYPE_BOOTSTRAPPING_PARAMS, sizeof(NanFWBootstrappingParams),
                   (const u8*)pNanFWBootstrappingParams, tlvs);
 
+    if (pRsp->cookie_length)
+           tlvs = addTlv(NAN_TLV_TYPE_BOOTSTRAPPING_COOKIE, pRsp->cookie_length,
+                         (const u8*)pRsp->cookie, tlvs);
     free(pNanFWBootstrappingParams);
 
     mVendorData = (char *)pFwReq;
