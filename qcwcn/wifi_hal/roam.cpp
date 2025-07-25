@@ -73,6 +73,10 @@ wifi_error wifi_set_bssid_blacklist(wifi_request_id id,
     wifi_handle wifiHandle = getWifiHandle(iface);
     hal_info *info = getHalInfo(wifiHandle);
 
+    if (!info) {
+        ALOGE("%s: hal_info is NULL", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
     if (!(info->supported_feature_set & WIFI_FEATURE_CONTROL_ROAMING)) {
         ALOGE("%s: Roaming is not supported by driver",
             __FUNCTION__);
@@ -278,6 +282,10 @@ wifi_error wifi_configure_roaming(wifi_interface_handle iface, wifi_roaming_conf
     wifi_handle wifiHandle = getWifiHandle(iface);
     hal_info *info = getHalInfo(wifiHandle);
 
+    if (!info) {
+        ALOGE("%s: hal_info is NULL", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
     if (!roaming_config) {
         ALOGE("%s: Invalid Buffer provided. Exit", __FUNCTION__);
         return WIFI_ERROR_INVALID_ARGS;

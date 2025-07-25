@@ -419,6 +419,10 @@ static wifi_error wifi_get_capabilities(wifi_interface_handle handle)
     wifi_handle wifiHandle = getWifiHandle(handle);
     hal_info *info = getHalInfo(wifiHandle);
 
+    if (!info) {
+        ALOGE("%s: Interface info is NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
     if (!(info->supported_feature_set & WIFI_FEATURE_GSCAN)) {
         ALOGV("%s: GSCAN is not supported by driver", __FUNCTION__);
         return WIFI_SUCCESS;
