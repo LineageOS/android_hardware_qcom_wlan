@@ -742,7 +742,7 @@ int NanCommand::getNanResponse(transaction_id *id, NanResponseMsg *pRsp)
             pRsp->body.nan_capabilities.num_rx_chains_supported = \
                        pFwRsp->numRxChainsSupported;
 
-            ALOGI("Nan Capabilities: 6g supported: %s, HE supported: %s\n",
+            ALOGI("Nan Capabilities: 6g supported: %s, HE supported: %s\n"
                   "supported bw: %d, num_rx_chains_supported: %d",
                   pRsp->body.nan_capabilities.is_6g_supported ? "yes" : "no",
                   pRsp->body.nan_capabilities.is_he_supported ? "yes" : "no",
