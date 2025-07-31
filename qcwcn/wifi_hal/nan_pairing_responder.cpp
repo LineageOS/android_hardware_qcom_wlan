@@ -382,7 +382,7 @@ int nan_pairing_handle_pasn_auth(wifi_handle handle, const u8 *data, size_t len)
                           len - offsetof(struct ieee80211_mgmt,
                           u.auth.variable), NAN_ATTR_ID_CSIA);
 
-        if (nan_attr_ie) {
+        if (entry && nan_attr_ie) {
             nan_csia *csia = (nan_csia *)nan_attr_ie;
             entry->csia_cap_info = csia->caps;
         }
