@@ -336,7 +336,7 @@ static bool nan_get_sde_attr(u8 *frame, u16 frame_len, nan_sdea *sdea)
     u16 service_info_len;
 
     if (!sdea || !frame || (frame_len < NAN_SDE_ATTR_MIN_LEN)) {
-        ALOGE("%s: Incorrect arguments 0x%x 0x%x or length %d",
+        ALOGE("%s: Incorrect arguments %p %p or length %d",
               __FUNCTION__, sdea, frame, frame_len);
         return false;
     }
