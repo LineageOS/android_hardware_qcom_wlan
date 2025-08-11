@@ -2933,6 +2933,7 @@ wifi_error nan_pairing_end(transaction_id id,
 
     peer = nan_pairing_get_peer_from_id(info->secure_nan, msg->pairing_instance_id);
     if (peer) {
+        peer->is_pairing_in_progress = false;
         nan_pairing_set_key(info, WPA_ALG_NONE, peer->bssid, 0, 0, NULL, 0,
                             NULL, 0, KEY_FLAG_PAIRWISE);
         nan_pairing_delete_peer_from_list(info->secure_nan, peer->bssid);
