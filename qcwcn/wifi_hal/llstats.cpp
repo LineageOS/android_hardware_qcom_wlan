@@ -1914,6 +1914,10 @@ wifi_error wifi_set_link_stats(wifi_interface_handle iface,
     wifi_handle handle = getWifiHandle(iface);
     hal_info *info = getHalInfo(handle);
 
+    if (!info) {
+        ALOGE("%s: Interface info is NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
     if (!(info->supported_feature_set & WIFI_FEATURE_LINK_LAYER_STATS)) {
         ALOGI("%s: LLS is not supported by driver", __FUNCTION__);
         return WIFI_ERROR_NOT_SUPPORTED;
@@ -1976,6 +1980,10 @@ wifi_error wifi_get_link_stats(wifi_request_id id,
     wifi_handle handle = getWifiHandle(iface);
     hal_info *info = getHalInfo(handle);
 
+    if (!info) {
+        ALOGE("%s: Interface info is NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
     if (!(info->supported_feature_set & WIFI_FEATURE_LINK_LAYER_STATS)) {
         ALOGI("%s: LLS is not supported by driver", __FUNCTION__);
         return WIFI_ERROR_NOT_SUPPORTED;
@@ -2081,6 +2089,10 @@ wifi_error wifi_clear_link_stats(wifi_interface_handle iface,
     wifi_handle handle = getWifiHandle(iface);
     hal_info *info = getHalInfo(handle);
 
+    if (!info) {
+        ALOGE("%s: Interface info is NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
     if (!(info->supported_feature_set & WIFI_FEATURE_LINK_LAYER_STATS)) {
         ALOGI("%s: LLS is not supported by driver", __FUNCTION__);
         return WIFI_ERROR_NOT_SUPPORTED;

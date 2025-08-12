@@ -1463,6 +1463,10 @@ wifi_error wifi_set_latency_mode(wifi_interface_handle iface,
 
     ALOGD("%s: %d", __FUNCTION__, mode);
 
+    if (!info) {
+        ALOGE("%s: Interface info is NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
     if (!(info->supported_feature_set & WIFI_FEATURE_SET_LATENCY_MODE)) {
         ALOGE("%s: Latency Mode is not supported by driver", __FUNCTION__);
         return WIFI_ERROR_NOT_SUPPORTED;
