@@ -46,6 +46,30 @@
       },
       "revId": "e84b2bbd14d4d7f44279ee7849f0defd11b0ad30",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "06e9c9f2_8b35fc02",
+        "filename": "Android.bp",
+        "patchSetId": 1
+      },
+      "lineNbr": 66,
+      "author": {
+        "id": 4550
+      },
+      "writtenOn": "2025-08-23T06:24:27Z",
+      "side": 1,
+      "message": "This is incorrect, you are adding libs from hardware/qcom/wlan which is for AOSP devices only, while you should only be using hardware/qcom-caf/wlan",
+      "parentUuid": "9a696986_b75429f6",
+      "range": {
+        "startLine": 66,
+        "startChar": 12,
+        "endLine": 66,
+        "endChar": 18
+      },
+      "revId": "e84b2bbd14d4d7f44279ee7849f0defd11b0ad30",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
