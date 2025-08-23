@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "1e1096d7_6fda9b0f",
+        "filename": "wcnss-service/Android.bp",
+        "patchSetId": 2
+      },
+      "lineNbr": 32,
+      "author": {
+        "id": 13648
+      },
+      "writtenOn": "2025-08-23T20:24:03Z",
+      "side": 1,
+      "message": "Remove?",
+      "revId": "2d7580f284dc47e6d53ebb456abfa90207f5c036",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    }
+  ]
+}
