@@ -1,0 +1,50 @@
+cc_binary {
+    name: "wcnss_service",
+
+    srcs: [
+        "wcnss_service.c"
+    ] + select((soong_config_variable("wcnss_service", "uses_qcom_wcnss_qmi"),
+                soong_config_variable("wcnss_service", "provides_qcom_wcnss_qmi")), {
+        (true, true): [],
+        (true, default): ["wcnss_qmi_client.c", "missing_qmi_client_api.c"],
+        (default, default): [],
+    }),
+
+    cflags: select(soong_config_variable("wcnss_service", "uses_qcom_wcnss_qmi"), {
+        true: ["-DWCNSS_QMI"],
+        default: [],
+    }) + select((soong_config_variable("wcnss_service", "uses_qcom_wcnss_qmi"),
+                 soong_config_variable("wcnss_service", "uses_wcnss_mac_addr_rev")), {
+        (true, true): ["-DWCNSS_QMI_MAC_ADDR_REV"],
+        (default, default): [],
+    }) + select((soong_config_variable("wcnss_service", "uses_qcom_wcnss_qmi"),
+                 soong_config_variable("wcnss_service", "provides_qcom_wcnss_qmi")), {
+        (true, true): ["-DWCNSS_QMI_OSS"],
+        (true, default): ["-DWCNSS_QMI_PRIVATE"],
+        (default, default): [],
+    }) + select((soong_config_variable("wcnss_service", "uses_qcom_wcnss_qmi"),
+                 soong_config_variable("wcnss_service", "wcnss_qmi_include_dir")), {
+        (true, any): [],
+        (true, default): ["-DENABLE_DMS_SHIM"],
+        (default, default): [],
+    }),
+
+//    header_libs: ["vendor_common_inc"],
+
+    include_dirs: select((soong_config_variable("wcnss_service", "uses_qcom_wcnss_qmi"),
+                          soong_config_variable("wcnss_service", "wcnss_qmi_include_dir")), {
+        (true, any @ include_dir): [include_dir],
+        (default, default): [],
+    }),
+
+    shared_libs: [
+        "libcutils",
+        "liblog",
+        "libutils",
+    ] + select(soong_config_variable("wcnss_service", "uses_qcom_wcnss_qmi"), {
+        true: ["libdl"],
+        default: [],
+    }),
+
+    vendor: true,
+}
