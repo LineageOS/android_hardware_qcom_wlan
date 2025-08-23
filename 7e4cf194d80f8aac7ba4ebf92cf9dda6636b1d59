@@ -16,6 +16,23 @@
       "message": "When I use hardware/qcom-caf/wlan here, wlan0 appears for a moment and then it does not work at all. However, when I use hardware/qcom/wlan here, it does not cause any problems. Of these (libcld80211.so, libwifi-hal-ctrl.so and libwifi-hal.so) libwifi-hal.so only causes problems. It depends on libwifi-hal-qcom and this libwifi-hal-qcom only works when I use hardware/qcom/wlan/legacy instead of hardware/qcom-caf/wlan in the compilation part.",
       "revId": "7e4cf194d80f8aac7ba4ebf92cf9dda6636b1d59",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "9278a0ad_28507ad5",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 2
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 4550
+      },
+      "writtenOn": "2025-08-23T08:46:20Z",
+      "side": 1,
+      "message": "You should try to fix this repo instead of working around it",
+      "revId": "7e4cf194d80f8aac7ba4ebf92cf9dda6636b1d59",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
