@@ -33,6 +33,23 @@
       "message": "You should try to fix this repo instead of working around it",
       "revId": "7e4cf194d80f8aac7ba4ebf92cf9dda6636b1d59",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "c9a554c5_67ee2820",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 2
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 32245
+      },
+      "writtenOn": "2025-08-23T17:00:32Z",
+      "side": 1,
+      "message": "Just switched to this branch in my AOSP 16 tree, and rebuilt for Mi439, wifi still works fine on it, without this patch",
+      "revId": "7e4cf194d80f8aac7ba4ebf92cf9dda6636b1d59",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
