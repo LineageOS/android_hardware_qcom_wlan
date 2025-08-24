@@ -16,6 +16,24 @@
       "message": "Remove?",
       "revId": "2d7580f284dc47e6d53ebb456abfa90207f5c036",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "fef0e0cb_a1ac771a",
+        "filename": "wcnss-service/Android.bp",
+        "patchSetId": 2
+      },
+      "lineNbr": 32,
+      "author": {
+        "id": 32245
+      },
+      "writtenOn": "2025-08-24T05:30:50Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "1e1096d7_6fda9b0f",
+      "revId": "2d7580f284dc47e6d53ebb456abfa90207f5c036",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
