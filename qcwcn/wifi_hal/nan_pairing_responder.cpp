@@ -216,7 +216,7 @@ wifi_error nan_pairing_indication_response(transaction_id id,
 
         if ((secure_nan->dev_nik->nira_nonce_len +
              secure_nan->dev_nik->nira_tag_len) > PMKID_LEN) {
-            ALOGE("%s: Invalid nonce/tag len, nonce_len = %d, tag len = %d",
+            ALOGE("%s: Invalid nonce/tag len, nonce_len = %zu, tag len = %zu",
                   __FUNCTION__, secure_nan->dev_nik->nira_nonce_len,
                   secure_nan->dev_nik->nira_tag_len);
             goto fail;
@@ -490,7 +490,7 @@ int nan_pairing_handle_pasn_auth(wifi_handle handle, const u8 *data, size_t len)
                        pasn_get_pmk_len(pasn));
                 evt.npk_security_association.npk.pmk_len = pasn_get_pmk_len(pasn);
             } else {
-                ALOGE("%s: Invalid pmk len: %d", __FUNCTION__, pasn_get_pmk_len(pasn));
+                ALOGE("%s: Invalid pmk len: %zu", __FUNCTION__, pasn_get_pmk_len(pasn));
             }
             wpa_pasn_reset(pasn);
             nanCommand->handleNanPairingConfirm(&evt);

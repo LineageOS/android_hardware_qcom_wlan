@@ -3590,7 +3590,7 @@ char *get_iface_mask_str(u32 mask, char *buf, size_t buflen) {
     return buf;
 
 error:
-    ALOGE("snprintf() error res=%d, write length=%d", res, end - pos);
+    ALOGE("snprintf() error res=%d, write length=%" PRIdPTR, res, end - pos);
     return NULL;
 }
 

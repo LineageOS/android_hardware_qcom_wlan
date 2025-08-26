@@ -62,7 +62,7 @@ static u16 sda_get_service_info_offset(const u8 *buf, size_t buf_len, u8 window)
     }
 
     if (buf_len < (NAN_SD_ATTR_SERVICE_ID_LEN + 3)) {
-        ALOGE("SDA buffer too short %d", buf_len);
+        ALOGE("SDA buffer too short %zu", buf_len);
         return offset;
     }
     buf += NAN_SD_ATTR_SERVICE_ID_LEN + 2;
@@ -125,7 +125,7 @@ static bool is_sda_valid(const u8 *buf, size_t buf_len)
     ALOGI("%s: Validate SD attribute length %d", __FUNCTION__, attr_len);
 
     if (attr_len < NAN_SD_ATTR_MIN_LEN - 3 || buf_len < attr_len) {
-        ALOGE("%s: Invalid attribute length attr_len %d, buf_len %d",
+        ALOGE("%s: Invalid attribute length attr_len %d, buf_len %zu",
               __FUNCTION__, attr_len, buf_len);
         return false;
     }
@@ -208,7 +208,7 @@ static bool is_sdea_valid(const u8 *buf, size_t buf_len)
     ALOGI("Validate SDE attribute, length %d", attr_len);
 
     if (attr_len < NAN_SDE_ATTR_MIN_LEN || buf_len < attr_len) {
-        ALOGE("%s: Invalid attribute length in SDEA attr_len %d, buf_len %d",
+        ALOGE("%s: Invalid attribute length in SDEA attr_len %d, buf_len %zu",
               __FUNCTION__, attr_len, buf_len);
         return false;
     }
@@ -337,7 +337,7 @@ static bool nan_get_sde_attr(u8 *frame, u16 frame_len, nan_sdea *sdea)
     u16 service_info_len;
 
     if (!sdea || !frame || (frame_len < NAN_SDE_ATTR_MIN_LEN)) {
-        ALOGE("%s: Incorrect arguments %p %p or length %d",
+        ALOGE("%s: Incorrect arguments 0x%p 0x%p or length %d",
               __FUNCTION__, sdea, frame, frame_len);
         return false;
     }
@@ -426,7 +426,7 @@ void nan_process_followup_frame(wifi_handle handle, const u8 *buf,
     memset(&npba, 0, sizeof(NanFWBootstrappingParams));
 
     if (len < 5) {
-        ALOGE("%s: Frame length too short %d", __FUNCTION__, len);
+        ALOGE("%s: Frame length too short %zu", __FUNCTION__, len);
         return;
     }
     pos = (u8 *)buf + 4;
@@ -440,7 +440,7 @@ void nan_process_followup_frame(wifi_handle handle, const u8 *buf,
         u16 attrLen = WPA_GET_LE16(pos + 1);
 
         if (!attrLen || len < (attrLen + 3)) {
-            ALOGE("%s: SDF Invalid Frame: framelen = %d attrId = 0x%x attrlen = %d",
+            ALOGE("%s: SDF Invalid Frame: framelen = %zu attrId = 0x%x attrlen = %d",
                   __FUNCTION__, len, attrId, attrLen);
             return;
         }
@@ -1100,7 +1100,7 @@ int nan_send_tx_mgmt(void *ctx, const u8 *frame_buf, size_t frame_len,
 
     mgmt = (struct ieee80211_mgmt *)frame_buf;
     if (!mgmt || frame_len < offsetof(struct ieee80211_mgmt, u.auth.variable)) {
-        ALOGE("%s: Invalid frame buf: len=%d \n", __FUNCTION__, frame_len);
+        ALOGE("%s: Invalid frame buf: len=%zu \n", __FUNCTION__, frame_len);
         return -1;
     }
 
@@ -1166,7 +1166,7 @@ wifi_error nan_get_pairing_tk(transaction_id id,
                             msg->bssid, WPA_CIPHER_NONE);
     if (entry) {
         if (sizeof(msg->tk) < entry->ptk.tk_len) {
-            ALOGE("%s: TK length invalid. len = %d", __FUNCTION__,
+            ALOGE("%s: TK length invalid. len = %zu", __FUNCTION__,
                   entry->ptk.tk_len);
             return WIFI_ERROR_UNKNOWN;
         }
@@ -1935,7 +1935,7 @@ int nan_pairing_set_keys_from_cache(wifi_handle handle, u8 *src_addr, u8 *bssid,
                    pasn_get_pmk_len(pasn));
             evt.npk_security_association.npk.pmk_len = pasn_get_pmk_len(pasn);
         } else {
-            ALOGE("%s: Invalid pmk len: %d", __FUNCTION__, pasn_get_pmk_len(pasn));
+            ALOGE("%s: Invalid pmk len: %zu", __FUNCTION__, pasn_get_pmk_len(pasn));
         }
         wpa_pasn_reset(pasn);
         nanCommand->handleNanPairingConfirm(&evt);
@@ -2695,7 +2695,7 @@ void nan_pairing_derive_grp_keys(hal_info *info, u8* addr, u8 cipher_caps)
             goto fail;
         }
     } else {
-        ALOGE("%s: unsupported IGTK len %d", __FUNCTION__, grp_key->igtk_len);
+        ALOGE("%s: unsupported IGTK len %zu", __FUNCTION__, grp_key->igtk_len);
         goto fail;
     }
 
@@ -2705,7 +2705,7 @@ void nan_pairing_derive_grp_keys(hal_info *info, u8* addr, u8 cipher_caps)
             goto fail;
         }
     } else {
-        ALOGE("%s: unsupported BIGTK len %d", __FUNCTION__, grp_key->bigtk_len);
+        ALOGE("%s: unsupported BIGTK len %zu", __FUNCTION__, grp_key->bigtk_len);
         goto fail;
     }
 
