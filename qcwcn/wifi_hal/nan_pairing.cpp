@@ -2318,7 +2318,8 @@ const u8 *nan_get_attr_from_ies(const u8 *ies, size_t ies_len,
 }
 
 void nan_pairing_add_setup_ies(struct wpa_secure_nan *secure_nan,
-                               struct pasn_data *pasn, int peer_role)
+                               struct pasn_data *pasn, int peer_role,
+                               u32 cipher)
 {
     u8 *pos;
     nan_dcea *dcea;
@@ -2368,7 +2369,10 @@ void nan_pairing_add_setup_ies(struct wpa_secure_nan *secure_nan,
     csia->len = sizeof(nan_csia) - offsetof(nan_csia, caps);
     csia->len += sizeof(nan_csa);
     csia->caps = secure_nan->csia_cap_info;
-    csia->csa[0].cipher = NCS_PK_PASN_128;
+    if (cipher == NAN_CIPHER_SUITE_PUBLIC_KEY_PASN_256_MASK)
+        csia->csa[0].cipher = NCS_PK_PASN_256;
+    else
+        csia->csa[0].cipher = NCS_PK_PASN_128;
     csia->csa[0].pub_id = secure_nan->pub_sub_id;
     if (peer_role == SECURE_NAN_PAIRING_INITIATOR) {
         csia->csa[1].cipher = NCS_SK_128;
@@ -2394,7 +2398,8 @@ void nan_pairing_add_setup_ies(struct wpa_secure_nan *secure_nan,
 }
 
 void nan_pairing_add_verification_ies(struct wpa_secure_nan *secure_nan,
-                                      struct pasn_data *pasn, int peer_role)
+                                      struct pasn_data *pasn, int peer_role,
+                                      u32 cipher)
 {
     u8 *pos;
     nan_dcea *dcea;
@@ -2446,7 +2451,10 @@ void nan_pairing_add_verification_ies(struct wpa_secure_nan *secure_nan,
     csia->len = sizeof(nan_csia) - offsetof(nan_csia, caps);
     csia->len += sizeof(nan_csa);
     csia->caps = secure_nan->csia_cap_info;
-    csia->csa[0].cipher = NCS_PK_PASN_128;
+    if (cipher == NAN_CIPHER_SUITE_PUBLIC_KEY_PASN_256_MASK)
+        csia->csa[0].cipher = NCS_PK_PASN_256;
+    else
+        csia->csa[0].cipher = NCS_PK_PASN_128;
     csia->csa[0].pub_id = secure_nan->pub_sub_id;
     if (peer_role == SECURE_NAN_PAIRING_INITIATOR) {
         csia->csa[1].cipher = NCS_SK_128;
