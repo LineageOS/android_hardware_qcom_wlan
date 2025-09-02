@@ -205,6 +205,7 @@ wifi_error nan_pairing_indication_response(transaction_id id,
         } else {
             pasn_set_akmp(pasn, WPA_KEY_MGMT_PASN);
             pasn_set_wpa_key_mgmt(pasn, WPA_KEY_MGMT_PASN);
+            pasn_set_noauth(pasn, 1);
         }
 
         // Configure NIK from the user.
