@@ -292,7 +292,7 @@ static wifi_error parse_wifi_cached_scan_result(wifi_cached_scan_report *report,
             scan_result[result_cnt].chanspec.center_frequency1 = 0;
         }
 
-        ALOGV("Age_Ms: %lu\n"
+        ALOGV("Age_Ms: %u\n"
               "BSSID: "
                MAC_ADDR_STR
               "\nSSID: %s\n"
@@ -300,7 +300,7 @@ static wifi_error parse_wifi_cached_scan_result(wifi_cached_scan_report *report,
               "RSSI : %d\n"
               "Capability : %u\n"
               "Flags: %x\n"
-              "Primary_frequency: %lu\n"
+              "Primary_frequency: %d\n"
               "Width: %u\n"
               "Center_frequency0: %d\n"
               "Center_frequency1: %d",
@@ -396,7 +396,7 @@ int WifiScanResult::handleResponse(WifiEvent &reply)
                                 tb_vendor[QCA_WLAN_VENDOR_ATTR_FW_SCAN_REPORT_FREQ_LIST],
                                 rem) {
                 freq_list[scanned_freq_num] = nla_get_u32(scanInfo);
-                ALOGV("Scan Freq List : %lu", freq_list[scanned_freq_num]);
+                ALOGV("Scan Freq List : %u", freq_list[scanned_freq_num]);
                 scanned_freq_num += 1;
             }
 

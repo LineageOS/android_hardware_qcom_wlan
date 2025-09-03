@@ -250,7 +250,7 @@ int TwtCommand::handleResponse(WifiEvent &reply)
                 ALOGE("max wake interval attribute is not present");
             }
 
-            ALOGV("TWT caps: %s%s%s%s SP:[min:%d max:%d] SI:[min:%d max:%d]",
+            ALOGV("TWT caps: %s%s%s%s SP:[min:%d max:%d] SI:[min:%llu max:%llu]",
                   mTWTCapabilities->is_twt_requester_supported ? "[Requestor]" : "",
                   mTWTCapabilities->is_twt_responder_supported ? "[Responder]" : "",
                   mTWTCapabilities->is_broadcast_twt_supported ? "[Broadcast]" : "",
@@ -1037,7 +1037,7 @@ int TwtCommand::handleEvent(WifiEvent &event)
             else
                 ALOGE("TWT: No Callback registered:");
 
-            ALOGV("TWT Response: session_id:%d, SP:%ld, SI:%ld %s%s%s%s%s%s%s%s",
+            ALOGV("TWT Response: session_id:%d, SP:%llu, SI:%u %s%s%s%s%s%s%s%s",
                   twt_session.session_id,
                   twt_session.wake_interval_micros,
                   twt_session.wake_duration_micros,
