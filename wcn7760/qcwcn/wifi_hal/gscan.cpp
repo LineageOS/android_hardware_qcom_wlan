@@ -180,6 +180,10 @@ wifi_error wifi_get_gscan_capabilities(wifi_interface_handle handle,
     wifi_handle wifiHandle = getWifiHandle(handle);
     hal_info *info = getHalInfo(wifiHandle);
 
+    if (!info) {
+        ALOGE("%s: Interface info is NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
     if (!(info->supported_feature_set & WIFI_FEATURE_GSCAN)) {
         ALOGV("%s: GSCAN is not supported by driver", __FUNCTION__);
         return WIFI_ERROR_NOT_SUPPORTED;
@@ -213,6 +217,10 @@ wifi_error wifi_start_gscan(wifi_request_id id,
     gscan_event_handlers* event_handlers;
     GScanCommandEventHandler *gScanStartCmdEventHandler;
 
+    if (!info) {
+        ALOGE("%s: Interface info is NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
     event_handlers = (gscan_event_handlers*)info->gscan_handlers;
     gScanStartCmdEventHandler = event_handlers->gscanStartCmdEventHandler;
 
@@ -427,6 +435,10 @@ wifi_error wifi_stop_gscan(wifi_request_id id,
     gscan_event_handlers* event_handlers;
     GScanCommandEventHandler *gScanStartCmdEventHandler;
 
+    if (!info) {
+        ALOGE("%s: Interface info is NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
     event_handlers = (gscan_event_handlers*)info->gscan_handlers;
     gScanStartCmdEventHandler = event_handlers->gscanStartCmdEventHandler;
 
@@ -508,6 +520,10 @@ wifi_error wifi_set_bssid_hotlist(wifi_request_id id,
     gscan_event_handlers* event_handlers;
     GScanCommandEventHandler *gScanSetBssidHotlistCmdEventHandler;
 
+    if (!info) {
+        ALOGE("%s: Interface info is NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
     event_handlers = (gscan_event_handlers*)info->gscan_handlers;
     gScanSetBssidHotlistCmdEventHandler =
         event_handlers->gScanSetBssidHotlistCmdEventHandler;
@@ -676,6 +692,10 @@ wifi_error wifi_reset_bssid_hotlist(wifi_request_id id,
     gscan_event_handlers* event_handlers;
     GScanCommandEventHandler *gScanSetBssidHotlistCmdEventHandler;
 
+    if (!info) {
+        ALOGE("%s: Interface info is NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
     event_handlers = (gscan_event_handlers*)info->gscan_handlers;
     gScanSetBssidHotlistCmdEventHandler =
         event_handlers->gScanSetBssidHotlistCmdEventHandler;
@@ -759,6 +779,10 @@ wifi_error wifi_set_significant_change_handler(wifi_request_id id,
     gscan_event_handlers* event_handlers;
     GScanCommandEventHandler *gScanSetSignificantChangeCmdEventHandler;
 
+    if (!info) {
+        ALOGE("%s: Interface info is NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
     event_handlers = (gscan_event_handlers*)info->gscan_handlers;
     gScanSetSignificantChangeCmdEventHandler =
         event_handlers->gScanSetSignificantChangeCmdEventHandler;
@@ -938,6 +962,10 @@ wifi_error wifi_reset_significant_change_handler(wifi_request_id id,
     gscan_event_handlers* event_handlers;
     GScanCommandEventHandler *gScanSetSignificantChangeCmdEventHandler;
 
+    if (!info) {
+        ALOGE("%s: Interface info is NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
     event_handlers = (gscan_event_handlers*)info->gscan_handlers;
     gScanSetSignificantChangeCmdEventHandler =
         event_handlers->gScanSetSignificantChangeCmdEventHandler;
@@ -1022,6 +1050,10 @@ wifi_error wifi_get_cached_gscan_results(wifi_interface_handle iface,
     wifi_handle wifiHandle = getWifiHandle(iface);
     hal_info *info = getHalInfo(wifiHandle);
 
+    if (!info) {
+        ALOGE("%s: Interface info is NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
     if (!(info->supported_feature_set & WIFI_FEATURE_GSCAN)) {
         ALOGE("%s: GSCAN is not supported by driver",
             __FUNCTION__);
@@ -1703,6 +1735,10 @@ wifi_error wifi_set_epno_list(wifi_request_id id,
     gscan_event_handlers* event_handlers;
     GScanCommandEventHandler *gScanSetPnoListCmdEventHandler;
 
+    if (!info) {
+        ALOGE("%s: Interface info is NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
     event_handlers = (gscan_event_handlers*)info->gscan_handlers;
     gScanSetPnoListCmdEventHandler =
         event_handlers->gScanSetPnoListCmdEventHandler;
@@ -1891,6 +1927,10 @@ wifi_error wifi_reset_epno_list(wifi_request_id id, wifi_interface_handle iface)
     wifi_handle wifiHandle = getWifiHandle(iface);
     hal_info *info = getHalInfo(wifiHandle);
 
+    if (!info) {
+        ALOGE("%s: Interface info is NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
     if (!(info->supported_feature_set & WIFI_FEATURE_HAL_EPNO)) {
         ALOGE("%s: Enhanced PNO is not supported by the driver",
             __FUNCTION__);
@@ -1968,6 +2008,10 @@ wifi_error wifi_set_passpoint_list(wifi_request_id id,
     gscan_event_handlers* event_handlers;
     GScanCommandEventHandler *gScanPnoSetPasspointListCmdEventHandler;
 
+    if (!info) {
+        ALOGE("%s: Interface info is NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
     event_handlers = (gscan_event_handlers*)info->gscan_handlers;
     gScanPnoSetPasspointListCmdEventHandler =
         event_handlers->gScanPnoSetPasspointListCmdEventHandler;
@@ -2139,6 +2183,10 @@ wifi_error wifi_reset_passpoint_list(wifi_request_id id,
     gscan_event_handlers* event_handlers;
     GScanCommandEventHandler *gScanPnoSetPasspointListCmdEventHandler;
 
+    if (!info) {
+        ALOGE("%s: Interface info is NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
     event_handlers = (gscan_event_handlers*)info->gscan_handlers;
     gScanPnoSetPasspointListCmdEventHandler =
         event_handlers->gScanPnoSetPasspointListCmdEventHandler;

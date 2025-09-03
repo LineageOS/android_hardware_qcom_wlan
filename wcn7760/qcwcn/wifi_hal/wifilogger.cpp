@@ -111,6 +111,10 @@ wifi_error wifi_start_logging(wifi_interface_handle iface,
     hal_info *info = getHalInfo(wifiHandle);
     int ring_id = 0;
 
+    if (!info) {
+        ALOGE("%s: Interface info is NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
     /* Check Supported logger capability */
     if (!(info->supported_logger_feature_set & LOGGER_RING_BUFFER)) {
         ALOGE("%s: Ring buffer logging feature not supported %x", __FUNCTION__,
@@ -204,6 +208,10 @@ wifi_error wifi_get_ring_buffers_status(wifi_interface_handle iface,
     struct rb_info *rb_info;
     int rb_id;
 
+    if (!info) {
+        ALOGE("%s: Interface info is NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
     /* Check Supported logger capability */
     if (!(info->supported_logger_feature_set & LOGGER_RING_BUFFER)) {
         ALOGE("%s: Ring buffer logging feature not supported %x", __FUNCTION__,
@@ -532,6 +540,10 @@ wifi_error wifi_get_firmware_memory_dump(wifi_interface_handle iface,
     wifi_handle wifiHandle = getWifiHandle(iface);
     hal_info *info = getHalInfo(wifiHandle);
 
+    if (!info) {
+        ALOGE("%s: Interface info is NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
     /* Check Supported logger capability */
     if (!(info->supported_logger_feature_set &
           WIFI_LOGGER_MEMORY_DUMP_SUPPORTED)) {
@@ -602,6 +614,10 @@ wifi_error wifi_set_log_handler(wifi_request_id id,
     wifi_handle wifiHandle = getWifiHandle(iface);
     hal_info *info = getHalInfo(wifiHandle);
 
+    if (!info) {
+        ALOGE("%s: Interface info is NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
     pthread_mutex_lock(&info->lh_lock);
     info->on_ring_buffer_data = handler.on_ring_buffer_data;
     pthread_mutex_unlock(&info->lh_lock);
@@ -618,6 +634,10 @@ wifi_error wifi_reset_log_handler(wifi_request_id id,
     wifi_handle wifiHandle = getWifiHandle(iface);
     hal_info *info = getHalInfo(wifiHandle);
 
+    if (!info) {
+        ALOGE("%s: Interface info is NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
     pthread_mutex_lock(&info->lh_lock);
     info->on_ring_buffer_data = NULL;
     pthread_mutex_unlock(&info->lh_lock);
@@ -631,6 +651,10 @@ wifi_error wifi_set_alert_handler(wifi_request_id id,
     wifi_handle wifiHandle = getWifiHandle(iface);
     hal_info *info = getHalInfo(wifiHandle);
 
+    if (!info) {
+        ALOGE("%s: Interface info is NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
     if (handler.on_alert == NULL) {
         ALOGE("Set alert handler is NULL");
         return WIFI_ERROR_UNKNOWN;
@@ -647,6 +671,10 @@ wifi_error wifi_reset_alert_handler(wifi_request_id id,
     wifi_handle wifiHandle = getWifiHandle(iface);
     hal_info *info = getHalInfo(wifiHandle);
 
+    if (!info) {
+        ALOGE("%s: Interface info is NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
     pthread_mutex_lock(&info->ah_lock);
     info->on_alert = NULL;
     pthread_mutex_unlock(&info->ah_lock);
@@ -664,6 +692,10 @@ wifi_error wifi_start_pkt_fate_monitoring(wifi_interface_handle iface)
     wifi_handle wifiHandle = getWifiHandle(iface);
     hal_info *info = getHalInfo(wifiHandle);
 
+    if (!info) {
+        ALOGE("%s: Interface info is NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
     /* Check Supported logger capability */
     if (!(info->supported_logger_feature_set &
           WIFI_LOGGER_PACKET_FATE_SUPPORTED)) {
@@ -717,6 +749,10 @@ wifi_error wifi_get_tx_pkt_fates(wifi_interface_handle iface,
     wifi_tx_report_i *tx_fate_stats;
     size_t i;
 
+    if (!info) {
+        ALOGE("%s: Interface info is NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
     if (info->fate_monitoring_enabled != true) {
         ALOGE("Packet monitoring is not yet triggered");
         return WIFI_ERROR_UNINITIALIZED;
@@ -787,6 +823,10 @@ wifi_error wifi_get_rx_pkt_fates(wifi_interface_handle iface,
     wifi_rx_report_i *rx_fate_stats;
     size_t i;
 
+    if (!info) {
+        ALOGE("%s: Interface info is NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
     if (info->fate_monitoring_enabled != true) {
         ALOGE("Packet monitoring is not yet triggered");
         return WIFI_ERROR_UNINITIALIZED;
@@ -1392,6 +1432,10 @@ wifi_error wifi_get_driver_memory_dump(wifi_interface_handle iface,
     wifi_handle wifiHandle = getWifiHandle(iface);
     hal_info *info = getHalInfo(wifiHandle);
 
+    if (!info) {
+        ALOGE("%s: Interface info is NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
     /* Check Supported logger capability */
     if (!(info->supported_logger_feature_set &
           WIFI_LOGGER_DRIVER_DUMP_SUPPORTED)) {
@@ -1478,6 +1522,10 @@ wifi_error wifi_get_wake_reason_stats(wifi_interface_handle iface,
     wifi_handle wifiHandle = getWifiHandle(iface);
     hal_info *info = getHalInfo(wifiHandle);
 
+    if (!info) {
+        ALOGE("%s: Interface info is NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
     /* Check Supported logger capability */
     if (!(info->supported_logger_feature_set &
           WIFI_LOGGER_WAKE_LOCK_SUPPORTED)) {
