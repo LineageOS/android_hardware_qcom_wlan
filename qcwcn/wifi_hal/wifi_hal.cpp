@@ -1202,6 +1202,7 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn) {
     fn->wifi_twt_session_get_stats = wifi_twt_session_get_stats;
     fn->wifi_twt_session_setup = wifi_twt_session_setup;
     fn->wifi_twt_session_teardown = wifi_twt_session_teardown;
+    fn->wifi_enable_tx_power_limits = wifi_enable_tx_power_limits;
 
     return WIFI_SUCCESS;
 }
@@ -4301,4 +4302,63 @@ int is_feature_supported(wifi_interface_handle iface_handle, int feature)
         return 0;
     }
     return cmd.isFeatureFlagSupported();
+}
+
+wifi_error wifi_enable_tx_power_limits(wifi_interface_handle iface,
+                                       bool isEnable)
+{
+    wifi_error ret;
+    struct nlattr *nlData;
+    WifiVendorCommand *vCommand = NULL;
+    wifi_handle wifiHandle;
+    hal_info *info;
+
+    wifiHandle = getWifiHandle(iface);
+    if (!wifiHandle) {
+        ALOGE("%s: wifi_handle is NULL", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+
+    info = getHalInfo(wifiHandle);
+    if (!info) {
+        ALOGE("%s: hal_info is NULL", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+
+    if (!check_feature(QCA_WLAN_VENDOR_FEATURE_SUPPORT_TX_POWER_LIMIT,
+                       &info->driver_supported_features)) {
+        ALOGE("%s: TX Power limit not supported by driver", __func__);
+        return WIFI_ERROR_NOT_SUPPORTED;
+    }
+
+    ret = initialize_vendor_cmd(iface, get_requestid(),
+                                QCA_NL80211_VENDOR_SUBCMD_SET_WIFI_CONFIGURATION,
+                                &vCommand);
+    if (ret != WIFI_SUCCESS) {
+        ALOGE("%s: Initialization failed", __func__);
+        return ret;
+    }
+
+    /* Add the vendor specific attributes for the NL command. */
+    nlData = vCommand->attr_start(NL80211_ATTR_VENDOR_DATA);
+    if (!nlData){
+        ret = WIFI_ERROR_UNKNOWN;
+        goto cleanup;
+    }
+
+    ALOGV("%s: Enable TX Power limit is %d", __func__, isEnable);
+    ret = vCommand->put_u8(QCA_WLAN_VENDOR_ATTR_CONFIG_TX_POWER_LIMIT_ENABLE,
+                           isEnable);
+    if (ret != WIFI_SUCCESS)
+        goto cleanup;
+
+    vCommand->attr_end(nlData);
+
+    ret = vCommand->requestResponse();
+    if (ret != WIFI_SUCCESS)
+        ALOGE("%s: requestResponse Error:%d", __func__, ret);
+
+cleanup:
+    delete vCommand;
+    return ret;
 }
