@@ -2129,6 +2129,8 @@ struct nan_pairing_peer_info {
     /* capability info in CSIA attribute */
     u8 csia_cap_info;
     struct pasn_auth_frame *frame;
+    /* dialog token in bootstrapping request/response */
+    u8 dialog_token;
 };
 
 struct wpa_secure_nan {
@@ -2174,6 +2176,8 @@ struct wpa_secure_nan {
     struct nan_pairing_peer_info* pending_peer;
     /* device group keys capability info*/
     u8 csia_cap_info;
+    /* dialog token in bootstrapping request */
+    u8 dialog_token;
 };
 
 /***************************************************

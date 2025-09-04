@@ -1752,7 +1752,7 @@ wifi_error NanCommand::putNanSharedKeyDescriptorReq(transaction_id id,
 
 wifi_error NanCommand::putNanBootstrappingReq(transaction_id id,
                                               const NanBootstrappingRequest *pReq,
-                                              u16 pub_sub_id)
+                                              u16 pub_sub_id, u8 dialog_token)
 {
     wifi_error ret;
     struct nlattr *nl_data;
@@ -1823,7 +1823,7 @@ wifi_error NanCommand::putNanBootstrappingReq(transaction_id id,
     } else {
         pNanFWBootstrappingParams.status = NAN_BS_STATUS_ACCEPT;
     }
-    pNanFWBootstrappingParams.dialog_token = 0;
+    pNanFWBootstrappingParams.dialog_token = dialog_token;
     pNanFWBootstrappingParams.bootstrapping_method_bitmap =
                                            pReq->request_bootstrapping_method;
     pNanFWBootstrappingParams.comeback_after = 0;
@@ -1945,13 +1945,14 @@ wifi_error NanCommand::putNanBootstrappingIndicationRsp(transaction_id id,
     memset(pNanFWBootstrappingParams, 0, sizeof(NanFWBootstrappingParams));
     pNanFWBootstrappingParams->type = NAN_BS_TYPE_RESPONSE;
     pNanFWBootstrappingParams->status = pRsp->rsp_code;
-    pNanFWBootstrappingParams->dialog_token = 0;
-    if (entry)
+    if (entry) {
+        pNanFWBootstrappingParams->dialog_token = entry->dialog_token;
         pNanFWBootstrappingParams->bootstrapping_method_bitmap =
                                                entry->peer_supported_bootstrap;
-    else
+    } else {
         pNanFWBootstrappingParams->bootstrapping_method_bitmap =
                                          info->secure_nan->supported_bootstrap;
+    }
 
     pNanFWBootstrappingParams->comeback_after = (u16)pRsp->come_back_delay;
 
