@@ -674,7 +674,8 @@ int NanCommand::handleNanBootstrappingIndication()
                                       bootstrapReqInd.bootstrapping_instance_id;
                entry->peer_role = SECURE_NAN_BOOTSTRAPPING_INITIATOR;
                entry->peer_supported_bootstrap =
-                                   bootstrapReqInd.request_bootstrapping_method;
+                                      params->bootstrapping_method_bitmap;
+               entry->dialog_token = params->dialog_token;
            }
        } else if (params->type == NAN_BS_TYPE_RESPONSE) {
            entry = nan_pairing_get_peer_from_list(info->secure_nan, mac);
@@ -682,6 +683,15 @@ int NanCommand::handleNanBootstrappingIndication()
                ALOGE("%s: peer not found: ADDR=" MACSTR, __FUNCTION__, MAC2STR(mac));
                return WIFI_ERROR_UNKNOWN;
            }
+
+           if (entry->dialog_token != params->dialog_token) {
+               ALOGE("Dialog token not matching. Req token: %d, Rsp token: %d",
+                      entry->dialog_token, params->dialog_token);
+#ifdef CONFIG_NAN_STRICT_MODE
+               return WIFI_ERROR_UNKNOWN;
+#endif /* CONFIG_NAN_STRICT_MODE */
+           }
+
            NanBootstrappingConfirmInd *bootstrapConfirmInd =
              (NanBootstrappingConfirmInd *)malloc(sizeof(NanBootstrappingConfirmInd)
                                                   + cookie_length);
