@@ -2282,6 +2282,7 @@ int nan_pairing_prepare_skda_data(wifi_interface_handle iface);
 wifi_error nan_group_key_pn_request(transaction_id id,
                                     wifi_interface_handle iface,
                                     u32 key_index);
+u16 get_matching_bootstrap_method(u16 method);
 
 #ifdef __cplusplus
 }
