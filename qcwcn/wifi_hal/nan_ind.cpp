@@ -672,7 +672,7 @@ int NanCommand::handleNanBootstrappingIndication()
                                          pRsp->followupIndParams.matchHandle;
            memcpy(bootstrapReqInd.peer_disc_mac_addr, mac, NAN_MAC_ADDR_LEN);
            bootstrapReqInd.request_bootstrapping_method =
-                                          params->bootstrapping_method_bitmap;
+             get_matching_bootstrap_method(params->bootstrapping_method_bitmap);
            handleNanBootstrappingReqInd(&bootstrapReqInd);
            entry = nan_pairing_add_peer_to_list(info->secure_nan, mac);
            if (entry) {

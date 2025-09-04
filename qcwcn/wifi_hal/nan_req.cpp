@@ -1858,6 +1858,37 @@ wifi_error NanCommand::putNanBootstrappingReq(transaction_id id,
     return ret;
 }
 
+u16 get_matching_bootstrap_method(u16 method)
+{
+   switch (method) {
+   case NAN_PAIRING_BOOTSTRAPPING_OPPORTUNISTIC_MASK:
+       return NAN_PAIRING_BOOTSTRAPPING_OPPORTUNISTIC_MASK;
+   case NAN_PAIRING_BOOTSTRAPPING_PIN_CODE_DISPLAY_MASK:
+       return NAN_PAIRING_BOOTSTRAPPING_PIN_CODE_KEYPAD_MASK;
+   case NAN_PAIRING_BOOTSTRAPPING_PASSPHRASE_DISPLAY_MASK:
+       return NAN_PAIRING_BOOTSTRAPPING_PASSPHRASE_KEYPAD_MASK;
+   case NAN_PAIRING_BOOTSTRAPPING_QR_DISPLAY_MASK:
+       return NAN_PAIRING_BOOTSTRAPPING_QR_SCAN_MASK;
+   case NAN_PAIRING_BOOTSTRAPPING_NFC_TAG_MASK:
+       return NAN_PAIRING_BOOTSTRAPPING_NFC_READER_MASK;
+   case NAN_PAIRING_BOOTSTRAPPING_PIN_CODE_KEYPAD_MASK:
+       return NAN_PAIRING_BOOTSTRAPPING_PIN_CODE_DISPLAY_MASK;
+   case NAN_PAIRING_BOOTSTRAPPING_PASSPHRASE_KEYPAD_MASK:
+       return NAN_PAIRING_BOOTSTRAPPING_PASSPHRASE_DISPLAY_MASK;
+   case NAN_PAIRING_BOOTSTRAPPING_QR_SCAN_MASK:
+       return NAN_PAIRING_BOOTSTRAPPING_QR_DISPLAY_MASK;
+   case NAN_PAIRING_BOOTSTRAPPING_NFC_READER_MASK:
+       return NAN_PAIRING_BOOTSTRAPPING_NFC_TAG_MASK;
+   case NAN_PAIRING_BOOTSTRAPPING_SERVICE_MANAGED_MASK:
+       return NAN_PAIRING_BOOTSTRAPPING_SERVICE_MANAGED_MASK;
+   case NAN_PAIRING_BOOTSTRAPPING_HANDSHAKE_SHIP_MASK:
+       return NAN_PAIRING_BOOTSTRAPPING_HANDSHAKE_SHIP_MASK;
+   default:
+       ALOGE("Invalid Bootstrap method = %d", method);
+   }
+   return 0;
+}
+
 wifi_error NanCommand::putNanBootstrappingIndicationRsp(transaction_id id,
                                 const NanBootstrappingIndicationResponse *pRsp)
 {
@@ -1948,10 +1979,7 @@ wifi_error NanCommand::putNanBootstrappingIndicationRsp(transaction_id id,
     if (entry) {
         pNanFWBootstrappingParams->dialog_token = entry->dialog_token;
         pNanFWBootstrappingParams->bootstrapping_method_bitmap =
-                                               entry->peer_supported_bootstrap;
-    } else {
-        pNanFWBootstrappingParams->bootstrapping_method_bitmap =
-                                         info->secure_nan->supported_bootstrap;
+                get_matching_bootstrap_method(entry->peer_supported_bootstrap);
     }
 
     pNanFWBootstrappingParams->comeback_after = (u16)pRsp->come_back_delay;
