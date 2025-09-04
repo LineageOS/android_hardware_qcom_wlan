@@ -332,6 +332,10 @@ wifi_error wifi_stop_rssi_monitoring(wifi_request_id id,
     rssi_monitor_event_handlers* event_handlers;
     hal_info *info = getHalInfo(wifiHandle);
 
+    if (!info) {
+        ALOGE("%s: Interface info is NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
     event_handlers = info->rssi_handlers;
     rssiCommand = event_handlers->mRSSIMonitorCommandInstance;
 
