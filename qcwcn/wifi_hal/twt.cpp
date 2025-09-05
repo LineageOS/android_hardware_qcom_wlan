@@ -1055,7 +1055,7 @@ int TwtCommand::handleEvent(WifiEvent &event)
         case QCA_WLAN_TWT_TERMINATE:
         {
            wifi_twt_teardown_reason_code reason;
-           int flow_id = 0;
+           int flow_id = INVALID_TWT_SESSION_ID;
            wifi_twt_error_code error_code;
 
            if (!tb_vendor[QCA_WLAN_VENDOR_ATTR_CONFIG_TWT_PARAMS]) {
@@ -1092,11 +1092,12 @@ int TwtCommand::handleEvent(WifiEvent &event)
             }
 
             reason = mapTeardownHalReasonCode(resp_status);
-            ALOGV("TWT: Teardown response flow_id:%d status:%d reason:%d", flow_id,
-                  resp_status, reason);
 
             if (tb2[QCA_WLAN_VENDOR_ATTR_TWT_SETUP_FLOW_ID])
                 flow_id = get_u8(tb2[QCA_WLAN_VENDOR_ATTR_TWT_SETUP_FLOW_ID]);
+
+            ALOGV("TWT: Teardown response flow_id:%d status:%d reason:%d",
+                  flow_id, resp_status, reason);
 
             if (mHandler.on_twt_session_teardown)
                 (*mHandler.on_twt_session_teardown)(mRequestId, flow_id, reason);

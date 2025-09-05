@@ -24,6 +24,7 @@ extern "C"
 #define TWT_FLOW_TYPE_ANNOUNCED 0
 /* Maximum Mantissa value*/
 #define TWT_SETUP_WAKE_INTVL_MANTISSA_MAX 0xFFFF
+#define INVALID_TWT_SESSION_ID 0xff
 
 class TwtCommand: public WifiVendorCommand
 {
