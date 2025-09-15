@@ -141,6 +141,31 @@ enum qca_radiotap_vendor_ids {
  * @QCA_WLAN_VENDOR_ATTR_CONFIG_NUM_RX_CHAINS_5GHZ: The number of chains to be
  * used for receiving the data in the 5/6 GHz band.
  *
+ * Global chain-mask configuration - Applies to 2.4 GHz or 5/6 GHz band
+ * The following band specific attributes are used to dynamically configure the
+ * global chain masks (e.g., 0x1 for Chain 0, 0x2 for Chain 1, 0x4 for Chain 2)
+ * to be used for transmitting the data in the 2.4 GHz or 5/6 GHz band.
+ *
+ * These attributes can be used independently.
+ * This configuration is allowed when the driver is active.
+ * The driver/firmware will intersect (AND operation) the newly configured
+ * global TX chain mask with other chain configurations (e.g., the global
+ * chain-mask configuration, global chain configuration, and per band chain
+ * configuration) to determine the final active chain mask.
+ *
+ * If the intersection of these configurations results in no available chains,
+ * the driver/firmware will reject the configuration attempt.
+ *
+ * To effectively clear or reset the chain mask configuration, user-space
+ * can set the attribute to a bitmask representing all available chains
+ * (i.e., 0xFF or 255), allowing the driver to apply the default chain mask
+ * configuration.
+ *
+ * @QCA_WLAN_VENDOR_ATTR_CONFIG_TX_CHAIN_MASK_2GHZ: Bitmask of chains to be used
+ * for transmitting the data in the 2.4 GHz band.
+ * @QCA_WLAN_VENDOR_ATTR_CONFIG_TX_CHAIN_MASK_5GHZ: Bitmask of chains to be used
+ * for transmitting the data in the 5/6 GHz band.
+ *
  * The following scenarios capture how the driver process the configuration when
  * different TX/RX NSS and chain config attributes are used in the command.
  *
@@ -1936,6 +1961,24 @@ enum qca_wlan_vendor_attr {
 	 */
 	QCA_WLAN_VENDOR_ATTR_MLO_CAPABILITY_MAX_STR_LINK_COUNT = 45,
 
+	/* An array of unsigned 32-bit values used by
+	 * QCA_NL80211_VENDOR_SUBCMD_GET_CHAIN_RSSI command to report the switch
+	 * count for each antenna.
+	 */
+	QCA_WLAN_VENDOR_ATTR_ANT_SWITCH_COUNT = 46,
+
+	/* An array of unsigned 32-bit values used by
+	 * QCA_NL80211_VENDOR_SUBCMD_GET_CHAIN_RSSI command to report the active
+	 * duration (in seconds) of each antenna.
+	 */
+	QCA_WLAN_VENDOR_ATTR_ANT_DURATION = 47,
+
+	 /* An array of unsigned 32-bit values used by
+	  * QCA_NL80211_VENDOR_SUBCMD_GET_CHAIN_RSSI command to report the
+	  * current RSSI of each antenna.
+	  */
+	QCA_WLAN_VENDOR_ATTR_ANT_RSSI = 48,
+
 	/* keep last */
 	QCA_WLAN_VENDOR_ATTR_AFTER_LAST,
 	QCA_WLAN_VENDOR_ATTR_MAX	= QCA_WLAN_VENDOR_ATTR_AFTER_LAST - 1,
@@ -2469,6 +2512,13 @@ enum qca_wlan_vendor_acs_hw_mode {
  * @QCA_WLAN_VENDOR_FEATURE_SUPPORT_TX_POWER_LIMIT: Flag indicates that the
  *	driver supports enabling TX power limit from the userspace.
  *
+ * @QCA_WLAN_VENDOR_FEATURE_SUPPORT_USER_SCENARIO_TO_DSI_MAPPING: Flag indicates
+ *  that the driver supports enabling the user scenario to DSI index mapping.
+ *
+ * @QCA_WLAN_VENDOR_FEATURE_SUPPORT_STA_INDOOR_CH_SCC: Flag indicates driver
+ *	support for SCC (Single Channel Concurrency) with a STA connected
+ *	indoor channel for P2P GO, SAP, and NAN.
+ *
  * @NUM_QCA_WLAN_VENDOR_FEATURES: Number of assigned feature bits
  */
 enum qca_wlan_vendor_features {
@@ -2503,6 +2553,8 @@ enum qca_wlan_vendor_features {
 	QCA_WLAN_VENDOR_FEATURE_P2P_V2 = 28,
 	QCA_WLAN_VENDOR_FEATURE_PCC_MODE = 29,
 	QCA_WLAN_VENDOR_FEATURE_SUPPORT_TX_POWER_LIMIT = 30,
+	QCA_WLAN_VENDOR_FEATURE_SUPPORT_USER_SCENARIO_TO_DSI_MAPPING = 31,
+	QCA_WLAN_VENDOR_FEATURE_SUPPORT_STA_INDOOR_CH_SCC = 32,
 	NUM_QCA_WLAN_VENDOR_FEATURES /* keep last */
 };
 
@@ -4068,6 +4120,37 @@ enum qca_wlan_vendor_attr_config {
 	 * 1 - Enable, 0 - Disable.
 	 */
 	QCA_WLAN_VENDOR_ATTR_CONFIG_TX_POWER_LIMIT_ENABLE = 135,
+
+	/* 8-bit unsigned integer to configure the driver to enable or disable
+	 * the A-MSDU address check validation.
+	 * 	1 - Enables A-MSDU address check for the
+	 *	    QCA_WLAN_VENDOR_ATTR_CONFIG_PEER_MAC address.
+	 * 	0 - Disables A-MSDU address check for the
+	 *	    QCA_WLAN_VENDOR_ATTR_CONFIG_PEER_MAC address
+	 */
+	QCA_WLAN_VENDOR_ATTR_CONFIG_AMSDU_ADDR_CHECK_VALIDATION = 136,
+
+	/* 8-bit unsigned value. The TX chain mask to be configured dynamically
+	 * for transmitting the data in the 2.4 GHz band.
+	 */
+	QCA_WLAN_VENDOR_ATTR_CONFIG_TX_CHAIN_MASK_2GHZ = 137,
+
+	/* 8-bit unsigned value. The TX chain mask to be configured dynamically
+	 * for transmitting the data in the 5/6 GHz band.
+	 */
+	QCA_WLAN_VENDOR_ATTR_CONFIG_TX_CHAIN_MASK_5GHZ = 138,
+
+	/* 8-bit unsigned value to enable or disable the feature to allow
+	 * SCC with STA connected indoor channel for P2P GO, SAP, and NAN
+	 * to the driver in STA mode. This configuration is applicable only
+	 * when a STA interface is in connected state.
+	 * When the STA disconnects, any P2P_GO/SAP/NAN interface present in
+	 * SCC with STA connected indoor channel will re-evaluate its operating
+	 * channel and either remain on the current channel or switch to other
+	 * valid channel, depending on regulatory and underlying driver policy.
+	 * 1 - Enable, 0 - Disable.
+	 */
+	QCA_WLAN_VENDOR_ATTR_CONFIG_ALLOW_STA_INDOOR_CH_SCC = 139,
 
 	/* keep last */
 	QCA_WLAN_VENDOR_ATTR_CONFIG_AFTER_LAST,
@@ -5732,6 +5815,30 @@ enum qca_wlan_vendor_attr_ll_stats_results {
 	 */
 	QCA_WLAN_VENDOR_ATTR_LL_STATS_MLO_LINK = 93,
 
+	/* Unsigned 32 bit value. It represents the number of MSDUs sent by the
+	 * driver that were retransmitted and eventually transmitted
+	 * successfully.
+	 */
+	QCA_WLAN_VENDOR_ATTR_LL_STATS_TX_RETRY_MSDU_CNT = 94,
+
+	/* Unsigned 32 bit value. It represents the number of MSDUs that were
+	 * successfully transmitted by the driver, including those that were
+	 * retransmitted and eventually succeeded.
+	 */
+	QCA_WLAN_VENDOR_ATTR_LL_STATS_TX_SUCC_MSDU_CNT = 95,
+
+	/* Unsigned 32 bit value. It represents the number of MSDUs that were
+	 * handed off by the driver for transmission but were ultimately dropped
+	 * by the firmware.
+	 */
+	QCA_WLAN_VENDOR_ATTR_LL_STATS_TX_FW_DROP_MSDU_CNT = 96,
+
+	/* Unsigned 32 bit value. It represents the number of MSDUs that were
+	 * intended for transmission but were dropped by the driver before being
+	 * handed off to the firmware.
+	 */
+	QCA_WLAN_VENDOR_ATTR_LL_STATS_TX_DRIVER_DROP_MSDU_CNT = 97,
+
 	/* keep last */
 	QCA_WLAN_VENDOR_ATTR_LL_STATS_AFTER_LAST,
 	QCA_WLAN_VENDOR_ATTR_LL_STATS_MAX =
@@ -5857,6 +5964,12 @@ enum qca_wlan_vendor_tdls_trigger_mode {
  *	limits configured by %QCA_NL80211_VENDOR_SUBCMD_SET_SAR.
  * @QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SELECT_V2_0: Select the SAR power
  *	limits version 2.0 configured by %QCA_NL80211_VENDOR_SUBCMD_SET_SAR.
+ * @QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SELECT_V3_0: Select the SAR power
+ *	limits version 3.0 configured by %QCA_NL80211_VENDOR_SUBCMD_SET_SAR.
+ * @QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SELECT_V4_0: Select the SAR power
+ *	limits version 4.0 configured by %QCA_NL80211_VENDOR_SUBCMD_SET_SAR.
+ * @QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SELECT_V5_0: Select the SAR power
+ *	limits version 5.0 configured by %QCA_NL80211_VENDOR_SUBCMD_SET_SAR.
  *
  * This enumerates the valid set of values that may be supplied for
  * attribute %QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SELECT in an instance of
@@ -5873,6 +5986,197 @@ enum qca_vendor_attr_sar_limits_selections {
 	QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SELECT_NONE = 5,
 	QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SELECT_USER = 6,
 	QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SELECT_V2_0 = 7,
+	QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SELECT_V3_0 = 8,
+	QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SELECT_V4_0 = 9,
+	QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SELECT_V5_0 = 10,
+};
+
+/**
+ * enum qca_wlan_power_scenario - Represents different power scenarios that can
+ * be configured through %QCA_WLAN_VENDOR_ATTR_CONFIG_POWER_SCENARIO.
+ *
+ * @QCA_WLAN_POWER_SCENARIO_VOICE_CALL: Power scenario optimized for voice
+ * calls, balancing connectivity with reduced interference to voice
+ * communications.
+ *
+ * @QCA_WLAN_POWER_SCENARIO_ON_HEAD_CELL_OFF: Power settings for a device held
+ * near head with cellular radio disabled, optimizing Wi-Fi transmission power
+ * to minimize SAR exposure while maintaining connectivity.
+ *
+ * @QCA_WLAN_POWER_SCENARIO_ON_HEAD_CELL_ON: Power settings for a device held
+ * near head with cellular radio enabled, managing combined RF exposure from
+ * Wi-Fi and cellular radios to comply with regulatory SAR limits.
+ *
+ * @QCA_WLAN_POWER_SCENARIO_ON_BODY_CELL_OFF: Power settings for a device
+ * carried on body with cellular radio disabled, optimized for body-worn
+ * position while ensuring regulatory compliance for body SAR limits.
+ *
+ * @QCA_WLAN_POWER_SCENARIO_ON_BODY_CELL_ON: Power settings for a device carried
+ * on body with cellular radio enabled, balancing Wi-Fi performance with
+ * cellular coexistence in body-worn position.
+ *
+ * @QCA_WLAN_POWER_SCENARIO_ON_BODY_BT: Power settings for a device carried on
+ * body with Bluetooth active, optimizing Wi-Fi and Bluetooth coexistence in
+ * body-worn position.
+ *
+ * @QCA_WLAN_POWER_SCENARIO_ON_HEAD_HOTSPOT: Power settings for a device used as
+ * a hotspot while held near head, optimizing tethering functionality while
+ * managing RF exposure near the user's head.
+ *
+ * @QCA_WLAN_POWER_SCENARIO_ON_HEAD_HOTSPOT_MMW: Power settings for a device
+ * used as a hotspot near head with millimeter wave technology active, with
+ * special power settings for high-frequency operation near head.
+ *
+ * @QCA_WLAN_POWER_SCENARIO_ON_BODY_CELL_ON_BT: Power settings for a device on
+ * body with both cellular and Bluetooth active, managing triple-radio
+ * coexistence in body-worn position.
+ *
+ * @QCA_WLAN_POWER_SCENARIO_ON_BODY_HOTSPOT: Power settings for a device used as
+ * a hotspot while carried on body, optimizing tethering performance in
+ * body-worn position.
+ *
+ * @QCA_WLAN_POWER_SCENARIO_ON_BODY_HOTSPOT_BT: Power settings for a device used
+ * as a hotspot on body with Bluetooth active, balancing hotspot and Bluetooth
+ * coexistence in body-worn position.
+ *
+ * @QCA_WLAN_POWER_SCENARIO_ON_BODY_HOTSPOT_MMW: Power settings for a device
+ * used as a hotspot on body with mmWave technology, optimizing high-frequency
+ * hotspot operation in body-worn position.
+ *
+ * @QCA_WLAN_POWER_SCENARIO_ON_BODY_HOTSPOT_BT_MMW: Power settings for a device
+ * used as a hotspot on body with both Bluetooth and mmWave active, managing
+ * complex triple-technology coexistence in body-worn position.
+ *
+ * @QCA_WLAN_POWER_SCENARIO_ON_HEAD_CELL_OFF_UNFOLDED: Power settings for a
+ * foldable device in unfolded state, held near head with cellular radio
+ * disabled, optimizing Wi-Fi power for a larger form factor near head.
+ *
+ * @QCA_WLAN_POWER_SCENARIO_ON_HEAD_CELL_ON_UNFOLDED: Power settings for a
+ * foldable device in unfolded state, held near head with cellular radio
+ * enabled, managing combined RF exposure in unfolded configuration near head.
+ *
+ * @QCA_WLAN_POWER_SCENARIO_ON_HEAD_HOTSPOT_UNFOLDED: Power settings for a
+ * foldable device in unfolded state, used as hotspot near head, optimizing
+ * tethering performance for unfolded configuration.
+ *
+ * @QCA_WLAN_POWER_SCENARIO_ON_HEAD_HOTSPOT_MMW_UNFOLDED: Power settings for a
+ * foldable device in unfolded state, used as a mmWave hotspot near head, with
+ * special power settings for high-frequency tethering in unfolded
+ * configuration.
+ *
+ * @QCA_WLAN_POWER_SCENARIO_ON_BODY_CELL_OFF_UNFOLDED: Power settings for a
+ * foldable device in unfolded state, carried on body with cellular radio
+ * disabled, optimizing Wi-Fi power for unfolded body-worn position.
+ *
+ * @QCA_WLAN_POWER_SCENARIO_ON_BODY_BT_UNFOLDED: Power settings for a foldable
+ * device in unfolded state, carried on body with Bluetooth active, managing
+ * Wi-Fi-Bluetooth coexistence in unfolded body-worn position.
+ *
+ * @QCA_WLAN_POWER_SCENARIO_ON_BODY_CELL_ON_UNFOLDED: Power settings for a
+ * foldable device in unfolded state, carried on body with cellular radio
+ * enabled, balancing Wi-Fi and cellular performance in unfolded body-worn
+ * position.
+ *
+ * @QCA_WLAN_POWER_SCENARIO_ON_BODY_CELL_ON_BT_UNFOLDED: Power settings for a
+ * foldable device in unfolded state, on body with both cellular and Bluetooth
+ * active, managing triple-radio coexistence in unfolded body-worn
+ * configuration.
+ *
+ * @QCA_WLAN_POWER_SCENARIO_ON_BODY_HOTSPOT_UNFOLDED: Power settings for a
+ * foldable device in unfolded state, used as a hotspot while on body,
+ * optimizing tethering performance in unfolded body-worn position.
+ *
+ * @QCA_WLAN_POWER_SCENARIO_ON_BODY_HOTSPOT_BT_UNFOLDED: Power settings for a
+ * foldable device in unfolded state, used as a hotspot on body with Bluetooth
+ * active, balancing hotspot and Bluetooth operation in unfolded body-worn
+ * position.
+ *
+ * @QCA_WLAN_POWER_SCENARIO_ON_BODY_HOTSPOT_MMW_UNFOLDED: Power settings for a
+ * foldable device in unfolded state, used as a mmWave hotspot on body,
+ * optimizing high-frequency tethering in unfolded body-worn position.
+ *
+ * @QCA_WLAN_POWER_SCENARIO_ON_BODY_HOTSPOT_BT_MMW_UNFOLDED: Power settings for
+ * a foldable device in unfolded state, used as a hotspot on body with both
+ * Bluetooth and mmWave active, managing complex triple-technology coexistence
+ * in unfolded body-worn position.
+ *
+ * @QCA_WLAN_POWER_SCENARIO_ON_BODY_REAR_CAMERA: Power settings for a device on
+ * body with rear camera active, optimizing Wi-Fi power to minimize
+ * interference with camera operations while maintaining connectivity.
+ *
+ * @QCA_WLAN_POWER_SCENARIO_ON_BODY_CELL_OFF_UNFOLDED_CAP: Power settings for a
+ * foldable device with capacitive touch in unfolded state, on body with
+ * cellular radio disabled, optimizing Wi-Fi power while ensuring touch
+ * sensitivity is maintained.
+ *
+ * @QCA_WLAN_POWER_SCENARIO_ON_BODY_BT_UNFOLDED_CAP: Power settings for a
+ * foldable device with capacitive touch in unfolded state, on body with
+ * Bluetooth active, balancing Wi-Fi-Bluetooth coexistence while maintaining
+ * touch sensitivity.
+ *
+ * @QCA_WLAN_POWER_SCENARIO_ON_BODY_CELL_ON_UNFOLDED_CAP: Power settings for a
+ * foldable device with capacitive touch in unfolded state, on body with
+ * cellular radio enabled, managing Wi-Fi-cellular coexistence while
+ * maintaining touch sensitivity.
+ *
+ * @QCA_WLAN_POWER_SCENARIO_ON_BODY_CELL_ON_BT_UNFOLDED_CAP: Power settings for
+ * a foldable device with capacitive touch in unfolded state, on body with both
+ * cellular and Bluetooth active, managing triple-radio coexistence while
+ * maintaining touch sensitivity.
+ *
+ * @QCA_WLAN_POWER_SCENARIO_ON_BODY_CELL_OFF_CAP: Power settings for a device
+ * with capacitive touch on body with cellular radio disabled, optimizing Wi-Fi
+ * power in folded state while ensuring touch sensitivity is maintained.
+ *
+ * @QCA_WLAN_POWER_SCENARIO_ON_BODY_BT_CAP: Power settings for a device with
+ * capacitive touch on body with Bluetooth active, balancing Wi-Fi-Bluetooth
+ * coexistence in folded state while maintaining touch sensitivity.
+ *
+ * @QCA_WLAN_POWER_SCENARIO_ON_BODY_CELL_ON_CAP: Power settings for a device
+ * with capacitive touch on body with cellular radio enabled, managing
+ * Wi-Fi-cellular coexistence in folded state while maintaining touch
+ * sensitivity.
+ *
+ * @QCA_WLAN_POWER_SCENARIO_ON_BODY_CELL_ON_BT_CAP: Power settings for a device
+ * with capacitive touch on body with both cellular and Bluetooth active,
+ * managing triple-radio coexistence in folded state while maintaining touch
+ *sensitivity.
+ */
+enum qca_wlan_power_scenario {
+	QCA_WLAN_POWER_SCENARIO_VOICE_CALL = 0,
+	QCA_WLAN_POWER_SCENARIO_ON_HEAD_CELL_OFF = 1,
+	QCA_WLAN_POWER_SCENARIO_ON_HEAD_CELL_ON = 2,
+	QCA_WLAN_POWER_SCENARIO_ON_BODY_CELL_OFF = 3,
+	QCA_WLAN_POWER_SCENARIO_ON_BODY_CELL_ON = 4,
+	QCA_WLAN_POWER_SCENARIO_ON_BODY_BT = 5,
+	QCA_WLAN_POWER_SCENARIO_ON_HEAD_HOTSPOT = 6,
+	QCA_WLAN_POWER_SCENARIO_ON_HEAD_HOTSPOT_MMW = 7,
+	QCA_WLAN_POWER_SCENARIO_ON_BODY_CELL_ON_BT = 8,
+	QCA_WLAN_POWER_SCENARIO_ON_BODY_HOTSPOT = 9,
+	QCA_WLAN_POWER_SCENARIO_ON_BODY_HOTSPOT_BT = 10,
+	QCA_WLAN_POWER_SCENARIO_ON_BODY_HOTSPOT_MMW = 11,
+	QCA_WLAN_POWER_SCENARIO_ON_BODY_HOTSPOT_BT_MMW = 12,
+	QCA_WLAN_POWER_SCENARIO_ON_HEAD_CELL_OFF_UNFOLDED = 13,
+	QCA_WLAN_POWER_SCENARIO_ON_HEAD_CELL_ON_UNFOLDED = 14,
+	QCA_WLAN_POWER_SCENARIO_ON_HEAD_HOTSPOT_UNFOLDED = 15,
+	QCA_WLAN_POWER_SCENARIO_ON_HEAD_HOTSPOT_MMW_UNFOLDED = 16,
+	QCA_WLAN_POWER_SCENARIO_ON_BODY_CELL_OFF_UNFOLDED = 17,
+	QCA_WLAN_POWER_SCENARIO_ON_BODY_BT_UNFOLDED = 18,
+	QCA_WLAN_POWER_SCENARIO_ON_BODY_CELL_ON_UNFOLDED = 19,
+	QCA_WLAN_POWER_SCENARIO_ON_BODY_CELL_ON_BT_UNFOLDED = 20,
+	QCA_WLAN_POWER_SCENARIO_ON_BODY_HOTSPOT_UNFOLDED = 21,
+	QCA_WLAN_POWER_SCENARIO_ON_BODY_HOTSPOT_BT_UNFOLDED = 22,
+	QCA_WLAN_POWER_SCENARIO_ON_BODY_HOTSPOT_MMW_UNFOLDED = 23,
+	QCA_WLAN_POWER_SCENARIO_ON_BODY_HOTSPOT_BT_MMW_UNFOLDED = 24,
+	QCA_WLAN_POWER_SCENARIO_ON_BODY_REAR_CAMERA = 25,
+	QCA_WLAN_POWER_SCENARIO_ON_BODY_CELL_OFF_UNFOLDED_CAP = 26,
+	QCA_WLAN_POWER_SCENARIO_ON_BODY_BT_UNFOLDED_CAP = 27,
+	QCA_WLAN_POWER_SCENARIO_ON_BODY_CELL_ON_UNFOLDED_CAP = 28,
+	QCA_WLAN_POWER_SCENARIO_ON_BODY_CELL_ON_BT_UNFOLDED_CAP = 29,
+	QCA_WLAN_POWER_SCENARIO_ON_BODY_CELL_OFF_CAP = 30,
+	QCA_WLAN_POWER_SCENARIO_ON_BODY_BT_CAP = 31,
+	QCA_WLAN_POWER_SCENARIO_ON_BODY_CELL_ON_CAP = 32,
+	QCA_WLAN_POWER_SCENARIO_ON_BODY_CELL_ON_BT_CAP = 33,
 };
 
 /**
@@ -5957,6 +6261,11 @@ enum qca_vendor_attr_sar_limits_spec_modulations {
  *	This is required, when %QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SELECT is
  *	%QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SELECT_V2_0.
  *
+ * @QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SPEC_USER_SCENARIO: Optional (u32)
+ *	value to indicate SAR user scenario to map them to respective
+ *	device state indexes. Valid values of user scenarios are enumerated
+ *	in enum %qca_wlan_power_scenario.
+ *
  * These attributes are used with %QCA_NL80211_VENDOR_SUBCMD_SET_SAR_LIMITS
  * and %QCA_NL80211_VENDOR_SUBCMD_GET_SAR_LIMITS.
  */
@@ -5970,6 +6279,7 @@ enum qca_vendor_attr_sar_limits {
 	QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SPEC_MODULATION = 6,
 	QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SPEC_POWER_LIMIT = 7,
 	QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SPEC_POWER_LIMIT_INDEX = 8,
+	QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SPEC_USER_SCENARIO = 9,
 
 	QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_AFTER_LAST,
 	QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_MAX =
@@ -10954,6 +11264,23 @@ enum qca_wlan_vendor_attr_wifi_test_config {
 	 * This attribute is used to configure the STA.
 	 */
 	QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_BTM_REQ_RESP = 79,
+
+	/* 8-bit unsigned value to configure Restricted TWT feature support
+	 * within the EHT capabilities element of the Association Request frame.
+	 *
+	 * This attribute is used to configure the testbed device.
+	 * 1-enable, 0-disable.
+	 */
+	QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_EHT_RTWT_SUPPORT = 80,
+
+	/* 8-bit unsigned value to configure BTM MLD Recommendation For Multiple
+	 * APs Support within the Extended MLD capability of Multi-link element
+	 * in the Association Request frame.
+	 *
+	 * This attribute is used to configure the testbed device.
+	 * 1-enable, 0-disable.
+	 */
+	QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_EHT_BTM_RECOMM_MULTI_AP_SUPPORT = 81,
 
 	/* keep last */
 	QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_AFTER_LAST,
