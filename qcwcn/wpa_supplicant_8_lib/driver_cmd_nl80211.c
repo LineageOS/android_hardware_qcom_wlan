@@ -6757,9 +6757,9 @@ static int wpa_driver_ps_config_cmd(struct i802_bss *bss, char *cmd)
 			wpa_printf(MSG_ERROR, "Invalid latency_tolerance value");
 			return -EINVAL;
 		}
-		if ((latency_tolerance > 200) || (latency_tolerance < 30)) {
+		if ((latency_tolerance > 1000) || (latency_tolerance < 10)) {
 			wpa_printf(MSG_ERROR,
-				   "latency_tolerance must be within the range of 30 to 200");
+				   "latency_tolerance must be within the range of 10 to 1000");
 			return -EINVAL;
 		}
 	}
