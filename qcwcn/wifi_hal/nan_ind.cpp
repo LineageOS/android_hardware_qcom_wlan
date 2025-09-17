@@ -54,7 +54,7 @@
 #include <hardware_legacy/wifi_hal.h>
 #include "nan_i.h"
 #include "nancommand.h"
-#include <errno.h>
+#include <inttypes.h>
 
 //Function which calls the necessaryIndication callback
 //based on the indication type
@@ -709,7 +709,7 @@ int NanCommand::handleNanBootstrappingIndication()
            bootstrapConfirmInd->reason_code =
                                           (NanStatusType)params->reason_code;
            bootstrapConfirmInd->come_back_delay =
-                                          (NanStatusType)params->comeback_after;
+                                          params->comeback_after;
            bootstrapConfirmInd->cookie_length = cookie_length;
            if (cookie_length)
                memcpy(bootstrapConfirmInd->cookie, cookie, cookie_length);
@@ -851,7 +851,7 @@ int NanCommand::handleNanSharedKeyDescIndication()
                pasn_get_pmk_len(pasn));
         evt.npk_security_association.npk.pmk_len = pasn_get_pmk_len(pasn);
     } else {
-        ALOGE("%s: Invalid pmk len: %d", __FUNCTION__, pasn_get_pmk_len(pasn));
+        ALOGE("%s: Invalid pmk len: %zu", __FUNCTION__, pasn_get_pmk_len(pasn));
     }
     wpa_pasn_reset(pasn);
     handleNanPairingConfirm(&evt);
@@ -863,6 +863,9 @@ int NanCommand::handleNanSharedKeyDescIndication()
 
 int NanCommand::getNanFollowup(NanFollowupInd *event)
 {
+    struct nan_pairing_peer_info *entry;
+    hal_info *info = getHalInfo(wifiHandle());
+
     if (event == NULL || mNanVendorEvent == NULL) {
         ALOGE("%s: Invalid input argument event:%p mNanVendorEvent:%p",
               __func__, event, mNanVendorEvent);
@@ -923,6 +926,31 @@ int NanCommand::getNanFollowup(NanFollowupInd *event)
         pInputTlv += readLen;
         memset(&outputTlv, 0, sizeof(outputTlv));
     }
+
+    if (info && info->secure_nan) {
+        entry = nan_pairing_get_peer_from_list(info->secure_nan, event->addr);
+        if (entry) {
+            if (event->publish_subscribe_id &&
+                entry->pub_sub_id != event->publish_subscribe_id) {
+                ALOGI("Update previous pub sub id: %d with new id: %d",
+                      entry->pub_sub_id, event->publish_subscribe_id);
+                entry->pub_sub_id = event->publish_subscribe_id;
+            }
+            if (event->requestor_instance_id &&
+                entry->requestor_instance_id != event->requestor_instance_id) {
+                ALOGI("Update previous requestor instance id: %d with new id: %d",
+                      entry->requestor_instance_id, event->requestor_instance_id);
+                entry->requestor_instance_id = event->requestor_instance_id;
+            }
+        } else {
+            entry = nan_pairing_add_peer_to_list(info->secure_nan, event->addr);
+            if (entry) {
+                entry->pub_sub_id = event->publish_subscribe_id;
+                entry->requestor_instance_id = event->requestor_instance_id;
+            }
+        }
+    }
+
     return WIFI_SUCCESS;
 }
 
@@ -1861,7 +1889,7 @@ int NanCommand::getNanContinuousRangingResult()
     pNanContRangeResultInd pRsp = (pNanContRangeResultInd)mNanVendorEvent;
     u8 *pInputTlv = pRsp->ptlv;
 
-    ALOGD("mNanDataLen:%zu", mDataLen);
+    ALOGD("mNanDataLen:%" PRIu32, mDataLen);
     int remainingLen = (mNanDataLen - (sizeof(NanMsgHeader)));
 
     if (remainingLen <= 0) {

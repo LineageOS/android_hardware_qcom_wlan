@@ -12,6 +12,7 @@
 #include "common.h"
 #include "cpp_bindings.h"
 #include "wifi_cached_scan_result.h"
+#include <inttypes.h>
 
 WifiScanResult::WifiScanResult(wifi_handle handle, int id, u32 vendor_id,
                                u32 subcmd)
@@ -292,7 +293,7 @@ static wifi_error parse_wifi_cached_scan_result(wifi_cached_scan_report *report,
             scan_result[result_cnt].chanspec.center_frequency1 = 0;
         }
 
-        ALOGV("Age_Ms: %lu\n"
+        ALOGV("Age_Ms: %" PRIu32 "\n"
               "BSSID: "
                MAC_ADDR_STR
               "\nSSID: %s\n"
@@ -300,7 +301,7 @@ static wifi_error parse_wifi_cached_scan_result(wifi_cached_scan_report *report,
               "RSSI : %d\n"
               "Capability : %u\n"
               "Flags: %x\n"
-              "Primary_frequency: %lu\n"
+              "Primary_frequency: %d\n"
               "Width: %u\n"
               "Center_frequency0: %d\n"
               "Center_frequency1: %d",
@@ -361,7 +362,7 @@ int WifiScanResult::handleResponse(WifiEvent &reply)
         goto cleanup;
     }
     scanReport->ts = nla_get_u64(tb_vendor[QCA_WLAN_VENDOR_ATTR_FW_SCAN_REPORT_TIMESTAMP]);
-    ALOGV("Scan Report Timestamp:%llu", scanReport->ts);
+    ALOGV("Scan Report Timestamp:%" PRId64, scanReport->ts);
 
     /* Frequency List */
     if (!tb_vendor[QCA_WLAN_VENDOR_ATTR_FW_SCAN_REPORT_FREQ_LIST]) {
@@ -396,7 +397,7 @@ int WifiScanResult::handleResponse(WifiEvent &reply)
                                 tb_vendor[QCA_WLAN_VENDOR_ATTR_FW_SCAN_REPORT_FREQ_LIST],
                                 rem) {
                 freq_list[scanned_freq_num] = nla_get_u32(scanInfo);
-                ALOGV("Scan Freq List : %lu", freq_list[scanned_freq_num]);
+                ALOGV("Scan Freq List : %" PRIu32, freq_list[scanned_freq_num]);
                 scanned_freq_num += 1;
             }
 

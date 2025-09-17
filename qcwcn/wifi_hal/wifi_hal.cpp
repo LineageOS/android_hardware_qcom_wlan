@@ -1202,6 +1202,7 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn) {
     fn->wifi_twt_session_get_stats = wifi_twt_session_get_stats;
     fn->wifi_twt_session_setup = wifi_twt_session_setup;
     fn->wifi_twt_session_teardown = wifi_twt_session_teardown;
+    fn->wifi_enable_tx_power_limits = wifi_enable_tx_power_limits;
 
     return WIFI_SUCCESS;
 }
@@ -3589,7 +3590,7 @@ char *get_iface_mask_str(u32 mask, char *buf, size_t buflen) {
     return buf;
 
 error:
-    ALOGE("snprintf() error res=%d, write length=%d", res, end - pos);
+    ALOGE("snprintf() error res=%d, write length=%" PRIdPTR, res, end - pos);
     return NULL;
 }
 
@@ -4193,4 +4194,171 @@ void wifihal_event_mgmt(wifi_handle handle, struct nlattr *freq, const u8 *frame
 #endif /* WPA_PASN_LIB */
 
     return;
+}
+
+
+static int ext_feature_isset(const u8 *ext_features, int ext_features_len,
+                             int ftidx)
+{
+    u8 ft_byte;
+
+    if ((int) ftidx / 8 >= ext_features_len)
+        return 0;
+
+    ft_byte = ext_features[ftidx / 8];
+    return (ft_byte & BIT(ftidx % 8)) != 0;
+}
+
+
+class GetSupportedFeatureFlag : public WifiCommand
+{
+private:
+    bool mStatus;
+    int mFeatureIndex;
+
+public:
+    GetSupportedFeatureFlag(wifi_handle handle) : WifiCommand(handle, 0)
+    {
+        mStatus = false;
+        mFeatureIndex = 0;
+    }
+
+    void setFeatureIndex(int feature) {
+        mFeatureIndex = feature;
+    }
+
+    virtual wifi_error create() {
+        int nl80211_id = genl_ctrl_resolve(mInfo->cmd_sock, "nl80211");
+
+        if (nl80211_id < 0) {
+            ALOGE("%s: Failed to resolve nl80211 family", __FUNCTION__);
+            return WIFI_ERROR_UNKNOWN;
+        }
+        wifi_error ret = mMsg.create(nl80211_id, NL80211_CMD_GET_WIPHY, NLM_F_DUMP, 0);
+        mMsg.put_flag(NL80211_ATTR_SPLIT_WIPHY_DUMP);
+
+        return ret;
+    }
+
+    virtual wifi_error requestResponse() {
+        return WifiCommand::requestResponse(mMsg);
+    }
+    virtual wifi_error set_iface_id(const char* name) {
+        unsigned ifindex = if_nametoindex(name);
+        return mMsg.set_iface_id(ifindex);
+    }
+
+    virtual int handleResponse(WifiEvent& reply) {
+        struct nlattr **tb = reply.attributes();
+
+        if (tb[NL80211_ATTR_EXT_FEATURES]) {
+            int len;
+            u8 *ext_features;
+
+            ext_features = (u8 *)nla_data(tb[NL80211_ATTR_EXT_FEATURES]);
+            len = nla_len(tb[NL80211_ATTR_EXT_FEATURES]);
+
+            if (ext_feature_isset(ext_features, len, mFeatureIndex))
+                mStatus = true;
+        }
+        return NL_SKIP;
+    }
+
+    int isFeatureFlagSupported() {
+        return mStatus;
+    }
+};
+
+
+int is_feature_supported(wifi_interface_handle iface_handle, int feature)
+{
+    wifi_error ret;
+    wifi_handle handle = getWifiHandle(iface_handle);
+    interface_info *info = getIfaceInfo(iface_handle);
+    GetSupportedFeatureFlag cmd(handle);
+
+    if (!info) {
+        ALOGE("%s: Invalid interface info", __func__);
+        return 0;
+    }
+
+    ret = cmd.create();
+    if (ret != WIFI_SUCCESS) {
+        ALOGE("%s: create command failed", __func__);
+        return 0;
+    }
+
+    ret = cmd.set_iface_id(info->name);
+    if (ret != WIFI_SUCCESS) {
+        ALOGE("%s: set iface id failed", __func__);
+        return 0;
+    }
+
+    cmd.setFeatureIndex(feature);
+
+    ret = cmd.requestResponse();
+    if (ret != WIFI_SUCCESS) {
+        ALOGE("Failed to query feature flag, ret=%d", ret);
+        return 0;
+    }
+    return cmd.isFeatureFlagSupported();
+}
+
+wifi_error wifi_enable_tx_power_limits(wifi_interface_handle iface,
+                                       bool isEnable)
+{
+    wifi_error ret;
+    struct nlattr *nlData;
+    WifiVendorCommand *vCommand = NULL;
+    wifi_handle wifiHandle;
+    hal_info *info;
+
+    wifiHandle = getWifiHandle(iface);
+    if (!wifiHandle) {
+        ALOGE("%s: wifi_handle is NULL", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+
+    info = getHalInfo(wifiHandle);
+    if (!info) {
+        ALOGE("%s: hal_info is NULL", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+
+    if (!check_feature(QCA_WLAN_VENDOR_FEATURE_SUPPORT_TX_POWER_LIMIT,
+                       &info->driver_supported_features)) {
+        ALOGE("%s: TX Power limit not supported by driver", __func__);
+        return WIFI_ERROR_NOT_SUPPORTED;
+    }
+
+    ret = initialize_vendor_cmd(iface, get_requestid(),
+                                QCA_NL80211_VENDOR_SUBCMD_SET_WIFI_CONFIGURATION,
+                                &vCommand);
+    if (ret != WIFI_SUCCESS) {
+        ALOGE("%s: Initialization failed", __func__);
+        return ret;
+    }
+
+    /* Add the vendor specific attributes for the NL command. */
+    nlData = vCommand->attr_start(NL80211_ATTR_VENDOR_DATA);
+    if (!nlData){
+        ret = WIFI_ERROR_UNKNOWN;
+        goto cleanup;
+    }
+
+    ALOGV("%s: Enable TX Power limit is %d", __func__, isEnable);
+    ret = vCommand->put_u8(QCA_WLAN_VENDOR_ATTR_CONFIG_TX_POWER_LIMIT_ENABLE,
+                           isEnable);
+    if (ret != WIFI_SUCCESS)
+        goto cleanup;
+
+    vCommand->attr_end(nlData);
+
+    ret = vCommand->requestResponse();
+    if (ret != WIFI_SUCCESS)
+        ALOGE("%s: requestResponse Error:%d", __func__, ret);
+
+cleanup:
+    delete vCommand;
+    return ret;
 }

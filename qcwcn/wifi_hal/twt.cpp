@@ -6,6 +6,7 @@
 #include "twtCommand.h"
 #include <math.h>
 #include "errno.h"
+#include <inttypes.h>
 
 TwtCommand::TwtCommand(wifi_handle handle, int id, u32 vendor_id, u32 subcmd)
         : WifiVendorCommand(handle, id, vendor_id, subcmd)
@@ -250,7 +251,7 @@ int TwtCommand::handleResponse(WifiEvent &reply)
                 ALOGE("max wake interval attribute is not present");
             }
 
-            ALOGV("TWT caps: %s%s%s%s SP:[min:%d max:%d] SI:[min:%d max:%d]",
+            ALOGV("TWT caps: %s%s%s%s SP:[min:%d max:%d] SI:[min:%" PRIu64 " max:%" PRIu64 "]",
                   mTWTCapabilities->is_twt_requester_supported ? "[Requestor]" : "",
                   mTWTCapabilities->is_twt_responder_supported ? "[Responder]" : "",
                   mTWTCapabilities->is_broadcast_twt_supported ? "[Broadcast]" : "",
@@ -1037,7 +1038,7 @@ int TwtCommand::handleEvent(WifiEvent &event)
             else
                 ALOGE("TWT: No Callback registered:");
 
-            ALOGV("TWT Response: session_id:%d, SP:%ld, SI:%ld %s%s%s%s%s%s%s%s",
+            ALOGV("TWT Response: session_id:%d, SP:%" PRIu64 ", SI:%" PRIu32 " %s%s%s%s%s%s%s%s",
                   twt_session.session_id,
                   twt_session.wake_interval_micros,
                   twt_session.wake_duration_micros,
