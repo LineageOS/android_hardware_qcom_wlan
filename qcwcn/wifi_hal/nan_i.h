@@ -1008,18 +1008,23 @@ enum nan_attr_id {
 #define NAN_ENCRYPT_KEY_DATA   BIT(12)
 #define NAN_VENDOR_ATTR_TYPE   0xdd
 
-#define NAN_KDE_TYPE_IGTK                 0x02
-#define NAN_KDE_TYPE_BIGTK                0x03
-#define NAN_KDE_TYPE_IGTK_LIFETIME        0x06
-#define NAN_KDE_TYPE_BIGTK_LIFETIME       0x07
+#define NAN_KDE_TYPE_IGTK                 0x09
+#define NAN_KDE_TYPE_BIGTK                0x0E
 #define NAN_KDE_TYPE_NIK                  0x24
-#define NAN_KDE_TYPE_NIK_LIFETIME         0x25
+#define NAN_KDE_TYPE_KEY_LIFETIME         0x25
 
 #define NAN_IGTK_KEY_IDX                   4
 #define NAN_BIGTK_KEY_IDX                  6
 
 #define NAN_PN_REQ_BITMAP_IGTK             BIT(0)
 #define NAN_PN_REQ_BITMAP_BIGTK            BIT(1)
+
+#define NAN_KEY_TYPE_BITMAP_GTK            BIT(0)
+#define NAN_KEY_TYPE_BITMAP_IGTK           BIT(1)
+#define NAN_KEY_TYPE_BITMAP_BIGTK          BIT(2)
+#define NAN_KEY_TYPE_BITMAP_NIK            BIT(3)
+#define NAN_KEY_TYPE_BITMAP_NDTK           BIT(4)
+#define NAN_KEY_TYPE_BITMAP_NMTK           BIT(5)
 
 /* sub attribute iteration helpers */
 #define for_each_nan_subattr(_subattr, _data, _datalen)                    \
@@ -1953,9 +1958,6 @@ struct PACKED nikKDE {
     u8 nik_data[0];
 };
 
-struct PACKED nikLifetime {
-    u32 lifetime;
-};
 
 struct PACKED igtkKDE {
         u8 keyid[2];
@@ -1970,12 +1972,9 @@ struct PACKED bigtkKDE {
         u8 bigtk[0];
 };
 
-struct PACKED igtkLifetime {
-       u32 lifetime;
-};
-
-struct PACKED bigtkLifetime {
-       u32 lifetime;
+struct PACKED nanKeyLifetimeKDE {
+    u16 key_type_bitmap;
+    u32 lifetime;
 };
 
 typedef struct {
