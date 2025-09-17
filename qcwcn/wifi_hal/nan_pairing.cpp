@@ -1237,9 +1237,7 @@ wifi_error nan_validate_shared_key_desc(wifi_interface_handle iface,
     struct nikKDE *nik_kde;
     struct igtkKDE *igtk_kde;
     struct bigtkKDE *bigtk_kde;
-    struct nikLifetime *nik_lifetime_kde;
-    struct igtkLifetime *igtk_lifetime_kde;
-    struct bigtkLifetime *bigtk_lifetime_kde;
+    struct nanKeyLifetimeKDE *nan_key_lifetime_kde;
     u8 *pos, *key_data, *data;
     struct nan_pairing_peer_info *peer;
     u16 remainingLen, key_len;
@@ -1350,11 +1348,13 @@ wifi_error nan_validate_shared_key_desc(wifi_interface_handle iface,
              }
              break;
 
-        case NAN_KDE_TYPE_NIK_LIFETIME:
-             nik_lifetime_kde = (struct nikLifetime *)nan_kde->data;
-             peer->peer_nik_lifetime = nik_lifetime_kde->lifetime;
-             ALOGV("%s: received NIK Lifetime: %d", __FUNCTION__,
-                   peer->peer_nik_lifetime);
+        case NAN_KDE_TYPE_KEY_LIFETIME:
+             nan_key_lifetime_kde = (struct nanKeyLifetimeKDE *)nan_kde->data;
+             if (nan_key_lifetime_kde->key_type_bitmap & NAN_KEY_TYPE_BITMAP_NIK) {
+                 peer->peer_nik_lifetime = nan_key_lifetime_kde->lifetime;
+                 ALOGV("%s: received NAN KEY Lifetime: %d", __FUNCTION__,
+                        peer->peer_nik_lifetime);
+             }
              break;
 
         case NAN_KDE_TYPE_IGTK:
@@ -1368,11 +1368,6 @@ wifi_error nan_validate_shared_key_desc(wifi_interface_handle iface,
              }
              break;
 
-        case NAN_KDE_TYPE_IGTK_LIFETIME:
-             igtk_lifetime_kde = (struct igtkLifetime *)nan_kde->data;
-             ALOGV("%s: received IGTK Lifetime: %d", __FUNCTION__,
-                   igtk_lifetime_kde->lifetime);
-             break;
         case NAN_KDE_TYPE_BIGTK:
              bigtk_kde = (struct bigtkKDE *)nan_kde->data;
              key_len = 2 + nan_kde->length - sizeof(struct nanKDE) - sizeof(struct bigtkKDE);
@@ -1382,11 +1377,6 @@ wifi_error nan_validate_shared_key_desc(wifi_interface_handle iface,
              } else {
                  ALOGE("%s: unsupported BIGTK len", __FUNCTION__);
              }
-             break;
-        case NAN_KDE_TYPE_BIGTK_LIFETIME:
-             bigtk_lifetime_kde = (struct bigtkLifetime *)nan_kde->data;
-             ALOGV("%s: received BIGTK Lifetime: %d", __FUNCTION__,
-                   bigtk_lifetime_kde->lifetime);
              break;
         default:
            ALOGE("NAN: Invalid Shared key KDE, DataType=%d", nan_kde->dataType);
@@ -1445,9 +1435,7 @@ wifi_error nan_get_shared_key_descriptor(hal_info *info, const u8 *addr,
     struct nikKDE *nik_kde;
     struct igtkKDE *igtk_kde;
     struct bigtkKDE *bigtk_kde;
-    struct nikLifetime *nik_lifetime_kde;
-    struct igtkLifetime *igtk_lifetime_kde;
-    struct bigtkLifetime *bigtk_lifetime_kde;
+    struct nanKeyLifetimeKDE *nan_key_lifetime_kde;
     struct nanGrpKey *grp_keys;
     struct nanIDkey *nik;
     struct ptksa_cache_entry *entry;
@@ -1472,19 +1460,16 @@ wifi_error nan_get_shared_key_descriptor(hal_info *info, const u8 *addr,
     // construct KDE
 
     key_data_len = sizeof(struct nanKDE) + sizeof(struct nikKDE) + nik->nik_len +
-                   sizeof(struct nanKDE) + sizeof(struct nikLifetime);
+                   sizeof(struct nanKDE) + sizeof(struct nanKeyLifetimeKDE);
 
     if (grp_keys) {
        if (grp_keys->igtk_len)
            key_data_len += (sizeof(struct nanKDE) + sizeof(struct igtkKDE) +
-                            grp_keys->igtk_len) +
-                           (sizeof(struct nanKDE) + sizeof(struct igtkLifetime));
+                            grp_keys->igtk_len);
        if (grp_keys->bigtk_len)
            key_data_len += (sizeof(struct nanKDE) + sizeof(struct bigtkKDE) +
-                            grp_keys->bigtk_len) +
-                           (sizeof(struct nanKDE) + sizeof(struct bigtkLifetime));
+                            grp_keys->bigtk_len);
     }
-
     pad_len = key_data_len % 8;
     if (pad_len)
         pad_len = 8 - pad_len;
@@ -1535,15 +1520,15 @@ wifi_error nan_get_shared_key_descriptor(hal_info *info, const u8 *addr,
 
     nan_kde = (struct nanKDE *)pos;
     nan_kde->type = NAN_VENDOR_ATTR_TYPE;
-    nan_kde->length = oui_offset + sizeof(struct nikLifetime);
+    nan_kde->length = oui_offset + sizeof(struct nanKeyLifetimeKDE);
     WPA_PUT_BE24(nan_kde->oui, OUI_WFA);
-    nan_kde->dataType = NAN_KDE_TYPE_NIK_LIFETIME;
+    nan_kde->dataType = NAN_KDE_TYPE_KEY_LIFETIME;
     pos += sizeof(struct nanKDE);
 
-    nik_lifetime_kde = (struct nikLifetime *)pos;
-    nik_lifetime_kde->lifetime = nan_pairing_get_nik_lifetime(nik);
-    pos += sizeof(struct nikLifetime);
-
+    nan_key_lifetime_kde = (struct nanKeyLifetimeKDE *)pos;
+    nan_key_lifetime_kde->lifetime = nan_pairing_get_nik_lifetime(nik);
+    nan_key_lifetime_kde->key_type_bitmap = NAN_KEY_TYPE_BITMAP_NIK;
+    pos += sizeof(struct nanKeyLifetimeKDE);
 
     groupMfp = NAN_CSIA_GRPKEY_SUPPORT_GET(peer->csia_cap_info);
     ALOGI("%s: CSIA capabilities %d", __FUNCTION__, peer->csia_cap_info);
@@ -1565,16 +1550,7 @@ wifi_error nan_get_shared_key_descriptor(hal_info *info, const u8 *addr,
         memcpy(igtk_kde->igtk, grp_keys->igtk, grp_keys->igtk_len);
         pos += sizeof(struct igtkKDE) + grp_keys->igtk_len;
 
-        nan_kde = (struct nanKDE *)pos;
-        nan_kde->type = NAN_VENDOR_ATTR_TYPE;
-        nan_kde->length = oui_offset + sizeof(struct igtkLifetime);
-        WPA_PUT_BE24(nan_kde->oui, OUI_WFA);
-        nan_kde->dataType = NAN_KDE_TYPE_IGTK_LIFETIME;
-        pos += sizeof(struct nanKDE);
-
-        igtk_lifetime_kde = (struct igtkLifetime *)pos;
-        igtk_lifetime_kde->lifetime = grp_keys->igtk_life_time;
-        pos += sizeof(struct igtkLifetime);
+        nan_key_lifetime_kde->key_type_bitmap |= NAN_KEY_TYPE_BITMAP_IGTK;
     }
 /* IGTK end */
 
@@ -1595,16 +1571,7 @@ wifi_error nan_get_shared_key_descriptor(hal_info *info, const u8 *addr,
         memcpy(bigtk_kde->bigtk, grp_keys->bigtk, grp_keys->bigtk_len);
         pos += sizeof(struct bigtkKDE) + grp_keys->bigtk_len;
 
-        nan_kde = (struct nanKDE *)pos;
-        nan_kde->type = NAN_VENDOR_ATTR_TYPE;
-        nan_kde->length = oui_offset + sizeof(struct bigtkLifetime);
-        WPA_PUT_BE24(nan_kde->oui, OUI_WFA);
-        nan_kde->dataType = NAN_KDE_TYPE_BIGTK_LIFETIME;
-        pos += sizeof(struct nanKDE);
-
-        bigtk_lifetime_kde = (struct bigtkLifetime *)pos;
-        bigtk_lifetime_kde->lifetime = grp_keys->bigtk_life_time;
-        pos += sizeof(struct bigtkLifetime);
+        nan_key_lifetime_kde->key_type_bitmap |= NAN_KEY_TYPE_BITMAP_BIGTK;
     }
 /* BIGTK end */
 
