@@ -2281,9 +2281,11 @@ const u8 *nan_attr_from_nan_ie(const u8 *nan_ie, enum nan_attr_id attr);
 const u8 *nan_get_attr_from_ies(const u8 *ies, size_t ies_len,
                                 enum nan_attr_id attr);
 void nan_pairing_add_setup_ies(struct wpa_secure_nan *secure_nan,
-                               struct pasn_data *pasn, int peer_role);
+                               struct pasn_data *pasn, int peer_role,
+                               u32 cipher);
 void nan_pairing_add_verification_ies(struct wpa_secure_nan *secure_nan,
-                                      struct pasn_data *pasn, int peer_role);
+                                      struct pasn_data *pasn, int peer_role,
+                                      u32 cipher);
 int nan_pasn_kdk_to_ndp_pmk(const u8 *kdk, size_t kdk_len, const u8 *spa,
                             const u8 *bssid, u8 *ndp_pmk, u32 *ndp_pmk_len);
 int nan_pasn_kdk_to_opportunistic_npk(const u8 *kdk, size_t kdk_len,
