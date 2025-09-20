@@ -24,6 +24,7 @@ extern "C"
 #define TWT_FLOW_TYPE_ANNOUNCED 0
 /* Maximum Mantissa value*/
 #define TWT_SETUP_WAKE_INTVL_MANTISSA_MAX 0xFFFF
+#define INVALID_TWT_SESSION_ID 0xff
 
 class TwtCommand: public WifiVendorCommand
 {
@@ -33,6 +34,7 @@ private:
     wifi_request_id mRequestId;
     int mTwtFlowId;
     bool mWakeTwtCapabilities;
+    bool mTwtIsSessionUpdateCmd;
 
 
 public:
@@ -52,6 +54,7 @@ public:
     virtual void setTwtFlowId(int flowId);
     virtual bool getWakeTwtCapabilities();
     virtual void setWakeTwtCapabilities(bool WakeTwtCapabilities);
+    virtual void setTwtIsSessionUpdateCmd(bool TwtIsSessionUpdateCmd);
 
 
     virtual wifi_twt_error_code

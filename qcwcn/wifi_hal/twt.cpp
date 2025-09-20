@@ -15,6 +15,7 @@ TwtCommand::TwtCommand(wifi_handle handle, int id, u32 vendor_id, u32 subcmd)
     mTWTCapabilities = NULL;
     mRequestId = 0;
     mWakeTwtCapabilities = false;
+    mTwtIsSessionUpdateCmd = false;
 }
 
 TwtCommand::~TwtCommand()
@@ -177,6 +178,11 @@ bool TwtCommand::getWakeTwtCapabilities()
 void TwtCommand::setWakeTwtCapabilities(bool WakeTwtCapabilities)
 {
     mWakeTwtCapabilities = WakeTwtCapabilities;
+}
+
+void TwtCommand::setTwtIsSessionUpdateCmd(bool TwtIsSessionUpdateCmd)
+{
+    mTwtIsSessionUpdateCmd = TwtIsSessionUpdateCmd;
 }
 
 int TwtCommand::handleResponse(WifiEvent &reply)
@@ -562,10 +568,13 @@ void TwtCommand::sendTwtFailure(wifi_request_id id, int ret)
         mHandler.on_twt_failure(id, twtErrorCode);
 }
 
-wifi_error wifi_twt_session_setup(wifi_request_id id,
-                                  wifi_interface_handle iface,
-                                  wifi_twt_request request)
+static
+wifi_error wifi_twt_send_set_twt(wifi_request_id id,
+                                 wifi_interface_handle iface,
+                                 int session_id, wifi_twt_request request,
+                                 bool is_session_update)
 {
+
     wifi_error ret;
     int kernelError;
     TwtCommand *ptwtCommand;
@@ -603,6 +612,12 @@ wifi_error wifi_twt_session_setup(wifi_request_id id,
         ptwtCommand->mHandler = twtCommandHandler->mHandler;
         twtCommandHandler->setSubCmd(QCA_NL80211_VENDOR_SUBCMD_CONFIG_TWT);
         twtCommandHandler->setReqId(id);
+        if (is_session_update) {
+            twtCommandHandler->setTwtFlowId(session_id);
+            twtCommandHandler->setTwtIsSessionUpdateCmd(true);
+        } else {
+            twtCommandHandler->setTwtIsSessionUpdateCmd(false);
+        }
     }
 
     /* Create the NL message. */
@@ -617,7 +632,7 @@ wifi_error wifi_twt_session_setup(wifi_request_id id,
 
     /* Add the vendor specific attributes for the NL command. */
     nlData = ptwtCommand->attr_start(NL80211_ATTR_VENDOR_DATA);
-    if (!nlData){
+    if (!nlData) {
         ret = WIFI_ERROR_UNKNOWN;
         goto cleanup;
     }
@@ -628,12 +643,18 @@ wifi_error wifi_twt_session_setup(wifi_request_id id,
         goto cleanup;
 
     nlTwtParams = ptwtCommand->attr_start(
-    QCA_WLAN_VENDOR_ATTR_CONFIG_TWT_PARAMS);
-
+                                QCA_WLAN_VENDOR_ATTR_CONFIG_TWT_PARAMS);
     if(!nlTwtParams) {
         ALOGE("%s: nlTwtParams is NULL",  __FUNCTION__);
         ret = WIFI_ERROR_UNKNOWN;
         goto cleanup;
+    }
+
+    if (is_session_update) {
+        ret = ptwtCommand->put_u8(QCA_WLAN_VENDOR_ATTR_TWT_SETUP_FLOW_ID,
+                                  session_id);
+        if (ret != WIFI_SUCCESS)
+            goto cleanup;
     }
 
     ret = ptwtCommand->put_u32(QCA_WLAN_VENDOR_ATTR_TWT_SETUP_MIN_WAKE_INTVL,
@@ -649,9 +670,10 @@ wifi_error wifi_twt_session_setup(wifi_request_id id,
     /*
      * Android Framework configuration doesn't provide the fixed value for wake
      * interval (SI).
-     * However, vendor command requires this mandatory parameter for TWT setup.
-     * Hence, calculate the Average based on min/max wake interval provided during
-     * TWT session setup.
+     * However, vendor command requires this mandatory parameter for TWT session
+     * update/create.
+     * Hence, calculate the average based on min/max wake interval provided during
+     * TWT session update/create.
      */
     wake_interval = (u32) ((request.min_wake_interval_micros +
                             request.max_wake_interval_micros) / 2);
@@ -669,8 +691,7 @@ wifi_error wifi_twt_session_setup(wifi_request_id id,
         exponent = log2(wake_interval * 1.0 /
                         TWT_SETUP_WAKE_INTVL_MANTISSA_MAX);
         wake_interval_exp = ceil(exponent);
-        wake_interval_mantissa =
-                wake_interval / pow(2, wake_interval_exp);
+        wake_interval_mantissa = wake_interval / pow(2, wake_interval_exp);
     }
 
     ret = ptwtCommand->put_u32(QCA_WLAN_VENDOR_ATTR_TWT_SETUP_WAKE_INTVL_MANTISSA, 0);
@@ -698,12 +719,12 @@ wifi_error wifi_twt_session_setup(wifi_request_id id,
         goto cleanup;
 
     /*
-     * Android Framework configuration doesn't provide the fixed value for wake
-     * duration (SP).
-     * However, vendor command requires this mandatory parameter for TWT setup.
-     * Hence, calculate the Average based on min/max wake duration provided during
-     * TWT session setup.
-     */
+    * Android Framework configuration doesn't provide the fixed value for wake
+    * duration (SP).
+    * However, vendor command requires this mandatory parameter for TWT update/create.
+    * Hence, calculate the Average based on min/max wake duration provided during
+    * TWT session update/create.
+    */
     wake_duration = (request.max_wake_duration_micros +
                      request.min_wake_duration_micros) / 2;
     wake_duration /= TWT_WAKE_DURATION_FACTOR;
@@ -718,8 +739,8 @@ wifi_error wifi_twt_session_setup(wifi_request_id id,
     if (ret != WIFI_SUCCESS)
         goto cleanup;
 
-     ret = ptwtCommand->put_u8(QCA_WLAN_VENDOR_ATTR_TWT_SETUP_REQ_TYPE,
-                               QCA_WLAN_VENDOR_TWT_SETUP_SUGGEST);
+    ret = ptwtCommand->put_u8(QCA_WLAN_VENDOR_ATTR_TWT_SETUP_REQ_TYPE,
+                              QCA_WLAN_VENDOR_TWT_SETUP_SUGGEST);
     if (ret != WIFI_SUCCESS)
         goto cleanup;
 
@@ -736,6 +757,20 @@ wifi_error wifi_twt_session_setup(wifi_request_id id,
 cleanup:
     delete ptwtCommand;
     return WIFI_SUCCESS;
+}
+
+wifi_error wifi_twt_session_update(wifi_request_id id,
+                                   wifi_interface_handle iface,
+                                   int session_id, wifi_twt_request request)
+{
+    return wifi_twt_send_set_twt(id, iface, session_id, request, true);
+}
+
+wifi_error wifi_twt_session_setup(wifi_request_id id,
+                                  wifi_interface_handle iface,
+                                  wifi_twt_request request)
+{
+    return wifi_twt_send_set_twt(id, iface, INVALID_TWT_SESSION_ID, request, false);
 }
 
 wifi_error wifi_twt_session_teardown(wifi_request_id id, wifi_interface_handle iface,
@@ -824,6 +859,192 @@ wifi_error wifi_twt_session_teardown(wifi_request_id id, wifi_interface_handle i
     }
 
     ALOGV("%s: Teardown TWT session:%d", __FUNCTION__, session_id);
+
+cleanup:
+    delete ptwtCommand;
+    return WIFI_SUCCESS;
+}
+
+wifi_error wifi_twt_session_suspend(wifi_request_id id, wifi_interface_handle iface,
+                                    int session_id)
+{
+    wifi_error ret;
+    int kernelError;
+    TwtCommand *twtCommandHandler;
+    TwtCommand *ptwtCommand;
+    struct nlattr *nlData, *nlTwtParams;
+    interface_info *iinfo;
+    wifi_handle handle;
+
+    if(!iface) {
+        ALOGE("%s: iface is NULL", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+
+    iinfo = getIfaceInfo(iface);
+    if (!iinfo) {
+        ALOGE("%s: iinfo is NULL", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+
+    ALOGV("%s Enter", __FUNCTION__);
+    handle = getWifiHandle(iface);
+
+    ptwtCommand = new TwtCommand(handle, 0, OUI_QCA,
+                                 QCA_NL80211_VENDOR_SUBCMD_CONFIG_TWT);
+    if (ptwtCommand == NULL) {
+        ALOGE("%s: Error TwtCommand NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
+
+    twtCommandHandler = TwtCommand::handlerInstance(handle);
+    if (twtCommandHandler) {
+        ptwtCommand->mHandler = twtCommandHandler->mHandler;
+        twtCommandHandler->setSubCmd(QCA_NL80211_VENDOR_SUBCMD_CONFIG_TWT);
+        twtCommandHandler->setReqId(id);
+    }
+
+    /* Create the NL message. */
+    ret = ptwtCommand->create();
+    if (ret != WIFI_SUCCESS)
+        goto cleanup;
+
+    /* Set the interface Id of the message. */
+    ret = ptwtCommand->set_iface_id(iinfo->name);
+    if (ret != WIFI_SUCCESS)
+        goto cleanup;
+
+    /* Add the vendor specific attributes for the NL command. */
+    nlData = ptwtCommand->attr_start(NL80211_ATTR_VENDOR_DATA);
+    if (!nlData) {
+        ret = WIFI_ERROR_UNKNOWN;
+        goto cleanup;
+    }
+
+    ret = ptwtCommand->put_u8(QCA_WLAN_VENDOR_ATTR_CONFIG_TWT_OPERATION,
+                              QCA_WLAN_TWT_SUSPEND);
+    if (ret != WIFI_SUCCESS)
+        goto cleanup;
+
+    nlTwtParams = ptwtCommand->attr_start(QCA_WLAN_VENDOR_ATTR_CONFIG_TWT_PARAMS);
+    if(!nlTwtParams) {
+        ALOGE("%s: nlTwtParams is NULL",  __FUNCTION__);
+        ret = WIFI_ERROR_UNKNOWN;
+        goto cleanup;
+    }
+
+    ret = ptwtCommand->put_u8(QCA_WLAN_VENDOR_ATTR_TWT_SETUP_FLOW_ID,
+                              session_id);
+    if (ret != WIFI_SUCCESS)
+        goto cleanup;
+
+    ptwtCommand->attr_end(nlTwtParams);
+    ptwtCommand->attr_end(nlData);
+
+    kernelError = ptwtCommand->requestResponseWithKernelStatus();
+    ret = mapKernelErrortoWifiHalError(kernelError);
+    if (ret != WIFI_SUCCESS) {
+        ptwtCommand->sendTwtFailure(id, kernelError);
+        ALOGE("%s: requestResponse Error:%d", __FUNCTION__, ret);
+    } else {
+        ALOGV("%s: Suspend TWT session:%d", __FUNCTION__, session_id);
+    }
+
+cleanup:
+    delete ptwtCommand;
+    return WIFI_SUCCESS;
+}
+
+wifi_error wifi_twt_session_resume(wifi_request_id id, wifi_interface_handle iface,
+                                   int session_id)
+{
+    wifi_error ret;
+    int kernelError;
+    int default_next_size = 3;
+    TwtCommand *twtCommandHandler;
+    TwtCommand *ptwtCommand;
+    struct nlattr *nlData, *nlTwtParams;
+    interface_info *iinfo;
+    wifi_handle handle;
+
+    if(!iface) {
+        ALOGE("%s: iface is NULL", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+
+    iinfo = getIfaceInfo(iface);
+    if (!iinfo) {
+        ALOGE("%s: iinfo is NULL", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+
+    ALOGV("%s Enter", __FUNCTION__);
+    handle = getWifiHandle(iface);
+
+    ptwtCommand = new TwtCommand(handle, 0, OUI_QCA,
+                                 QCA_NL80211_VENDOR_SUBCMD_CONFIG_TWT);
+    if (ptwtCommand == NULL) {
+        ALOGE("%s: Error TwtCommand NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
+
+    twtCommandHandler = TwtCommand::handlerInstance(handle);
+    if (twtCommandHandler) {
+        ptwtCommand->mHandler = twtCommandHandler->mHandler;
+        twtCommandHandler->setSubCmd(QCA_NL80211_VENDOR_SUBCMD_CONFIG_TWT);
+        twtCommandHandler->setReqId(id);
+    }
+
+    /* Create the NL message. */
+    ret = ptwtCommand->create();
+    if (ret != WIFI_SUCCESS)
+        goto cleanup;
+
+    /* Set the interface Id of the message. */
+    ret = ptwtCommand->set_iface_id(iinfo->name);
+    if (ret != WIFI_SUCCESS)
+        goto cleanup;
+
+    /* Add the vendor specific attributes for the NL command. */
+    nlData = ptwtCommand->attr_start(NL80211_ATTR_VENDOR_DATA);
+    if (!nlData) {
+        ret = WIFI_ERROR_UNKNOWN;
+        goto cleanup;
+    }
+
+    ret = ptwtCommand->put_u8(QCA_WLAN_VENDOR_ATTR_CONFIG_TWT_OPERATION,
+                              QCA_WLAN_TWT_RESUME);
+    if (ret != WIFI_SUCCESS)
+        goto cleanup;
+
+    nlTwtParams = ptwtCommand->attr_start(QCA_WLAN_VENDOR_ATTR_CONFIG_TWT_PARAMS);
+    if(!nlTwtParams) {
+        ALOGE("%s: nlTwtParams is NULL",  __FUNCTION__);
+        ret = WIFI_ERROR_UNKNOWN;
+        goto cleanup;
+    }
+
+    ret = ptwtCommand->put_u8(QCA_WLAN_VENDOR_ATTR_TWT_RESUME_FLOW_ID,
+                              session_id);
+    if (ret != WIFI_SUCCESS)
+        goto cleanup;
+
+    ret = ptwtCommand->put_u32(QCA_WLAN_VENDOR_ATTR_TWT_RESUME_NEXT_TWT_SIZE,
+                               default_next_size);
+    if (ret != WIFI_SUCCESS)
+        goto cleanup;
+
+    ptwtCommand->attr_end(nlTwtParams);
+    ptwtCommand->attr_end(nlData);
+
+    kernelError = ptwtCommand->requestResponseWithKernelStatus();
+    ret = mapKernelErrortoWifiHalError(kernelError);
+    if (ret != WIFI_SUCCESS) {
+        ptwtCommand->sendTwtFailure(id, kernelError);
+        ALOGE("%s: requestResponse Error:%d", __FUNCTION__, ret);
+    } else {
+        ALOGV("%s: Resume TWT session:%d", __FUNCTION__, session_id);
+    }
 
 cleanup:
     delete ptwtCommand;
@@ -925,7 +1146,7 @@ int TwtCommand::handleEvent(WifiEvent &event)
             }
 
             if (!tb2[QCA_WLAN_VENDOR_ATTR_TWT_SETUP_STATUS]) {
-                ALOGE("TWT_SETUP failed");
+                ALOGE("TWT_SETUP_STATUS attribute is missing");
                 if (mHandler.on_twt_failure)
                     (*mHandler.on_twt_failure)(mRequestId,
                                                WIFI_TWT_ERROR_CODE_FAILURE_UNKNOWN);
@@ -954,6 +1175,18 @@ int TwtCommand::handleEvent(WifiEvent &event)
             attr_id = QCA_WLAN_VENDOR_ATTR_TWT_SETUP_FLOW_ID;
             if (tb2[attr_id])
                 twt_session.session_id = get_u8(tb2[attr_id]);
+
+            /*
+             * Validate if the TWT session update response session_id is same
+             * as the user provided session_id
+             */
+            if (mTwtIsSessionUpdateCmd &&
+                (!tb2[attr_id] ||
+                 (tb2[attr_id] && twt_session.session_id != mTwtFlowId))) {
+                ALOGE("TWT flow id received:%d is invalid expected flow id:%d",
+                      twt_session.session_id, mTwtFlowId);
+                return NL_SKIP;
+            }
 
             attr_id = QCA_WLAN_VENDOR_ATTR_TWT_SETUP_WAKE_DURATION;
             if (tb2[attr_id])
@@ -1032,11 +1265,17 @@ int TwtCommand::handleEvent(WifiEvent &event)
                 twt_session.is_responder_pm_mode_enabled = get_u8(tb2[attr_id]) ? 1 : 0;
             else
                 ALOGV("TWT attribute:%d is not present", attr_id);
-
-            if (mHandler.on_twt_session_create)
-                (*mHandler.on_twt_session_create)(mRequestId, twt_session);
-            else
-                ALOGE("TWT: No Callback registered:");
+            if (mTwtIsSessionUpdateCmd) {
+                if (mHandler.on_twt_session_update)
+                    (*mHandler.on_twt_session_update)(mRequestId, twt_session);
+                else
+                    ALOGE("TWT: Session update callback is not registered:");
+            } else {
+                if (mHandler.on_twt_session_create)
+                    (*mHandler.on_twt_session_create)(mRequestId, twt_session);
+                else
+                    ALOGE("TWT: Session Setup Callback is not registered:");
+            }
 
             ALOGV("TWT Response: session_id:%d, SP:%" PRIu64 ", SI:%" PRIu32 " %s%s%s%s%s%s%s%s",
                   twt_session.session_id,
@@ -1050,12 +1289,19 @@ int TwtCommand::handleEvent(WifiEvent &event)
                   twt_session.is_announced ? "[Announced]" : "",
                   twt_session.is_protected ? "[Protected]" : "",
                   twt_session.is_updatable ? "[Updatable]" : "");
+
+            /*
+             * Reset the command handler parameters to avoid duplicate command
+             * processing and back to back update, setup command sequence.
+             */
+            mTwtIsSessionUpdateCmd = false;
+            mTwtFlowId = -1;
         }
         break;
         case QCA_WLAN_TWT_TERMINATE:
         {
            wifi_twt_teardown_reason_code reason;
-           int flow_id = 0;
+           int flow_id = INVALID_TWT_SESSION_ID;
            wifi_twt_error_code error_code;
 
            if (!tb_vendor[QCA_WLAN_VENDOR_ATTR_CONFIG_TWT_PARAMS]) {
@@ -1092,18 +1338,85 @@ int TwtCommand::handleEvent(WifiEvent &event)
             }
 
             reason = mapTeardownHalReasonCode(resp_status);
-            ALOGV("TWT: Teardown response flow_id:%d status:%d reason:%d", flow_id,
-                  resp_status, reason);
 
             if (tb2[QCA_WLAN_VENDOR_ATTR_TWT_SETUP_FLOW_ID])
                 flow_id = get_u8(tb2[QCA_WLAN_VENDOR_ATTR_TWT_SETUP_FLOW_ID]);
+
+            ALOGV("TWT: Teardown response flow_id:%d status:%d reason:%d",
+                  flow_id, resp_status, reason);
 
             if (mHandler.on_twt_session_teardown)
                 (*mHandler.on_twt_session_teardown)(mRequestId, flow_id, reason);
             else
                 ALOGE("TWT: No Callback registered:");
-          }
-          break;
+        }
+        break;
+        case QCA_WLAN_TWT_SUSPEND:
+        {
+            int flow_id = 0;
+            wifi_twt_error_code error_code;
+
+            if (!tb_vendor[QCA_WLAN_VENDOR_ATTR_CONFIG_TWT_PARAMS]) {
+                ALOGE("TWT suspend nested attributes is null");
+                return NL_SKIP;
+            }
+            if (nla_parse_nested(tb2, QCA_WLAN_VENDOR_ATTR_TWT_SETUP_MAX,
+                                 tb_vendor[QCA_WLAN_VENDOR_ATTR_CONFIG_TWT_PARAMS],
+                                 NULL)) {
+               ALOGE("nla_parse failed for vendor_data");
+               return NL_SKIP;
+            }
+
+            attr_id = QCA_WLAN_VENDOR_ATTR_TWT_SETUP_STATUS;
+            if (tb2[attr_id])
+                resp_status = (enum qca_wlan_vendor_twt_status)get_u8(tb2[attr_id]);
+            else
+                resp_status = QCA_WLAN_VENDOR_TWT_STATUS_NOT_SUSPENDED;
+
+            if (resp_status != QCA_WLAN_VENDOR_TWT_STATUS_OK &&
+                mHandler.on_twt_failure) {
+                error_code = mapDriverStatusToHalErrorCode(resp_status);
+                if (mHandler.on_twt_failure)
+                    (*mHandler.on_twt_failure)(mRequestId, error_code);
+                else
+                    ALOGE("TWT: Failure Callback is not registered:");
+                return NL_SKIP;
+            }
+
+            if (tb2[QCA_WLAN_VENDOR_ATTR_TWT_SETUP_FLOW_ID])
+                flow_id = get_u8(tb2[QCA_WLAN_VENDOR_ATTR_TWT_SETUP_FLOW_ID]);
+
+            if (mHandler.on_twt_session_suspend)
+                (*mHandler.on_twt_session_suspend)(mRequestId, flow_id);
+            else
+               ALOGE("TWT: No Callback registered:");
+        }
+        break;
+        case QCA_WLAN_TWT_RESUME:
+        {
+            int flow_id = 0;
+            wifi_twt_error_code error_code;
+
+            if (!tb_vendor[QCA_WLAN_VENDOR_ATTR_CONFIG_TWT_PARAMS]) {
+                ALOGE("TWT Resume nested attributes is null");
+                return NL_SKIP;
+            }
+            if (nla_parse_nested(tb2, QCA_WLAN_VENDOR_ATTR_TWT_RESUME_MAX,
+                                 tb_vendor[QCA_WLAN_VENDOR_ATTR_CONFIG_TWT_PARAMS],
+                                 NULL)) {
+               ALOGE("nla_parse failed for vendor_data");
+               return NL_SKIP;
+            }
+
+            if (tb2[QCA_WLAN_VENDOR_ATTR_TWT_RESUME_FLOW_ID])
+                flow_id = get_u8(tb2[QCA_WLAN_VENDOR_ATTR_TWT_RESUME_FLOW_ID]);
+            if (mHandler.on_twt_session_resume)
+                (*mHandler.on_twt_session_resume)(mRequestId, flow_id);
+
+            else
+               ALOGE("TWT: No Callback registered:");
+        }
+        break;
         default:
             ALOGV("Unsupported TWT event received");
         break;
