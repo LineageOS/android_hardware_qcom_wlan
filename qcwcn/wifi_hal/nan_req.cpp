@@ -978,6 +978,7 @@ wifi_error NanCommand::putNanPublish(transaction_id id, const NanPublishRequest 
             pNanFWSdeaCtrlParams.security_required =
                                          pReq->sdea_params.security_cfg;
         }
+        ALOGV("pReq->sdea_params.ranging_state = %zu", pReq->sdea_params.ranging_state);
         if (pReq->sdea_params.ranging_state) {
             pNanFWSdeaCtrlParams.ranging_required =
                                          pReq->sdea_params.ranging_state;
@@ -1441,6 +1442,7 @@ wifi_error NanCommand::putNanSubscribe(transaction_id id,
             pNanFWSdeaCtrlParams.security_required =
                                          pReq->sdea_params.security_cfg;
         }
+        ALOGV("pReq->sdea_params.ranging_state = %zu", pReq->sdea_params.ranging_state);
         if (pReq->sdea_params.ranging_state) {
             pNanFWSdeaCtrlParams.ranging_required =
                                          pReq->sdea_params.ranging_state;

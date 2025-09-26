@@ -706,7 +706,8 @@ int NanCommand::getNanResponse(transaction_id *id, NanResponseMsg *pRsp)
                   "Max APP info len: %d, Max queued transmit followup msgs: %d,\n"
                   "NDP supported bands: %d, cipher suites: %d, Max scid len %d,\n"
                   "NDP security supported: %s, Max SDEA SSI len: %d, Max subscribe addr: %d,\n"
-                  "Pairing supported: %s, FollowupRxsupport: %s",
+                  "Pairing supported: %s, Periodic Ranging Supported: %s,\n"
+                  "FollowupRxsupport: %s",
                   pRsp->body.nan_capabilities.max_concurrent_nan_clusters,
                   pRsp->body.nan_capabilities.max_publishes,
                   pRsp->body.nan_capabilities.max_subscribes,
@@ -727,6 +728,7 @@ int NanCommand::getNanResponse(transaction_id *id, NanResponseMsg *pRsp)
                   pRsp->body.nan_capabilities.max_sdea_service_specific_info_len,
                   pRsp->body.nan_capabilities.max_subscribe_address,
                   pRsp->body.nan_capabilities.is_pairing_supported ? "yes" : "no",
+                  pRsp->body.nan_capabilities.is_periodic_ranging_supported ? "yes" : "no",
                   pFwRsp->nan_followup_rx_forward_supported ? "yes" : "no");
 
             if (capab_len <= offsetof(NanCapabilitiesRspMsg, nan_group_mfp_cap)
