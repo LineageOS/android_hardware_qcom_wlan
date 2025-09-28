@@ -849,6 +849,11 @@ int NanCommand::handleNanSharedKeyDescIndication()
     else
         evt.npk_security_association.akm = SAE;
 
+    if (pasn_get_cipher(pasn) == WPA_CIPHER_CCMP_256)
+        evt.npk_security_association.cipher_type = NAN_CIPHER_SUITE_PUBLIC_KEY_PASN_256_MASK;
+    else
+        evt.npk_security_association.cipher_type = NAN_CIPHER_SUITE_PUBLIC_KEY_PASN_128_MASK;
+
     if (info->secure_nan->dev_nik)
         memcpy(evt.npk_security_association.local_nan_identity_key,
                info->secure_nan->dev_nik->nik_data, NAN_IDENTITY_KEY_LEN);
