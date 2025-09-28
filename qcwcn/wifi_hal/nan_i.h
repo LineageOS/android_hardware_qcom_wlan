@@ -1038,6 +1038,11 @@ enum nan_attr_id {
 #define NAN_SHARED_KEY_ATTR_ID 0x24
 #define NAN_ENCRYPT_KEY_DATA   BIT(12)
 #define NAN_VENDOR_ATTR_TYPE   0xdd
+#define NAN_KEY_TYPE BIT(3)
+#define NAN_INSTALL_KEY BIT(6)
+#define NAN_KEY_ACK BIT(7)
+#define NAN_KEY_MIC BIT(8)
+#define NAN_SECURE BIT(9)
 
 #define NAN_KDE_TYPE_IGTK                 0x02
 #define NAN_KDE_TYPE_BIGTK                0x03
@@ -2129,6 +2134,8 @@ struct nan_pairing_peer_info {
     /* capability info in CSIA attribute */
     u8 csia_cap_info;
     struct pasn_auth_frame *frame;
+    /* dialog token in bootstrapping request/response */
+    u8 dialog_token;
 };
 
 struct wpa_secure_nan {
@@ -2174,6 +2181,10 @@ struct wpa_secure_nan {
     struct nan_pairing_peer_info* pending_peer;
     /* device group keys capability info*/
     u8 csia_cap_info;
+    /* dialog token in bootstrapping request */
+    u8 dialog_token;
+    /* instance is in publisher role */
+    bool is_publish;
 };
 
 /***************************************************
@@ -2341,6 +2352,7 @@ int nan_pairing_prepare_skda_data(wifi_interface_handle iface);
 wifi_error nan_group_key_pn_request(transaction_id id,
                                     wifi_interface_handle iface,
                                     u32 key_index);
+u16 get_matching_bootstrap_method(u16 method);
 
 #ifdef __cplusplus
 }
