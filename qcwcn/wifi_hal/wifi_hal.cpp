@@ -1223,6 +1223,7 @@ static void cld80211lib_cleanup(hal_info *info)
     exit_cld80211_recv(info->cldctx);
     cld80211_deinit(info->cldctx);
     info->cldctx = NULL;
+    info->user_sock = NULL;
 }
 
 static int wifi_get_iface_id(hal_info *info, const char *iface)
