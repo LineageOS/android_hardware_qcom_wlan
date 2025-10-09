@@ -2423,7 +2423,6 @@ void nan_pairing_add_verification_ies(struct wpa_secure_nan *secure_nan,
                                       u32 cipher)
 {
     u8 *pos;
-    nan_dcea *dcea;
     nan_csia *csia;
     nan_nira *nira;
     u8 *extra_ies;
@@ -2436,7 +2435,7 @@ void nan_pairing_add_verification_ies(struct wpa_secure_nan *secure_nan,
         return;
     }
 
-    extra_ies_len = NAN_IE_HEADER + sizeof(nan_dcea) +
+    extra_ies_len = NAN_IE_HEADER +
                     sizeof(nan_csia) + sizeof(nan_csa) +
                     offsetof(nan_nira, nonce_tag) +
                     secure_nan->dev_nik->nira_nonce_len +
@@ -2467,15 +2466,6 @@ void nan_pairing_add_verification_ies(struct wpa_secure_nan *secure_nan,
     WPA_PUT_BE32(pos, NAN_IE_VENDOR_TYPE);
     pos += 4;
 
-    dcea = (nan_dcea *)pos;
-    dcea->attr_id = NAN_ATTR_ID_DCEA;
-    dcea->len = sizeof(nan_dcea) - offsetof(nan_dcea, cap_info);
-    if (secure_nan->enable_pairing_setup)
-        dcea->cap_info |= DCEA_PARING_SETUP_ENABLED;
-    if (secure_nan->enable_pairing_cache)
-        dcea->cap_info |= DCEA_NPK_CACHING_ENABLED;
-     pos += sizeof(nan_dcea);
-
     csia = (nan_csia *)pos;
     csia->attr_id = NAN_ATTR_ID_CSIA;
     csia->len = sizeof(nan_csia) - offsetof(nan_csia, caps);
@@ -2504,7 +2494,7 @@ void nan_pairing_add_verification_ies(struct wpa_secure_nan *secure_nan,
     os_memcpy(&nira->nonce_tag[secure_nan->dev_nik->nira_nonce_len],
               secure_nan->dev_nik->nira_tag, secure_nan->dev_nik->nira_tag_len);
 
-    ALOGV("NAN Pairing Verification IEs: dcea cap_info = %d", dcea->cap_info);
+    ALOGV("NAN Pairing Verification IEs");
     pasn_set_extra_ies(pasn, extra_ies, extra_ies_len);
     os_free(extra_ies);
 }
