@@ -826,13 +826,17 @@ int NanCommand::handleNanSharedKeyDescIndication()
     }
 
     pasn = entry->pasn;
+
+    if (entry->is_paired) {
+        wpa_pasn_reset(pasn);
+        entry->is_pairing_in_progress = false;
+        return retval;
+    }
+
     evt.pairing_instance_id = entry->pairing_instance_id;
     evt.rsp_code = NAN_PAIRING_REQUEST_ACCEPT;
     evt.reason_code = NAN_STATUS_SUCCESS;
-    if (entry->is_paired)
-        evt.nan_pairing_request_type = NAN_PAIRING_VERIFICATION;
-    else
-        evt.nan_pairing_request_type = NAN_PAIRING_SETUP;
+    evt.nan_pairing_request_type = NAN_PAIRING_SETUP;
 
     evt.enable_pairing_cache = !!(entry->dcea_cap_info & DCEA_NPK_CACHING_ENABLED);
 

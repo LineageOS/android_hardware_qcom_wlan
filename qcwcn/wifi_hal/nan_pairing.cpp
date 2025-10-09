@@ -1894,7 +1894,9 @@ int nan_pairing_set_keys_from_cache(wifi_handle handle, u8 *src_addr, u8 *bssid,
     if (peer->dcea_cap_info & DCEA_NPK_CACHING_ENABLED) {
         info->secure_nan->pending_peer = peer;
         nan_pairing_prepare_skda_data(ifaceHandle);
-    } else {
+    }
+
+    if (peer->is_paired || !(peer->dcea_cap_info & DCEA_NPK_CACHING_ENABLED)) {
         // Send Pairing Confirmation as Followup with Peer NIK is not mandatory
         NanPairingConfirmInd evt;
         evt.pairing_instance_id = peer->pairing_instance_id;
@@ -1902,10 +1904,10 @@ int nan_pairing_set_keys_from_cache(wifi_handle handle, u8 *src_addr, u8 *bssid,
         evt.reason_code = NAN_STATUS_SUCCESS;
         evt.enable_pairing_cache = 0;
 
-        if (peer->is_paired)
-            evt.nan_pairing_request_type = NAN_PAIRING_VERIFICATION;
+	if (peer->is_paired)
+		evt.nan_pairing_request_type = NAN_PAIRING_VERIFICATION;
         else
-            evt.nan_pairing_request_type = NAN_PAIRING_SETUP;
+		evt.nan_pairing_request_type = NAN_PAIRING_SETUP;
 
         if (pasn_get_akmp(pasn) == WPA_KEY_MGMT_PASN)
             evt.npk_security_association.akm = PASN;
