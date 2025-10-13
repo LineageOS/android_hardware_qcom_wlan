@@ -6599,7 +6599,8 @@ static int wpa_driver_set_ul_mu_cfg(struct i802_bss *bss, char *cmd)
 		ulmu = get_u8_from_string(cmd, &ret);
 		if (ret || ulmu > 1) {
 			wpa_printf(MSG_ERROR, "set_ul_mu_cfg: input error");
-			return -EINVAL;
+			ret = -EINVAL;
+			goto fail;
 		}
 		if (ulmu)
 			val = QCA_UL_MU_ENABLE;
