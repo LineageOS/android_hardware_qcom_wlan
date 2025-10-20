@@ -36,6 +36,7 @@ soong_config_module_type {
     config_namespace: "qcom_wifi",
     variables: [
         "board_wlan_chip", // BOARD_WLAN_CHIP
+        "libpasn_support", //$(wildcard external/wpa_supplicant_8/src/pasn/pasn_common.c)
     ],
     properties: [
         "shared_libs",
@@ -49,6 +50,15 @@ soong_config_string_variable {
         "wcn6740",
         "wcn3990",
         "wcn7850",
+        "wcn7760",
+    ],
+}
+
+soong_config_string_variable {
+    name: "libpasn_support",
+    values: [
+        "true",
+        "false",
     ],
 }
 
@@ -64,6 +74,19 @@ wifihal_qcom_defaults {
                     "//hardware/qcom/wlan/wcn6740:libcld80211",
                     "libcrypto",
                 ],
+            },
+            wcn7760: {
+                whole_static_libs: [
+                    "//hardware/qcom/wlan/wcn7760:libwifi-hal-qcom",
+                ],
+                shared_libs: [
+                    "//hardware/qcom/wlan/wcn7760:libcld80211",
+                    "libcrypto",
+                ] + select(soong_config_variable("qcom_wifi", "libpasn_support"), {
+                    true: ["libpasn"],
+                    false: [],
+                    default: ["libpasn"],
+                }),
             },
             wcn3990: {
                 whole_static_libs: select(soong_config_variable("pixel_watch", "bsp_dir"), {
