@@ -1975,8 +1975,9 @@ int NanCommand::getNanContinuousRangingResult()
                 result[index]->success_number = rangeResult.num_successful_measurements;
                 result[index]->number_per_burst_peer = rangeResult.number_per_burst_peer;
                 result[index]->burst_duration = (int)rangeResult.burst_duration_ms;
+                // avg rssi in steps of 0.5dB and positive
                 result[index]->rssi =
-                   (wifi_rssi) ((rangeResult.avg_rssi + NOISE_FLOOR) * 2);
+                   (wifi_rssi) ((rangeResult.avg_rssi + NOISE_FLOOR) * -2);
                 result[index]->distance_mm = (int)rangeResult.distance_mm;
                 result[index]->distance_sd_mm = (int)rangeResult.distance_stdev_mm;
                 result[index]->ts = static_cast<wifi_timestamp>(rangeResult.meas_start_time);
@@ -1988,7 +1989,7 @@ int NanCommand::getNanContinuousRangingResult()
                       "number_per_burst_peer:%u\n"
                       "burst_duration:%d\n"
                       "distance_mm:%d\n"
-                      "distance_sd_mm:%d rssi\n",
+                      "distance_sd_mm:%d rssi %d\n",
                       MAC_ADDR_ARRAY(result[index]->addr),
                       result[index]->ts,
                       result[index]->measurement_number,
