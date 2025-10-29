@@ -1883,6 +1883,17 @@ int NanCommand::getNanRangeReportInd(NanRangeReportInd *event)
     return WIFI_SUCCESS;
 }
 
+
+static u64 get_time_boot_usec()
+{
+    u64 current_time_usec = 0;
+    struct timespec tp = {};
+    clock_gettime(CLOCK_BOOTTIME, &tp);
+    current_time_usec = (u64)tp.tv_sec * 1000000 + (tp.tv_nsec / 1000);
+
+    return current_time_usec;
+}
+
 /*
  * Function: getNanContinuousRangingResult
  * Populates periodic ranging result from FW
@@ -1980,7 +1991,7 @@ int NanCommand::getNanContinuousRangingResult()
                    (wifi_rssi) ((rangeResult.avg_rssi + NOISE_FLOOR) * -2);
                 result[index]->distance_mm = (int)rangeResult.distance_mm;
                 result[index]->distance_sd_mm = (int)rangeResult.distance_stdev_mm;
-                result[index]->ts = static_cast<wifi_timestamp>(rangeResult.meas_start_time);
+                result[index]->ts = get_time_boot_usec();
                 result[index]->type = RTT_TYPE_2_SIDED_11MC;
                 ALOGV("Mac Address: " MAC_ADDR_STR "\n"
                       "timestamp:%" PRIu64 "\n"
