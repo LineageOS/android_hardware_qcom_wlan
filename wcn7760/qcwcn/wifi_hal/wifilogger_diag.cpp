@@ -2781,7 +2781,7 @@ wifi_error diag_message_handler(hal_info *info, nl_msg *msg)
         if (!info->cldctx) {
             if ((wnl->nlh.nlmsg_len <= sizeof(tAniNlHdr)) ||
                 (wnl->nlh.nlmsg_len < (sizeof(tAniNlHdr) + ntohs(wnl->clh.wmsg.length)))) {
-                ALOGE("Received UMAC message with insufficient length: %d",
+                ALOGE("Received UMAC message with insufficent length: %d",
                       wnl->nlh.nlmsg_len);
                 return WIFI_ERROR_UNKNOWN;
             }
@@ -2871,7 +2871,7 @@ wifi_error diag_message_handler(hal_info *info, nl_msg *msg)
          if (!info->cldctx) {
              if ((wnl->nlh.nlmsg_len <= sizeof(tAniNlHdr)) ||
                  (wnl->nlh.nlmsg_len < (sizeof(tAniNlHdr) + wnl->clh.wmsg.length))) {
-                 ALOGE("Received LOG message with insufficient length: %d",
+                 ALOGE("Received LOG message with insufficent length: %d",
                        wnl->nlh.nlmsg_len);
                  return WIFI_ERROR_UNKNOWN;
              }
@@ -2902,13 +2902,13 @@ wifi_error diag_message_handler(hal_info *info, nl_msg *msg)
             if ((wnl->nlh.nlmsg_len <= NLMSG_HDRLEN + sizeof(fw_event_hdr_t)) ||
                 (wnl->nlh.nlmsg_len < (NLMSG_HDRLEN + sizeof(fw_event_hdr_t) +
                                         event_hdr->length))) {
-                ALOGE("Received CNSS_DIAG message with insufficient length: %d",
+                ALOGE("Received CNSS_DIAG message with insufficent length: %d",
                       wnl->nlh.nlmsg_len);
                 return WIFI_ERROR_UNKNOWN;
             }
         } else {
             if (nlh->nlmsg_len <= NLMSG_HDRLEN + sizeof(dbglog_slot)) {
-                ALOGE("Received CNSS_DIAG message with insufficient length: %d: %s:%d",
+                ALOGE("Received CNSS_DIAG message with insufficent length: %d: %s:%d",
                       nlh->nlmsg_len, __FUNCTION__, __LINE__);
                 return WIFI_ERROR_UNKNOWN;
             }
@@ -2922,7 +2922,7 @@ wifi_error diag_message_handler(hal_info *info, nl_msg *msg)
             length = get_le32((u8 *)&slot->length);
             if (nlh->nlmsg_len < (NLMSG_HDRLEN + sizeof(dbglog_slot) +
                                         length)) {
-                ALOGE("Received CNSS_DIAG message with insufficient length: %d:"
+                ALOGE("Received CNSS_DIAG message with insufficent length: %d:"
                               " expected: %zu, %s:%d",
                       nlh->nlmsg_len,
                       (NLMSG_HDRLEN + sizeof(dbglog_slot) +length),

@@ -223,7 +223,7 @@ wifi_error wifi_set_ssid_white_list(wifi_request_id id, wifi_interface_handle if
         ret = roamCommand->put_bytes(QCA_WLAN_VENDOR_ATTR_ROAMING_PARAM_WHITE_LIST_SSID,
                                      ssid, (ssid_list[i].length + 1));
         if (ret != WIFI_SUCCESS) {
-            ALOGE("%s: Failed to add ssid attribute, Error: %d", __FUNCTION__, ret);
+            ALOGE("%s: Failed to add ssid atribute, Error: %d", __FUNCTION__, ret);
             goto cleanup;
         }
 
@@ -411,7 +411,7 @@ wifi_error wifi_enable_firmware_roaming(wifi_interface_handle iface, fw_roaming_
 
     ret = roamCommand->put_u32(QCA_WLAN_VENDOR_ATTR_ROAMING_POLICY, policy);
     if (ret != WIFI_SUCCESS) {
-        ALOGE("%s: Failed to add roaming policy attribute, Error: %d", __FUNCTION__, ret);
+        ALOGE("%s: Failed to add roaming policy atribute, Error: %d", __FUNCTION__, ret);
         goto cleanup;
     }
 

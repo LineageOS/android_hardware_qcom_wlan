@@ -64,7 +64,7 @@ size_t rb_read(void *ctx, u8 *buf, size_t max_length);
 
 /* A buffer with possible maximum of bytes that can be read
  * from a single buffer of ring buffer
- * Ring buffer module loses the ownership of the buffer returned by this api,
+ * Ring buffer module looses the ownership of the buffer returned by this api,
  * which means the caller has to make sure to free the buffer returned.
  */
 u8 *rb_get_read_buf(void *ctx, size_t *length);

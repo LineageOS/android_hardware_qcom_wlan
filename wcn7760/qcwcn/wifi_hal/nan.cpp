@@ -661,7 +661,9 @@ wifi_error nan_bootstrapping_request(transaction_id id,
     if (ret != WIFI_SUCCESS)
         goto cleanup;
 
-    ret = nanCommand->putNanBootstrappingReq(id, msg, pub_sub_id);
+    info->secure_nan->dialog_token++;
+    ret = nanCommand->putNanBootstrappingReq(id, msg, pub_sub_id,
+                                             info->secure_nan->dialog_token);
     if (ret != WIFI_SUCCESS) {
         ALOGE("%s: putNanBootstrappingReq Error:%d", __FUNCTION__, ret);
         goto cleanup;
@@ -678,6 +680,7 @@ wifi_error nan_bootstrapping_request(transaction_id id,
         entry->pub_sub_id = pub_sub_id;
         entry->requestor_instance_id = msg->requestor_instance_id;
         info->secure_nan->bootstrapping_id++;
+        entry->dialog_token = info->secure_nan->dialog_token;
         entry->bootstrapping_instance_id = info->secure_nan->bootstrapping_id;
         entry->peer_role = SECURE_NAN_BOOTSTRAPPING_RESPONDER;
     }

@@ -515,6 +515,8 @@ int NanCommand::getNanResponse(transaction_id *id, NanResponseMsg *pRsp)
             pRsp->response_type = NAN_RESPONSE_PUBLISH_CANCEL;
             pRsp->body.publish_response.publish_id = \
                 pFwRsp->fwHeader.handle;
+            if (info && info->secure_nan)
+                info->secure_nan->is_publish = false;
             break;
         }
         case NAN_MSG_ID_PUBLISH_SERVICE_RSP:
@@ -526,8 +528,10 @@ int NanCommand::getNanResponse(transaction_id *id, NanResponseMsg *pRsp)
             pRsp->response_type = NAN_RESPONSE_PUBLISH;
             pRsp->body.publish_response.publish_id = \
                 pFwRsp->fwHeader.handle;
-            if (info && info->secure_nan)
+            if (info && info->secure_nan) {
                 info->secure_nan->pub_sub_id = pFwRsp->fwHeader.handle;
+                info->secure_nan->is_publish = true;
+            }
             break;
         }
         case NAN_MSG_ID_SUBSCRIBE_SERVICE_RSP:
@@ -702,11 +706,12 @@ int NanCommand::getNanResponse(transaction_id *id, NanResponseMsg *pRsp)
             ALOGI("Nan Capabilities: Max concurrent clusters: %d, Max publishers: %d,\n"
                   "Max subscribers: %d, Max servicename len: %d, Max match filter len %d,\n"
                   "Max total matchfilter len: %d, Max ssi len: %d, Max vsa data len: %d,\n"
-                  "Max mesh data len: %d, Max NDI ifaces %d, Max NDP sessions %d,\n"
+                  "Max mesh data len: %d, Max NDI ifaces %d, Max NDP sesssions %d,\n"
                   "Max APP info len: %d, Max queued transmit followup msgs: %d,\n"
                   "NDP supported bands: %d, cipher suites: %d, Max scid len %d,\n"
                   "NDP security supported: %s, Max SDEA SSI len: %d, Max subscribe addr: %d,\n"
-                  "Pairing supported: %s, FollowupRxsupport: %s",
+                  "Pairing supported: %s, Periodic Ranging Supported: %s,\n"
+                  "FollowupRxsupport: %s",
                   pRsp->body.nan_capabilities.max_concurrent_nan_clusters,
                   pRsp->body.nan_capabilities.max_publishes,
                   pRsp->body.nan_capabilities.max_subscribes,
@@ -727,6 +732,7 @@ int NanCommand::getNanResponse(transaction_id *id, NanResponseMsg *pRsp)
                   pRsp->body.nan_capabilities.max_sdea_service_specific_info_len,
                   pRsp->body.nan_capabilities.max_subscribe_address,
                   pRsp->body.nan_capabilities.is_pairing_supported ? "yes" : "no",
+                  pRsp->body.nan_capabilities.is_periodic_ranging_supported ? "yes" : "no",
                   pFwRsp->nan_followup_rx_forward_supported ? "yes" : "no");
 
             if (capab_len <= offsetof(NanCapabilitiesRspMsg, nan_group_mfp_cap)

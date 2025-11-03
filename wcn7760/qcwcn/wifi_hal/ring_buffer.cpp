@@ -381,7 +381,7 @@ size_t rb_read (void *ctx, u8 *buf, size_t max_length)
                 }
             } else {
                 /* When there are no bytes available to read cur_rd_buf_idx
-                 * will be equal to cur_wr_buf_idx. Handle this scenario using
+                 * will be euqal to cur_wr_buf_idx. Handle this scenario using
                  * cur_valid_bytes */
                 if (rbc->cur_valid_bytes <= bytes_read) {
                     /* Suppress possible static analyzer's warning */

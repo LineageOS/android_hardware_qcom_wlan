@@ -2764,7 +2764,7 @@ static const char *twt_status_to_string(enum qca_wlan_vendor_twt_status status)
  * This function will identify a TWT operation and
  * return one of the values in enum qca_wlan_twt_operation.
  *
- * Return: A valid TWT operation if found, or error if not found
+ * Return: A valid TWT opertion if found, or error if not found
  *
  */
 static int check_for_twt_cmd(char *cmd)
@@ -2976,7 +2976,7 @@ static int check_cmd_input(char *cmd_string)
  *
  * This function parses the TWT setup command and populates twt_setup_params.
  *
- * Return: 0 on success, error if invalid params are found
+ * Return: 0 on successs, error if invalid params are found
  *
  */
 static
@@ -3425,7 +3425,7 @@ fail:
  *
  * This function parses the TWT resume command and populates resume_params.
  *
- * Return: 0 on success, error if invalid params are found
+ * Return: 0 on successs, error if invalid params are found
  *
  */
 static
@@ -4374,7 +4374,7 @@ static int wpa_get_twt_setup_resp_val(struct nlattr **tb2, char *buf,
 
 /**
  * unpack_twt_get_params_nlmsg()- unpacks and prints the twt get_param
- * response received from driver synchronously for twt_session_get_params.
+ * response recieved from driver synchronously for twt_session_get_params.
  *
  * @Param tb: vendor nl data
  * @Param buf: stores the response
@@ -4426,7 +4426,7 @@ unpack_twt_get_params_nlmsg(struct nlattr **tb, char *buf, int buf_len)
 
 /**
  * wpa_get_twt_stats_resp_val()- parse twt get_stats response
- * received from driver synchronously for twt_session_get_stats.
+ * recieved from driver synchronously for twt_session_get_stats.
  *
  * @Param tb: vendor nl data
  * @Param buf: stores the response
@@ -4588,7 +4588,7 @@ static int wpa_get_twt_stats_resp_val(struct nlattr **tb2, char *buf,
 
 /**
  * unpack_twt_get_stats_nlmsg()- unpacks and prints the twt get_stats
- * response received from driver synchronously for twt_session_get_stats.
+ * response recieved from driver synchronously for twt_session_get_stats.
  *
  * @Param tb: vendor nl data
  * @Param buf: stores the response
@@ -4674,7 +4674,7 @@ static int wpa_get_twt_capabilities_resp_val(struct nlattr **tb2, char *buf,
 
 /**
  * unpack_twt_get_capab_nlmsg()- unpacks and prints the twt get capabilities
- * response received from driver synchronously for TWT_GET_CAP command.
+ * response recieved from driver synchronously for TWT_GET_CAP command.
  * The response is printed in below hex-format:
  * 0xHIGHLOW
  * HIGH: Self capabilities
@@ -4718,7 +4718,7 @@ unpack_twt_get_capab_nlmsg(struct nlattr **tb, char *buf, int buf_len)
 }
 
 /**
- * unpack_twt_setup_nlmsg()- unpacks twt_session_setup response received
+ * unpack_twt_setup_nlmsg()- unpacks twt_session_setup response recieved
  * The response is printed in below format:
  * CTRL-EVENT-TWT SETUP dialog_id <dialog_id> status <status> ..
  *
@@ -5049,7 +5049,7 @@ err_msg:
 }
 
 /**
- * unpack_twt_terminate_event()- unpacks twt_session_terminate response received
+ * unpack_twt_terminate_event()- unpacks twt_session_terminate response recieved
  * The response is printed in below format:
  * CTRL-EVENT-TWT TERMINATE dialog_id <dialog_id> status <status>
  *
@@ -5117,7 +5117,7 @@ int unpack_twt_terminate_event(struct nlattr **tb, char *buf, int buf_len)
 }
 
 /**
- * unpack_twt_suspend_event()- unpacks twt_session_pause response received
+ * unpack_twt_suspend_event()- unpacks twt_session_pause response recieved
  * The response is printed in below format:
  * CTRL-EVENT-TWT PAUSE dialog_id <dialog_id> status <status>
  *
@@ -5185,7 +5185,7 @@ int unpack_twt_suspend_event(struct nlattr **tb, char *buf, int buf_len)
 }
 
 /**
- * unpack_twt_resume_event()- unpacks twt_session_resume response received
+ * unpack_twt_resume_event()- unpacks twt_session_resume response recieved
  * The response is printed in below format:
  * CTRL-EVENT-TWT RESUME dialog_id <dialog_id> status <status>
  *
@@ -5253,7 +5253,7 @@ int unpack_twt_resume_event(struct nlattr **tb, char *buf, int buf_len)
 }
 
 /**
- * unpack_twt_notify_event()- prints the twt notify response received from driver
+ * unpack_twt_notify_event()- prints the twt notify response recieved from driver
  * asynchronously for QCA_WLAN_TWT_SETUP_READY_NOTIFY event.
  * The response is printed in below format:
  * CTRL-EVENT-TWT NOTIFY
@@ -5280,7 +5280,7 @@ int unpack_twt_notify_event(struct nlattr **tb, char *buf, int buf_len)
 
 /**
  * wpa_driver_twt_async_resp_handler()- handler for asynchronous twt vendor event
- * received from the driver.
+ * recieved from the driver.
  *
  * @Param drv- wpa_driver_nl80211_data
  * @Param vendor_id- vendor id for vendor specific command
@@ -6599,7 +6599,8 @@ static int wpa_driver_set_ul_mu_cfg(struct i802_bss *bss, char *cmd)
 		ulmu = get_u8_from_string(cmd, &ret);
 		if (ret || ulmu > 1) {
 			wpa_printf(MSG_ERROR, "set_ul_mu_cfg: input error");
-			return -EINVAL;
+			ret = -EINVAL;
+			goto fail;
 		}
 		if (ulmu)
 			val = QCA_UL_MU_ENABLE;
@@ -6757,9 +6758,9 @@ static int wpa_driver_ps_config_cmd(struct i802_bss *bss, char *cmd)
 			wpa_printf(MSG_ERROR, "Invalid latency_tolerance value");
 			return -EINVAL;
 		}
-		if ((latency_tolerance > 200) || (latency_tolerance < 30)) {
+		if ((latency_tolerance > 1000) || (latency_tolerance < 10)) {
 			wpa_printf(MSG_ERROR,
-				   "latency_tolerance must be within the range of 30 to 200");
+				   "latency_tolerance must be within the range of 10 to 1000");
 			return -EINVAL;
 		}
 	}
@@ -7205,6 +7206,10 @@ int wpa_driver_nl80211_driver_cmd(void *priv, char *cmd, char *buf,
 	} else if (os_strncasecmp(cmd, "SPATIAL_REUSE ", 14) == 0) {
 		cmd += 14;
 		return wpa_driver_sr_cmd(priv, cmd, buf, buf_len);
+	} else if (os_strncasecmp(cmd, "OEM_DATA ", 9) == 0) {
+		/* DRIVER OEM_DATA xxx */
+		cmd += 9;
+		return wpa_driver_oem_data_cmd(priv, cmd, buf, buf_len);
 	} else if (os_strncasecmp(cmd, "SET_ELNABYPASS_MODE ", 20) == 0) {
 		cmd += 20;
 		return wpa_driver_set_elnabypass_cmd(priv, cmd, buf, buf_len);
