@@ -420,7 +420,17 @@ int cld80211_send_recv_msg(void *cldctx, struct nl_msg *nlmsg,
 
 	while (err > 0) {    /* wait for reply */
 		int res = nl_recvmsgs(ctx->sock, cb);
-		if (res) {
+
+		if (res == -NLE_NOMEM) {
+			/* Happens once:
+			 * nl_recvmsgs blocking wait for nl message which
+			 * dropped due to NOMEM error. This ends up to
+			 * block the thread.
+			 */
+			ALOGE("%s: cld80211: nl_recvmsgs NOMEM error",
+			      getprogname());
+			err = -ENOMEM;
+		} else if (res) {
 			ALOGE("%s: cld80211: nl_recvmsgs failed: %d",
 			      getprogname(), res);
 		}
@@ -520,7 +530,7 @@ void *cld80211_init(void)
 
 	ctx->netlink_familyid = genl_ctrl_resolve(ctx->sock, "cld80211");
 	if (ctx->netlink_familyid < 0) {
-		ALOGE("%s: Could not resolve cld80211 netlink_family id",
+		ALOGE("%s: Could not resolve cld80211 familty id",
 		      getprogname());
 		goto cleanup;
 	}

@@ -295,6 +295,7 @@ static int nan_get_npba_attr(const u8* buf, size_t buf_len,
                 return -1;
             }
             npba->comeback_after = WPA_GET_LE16(buf);
+            buf += 2;
             attr_len -= 2;
         }
 
@@ -2792,6 +2793,8 @@ static void nan_pairing_nik_deinit(struct nanIDkey *nik)
     return;
 }
 
+#define NL80211_EXT_FEATURE_SECURE_NAN 63
+
 int secure_nan_init(wifi_interface_handle iface)
 {
     struct wpa_secure_nan *secure_nan = NULL;
@@ -2801,6 +2804,11 @@ int secure_nan_init(wifi_interface_handle iface)
     if (info->secure_nan) {
         ALOGE("Secure NAN Already initialized");
         return 0;
+    }
+
+    if (!is_feature_supported(iface, NL80211_EXT_FEATURE_SECURE_NAN)) {
+        ALOGE("Secure NAN not supported by driver");
+        return -1;
     }
 
     if (eloop_init()) {
