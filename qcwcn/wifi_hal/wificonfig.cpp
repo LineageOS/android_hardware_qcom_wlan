@@ -711,7 +711,48 @@ cleanup:
     return ret;
 }
 
-wifi_error wifi_select_SARv02_tx_power_scenario(wifi_interface_handle handle,
+static u32 get_power_lim_idx(wifi_power_scenario scenario)
+{
+    u32 power_lim_idx = 0;
+    switch (scenario) {
+        case WIFI_POWER_SCENARIO_VOICE_CALL:
+        case WIFI_POWER_SCENARIO_ON_HEAD_CELL_ON:
+        case WIFI_POWER_SCENARIO_ON_HEAD_HOTSPOT:
+        case WIFI_POWER_SCENARIO_ON_HEAD_HOTSPOT_MMW:
+             power_lim_idx = 0;
+             break;
+
+        case WIFI_POWER_SCENARIO_ON_HEAD_CELL_OFF:
+             power_lim_idx = 1;
+             break;
+
+        case WIFI_POWER_SCENARIO_ON_BODY_HOTSPOT:
+        case WIFI_POWER_SCENARIO_ON_BODY_HOTSPOT_BT:
+        case WIFI_POWER_SCENARIO_ON_BODY_HOTSPOT_MMW:
+        case WIFI_POWER_SCENARIO_ON_BODY_HOTSPOT_BT_MMW:
+             power_lim_idx = 2;
+             break;
+
+        case WIFI_POWER_SCENARIO_ON_BODY_CELL_ON:
+             power_lim_idx = 3;
+             break;
+
+        case WIFI_POWER_SCENARIO_ON_BODY_CELL_ON_BT:
+             power_lim_idx = 4;
+             break;
+
+        case WIFI_POWER_SCENARIO_ON_BODY_CELL_OFF:
+        case WIFI_POWER_SCENARIO_ON_BODY_BT:
+             power_lim_idx = 5;
+             break;
+
+        default:
+             power_lim_idx = -1;
+    }
+    return power_lim_idx;
+}
+
+wifi_error wifi_select_SARv_tx_power_scenario(wifi_interface_handle handle,
                                          wifi_power_scenario scenario)
 {
     wifi_error ret;
@@ -719,10 +760,13 @@ wifi_error wifi_select_SARv02_tx_power_scenario(wifi_interface_handle handle,
     struct nlattr *nlData, *nlSpecList, *nlSpec;
     interface_info *ifaceInfo = getIfaceInfo(handle);
     wifi_handle wifiHandle = getWifiHandle(handle);
+    hal_info *info = getHalInfo(wifiHandle);
     u32 power_lim_idx = 0;
-
-    ALOGV("%s : power scenario SARV2:%d", __FUNCTION__, scenario);
-
+    if (info == NULL) {
+        ALOGE("%s: Error hal_info NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
+    ALOGV("%s: SAR version %u, scenario %d", __FUNCTION__, info->sar_version, scenario);
     wifiConfigCommand = new WiFiConfigCommand(
                             wifiHandle,
                             1,
@@ -757,7 +801,9 @@ wifi_error wifi_select_SARv02_tx_power_scenario(wifi_interface_handle handle,
 
     if (wifiConfigCommand->put_u32(
                   QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SAR_ENABLE,
-                  QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SELECT_V2_0)) {
+                  (info->sar_version == QCA_WLAN_VENDOR_SAR_VERSION_5)
+                       ? QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SELECT_V5_0
+                       : QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SELECT_V2_0)) {
         ret = WIFI_ERROR_UNKNOWN;
         ALOGE("failed to put SAR_ENABLE");
         goto cleanup;
@@ -771,44 +817,16 @@ wifi_error wifi_select_SARv02_tx_power_scenario(wifi_interface_handle handle,
         goto cleanup;
     }
 
-    switch (scenario) {
-        case WIFI_POWER_SCENARIO_VOICE_CALL:
-        case WIFI_POWER_SCENARIO_ON_HEAD_CELL_ON:
-        case WIFI_POWER_SCENARIO_ON_HEAD_HOTSPOT:
-        case WIFI_POWER_SCENARIO_ON_HEAD_HOTSPOT_MMW:
-
-            power_lim_idx = 0;
-            break;
-
-        case WIFI_POWER_SCENARIO_ON_HEAD_CELL_OFF:
-            power_lim_idx = 1;
-            break;
-
-        case WIFI_POWER_SCENARIO_ON_BODY_HOTSPOT:
-        case WIFI_POWER_SCENARIO_ON_BODY_HOTSPOT_BT:
-        case WIFI_POWER_SCENARIO_ON_BODY_HOTSPOT_MMW:
-        case WIFI_POWER_SCENARIO_ON_BODY_HOTSPOT_BT_MMW:
-            power_lim_idx = 2;
-            break;
-
-        case WIFI_POWER_SCENARIO_ON_BODY_CELL_ON:
-            power_lim_idx = 3;
-            break;
-
-        case WIFI_POWER_SCENARIO_ON_BODY_CELL_ON_BT:
-            power_lim_idx = 4;
-            break;
-
-        case WIFI_POWER_SCENARIO_ON_BODY_CELL_OFF:
-        case WIFI_POWER_SCENARIO_ON_BODY_BT:
-            power_lim_idx = 5;
-            break;
-        default:
+    if(info->sar_version != QCA_WLAN_VENDOR_SAR_VERSION_5)
+    {
+        power_lim_idx = get_power_lim_idx(scenario);
+        if(power_lim_idx < 0)
+        {
             ALOGE("wifi_select_tx_power_scenario: invalid scenario %d", scenario);
             ret = WIFI_ERROR_INVALID_ARGS;
             goto cleanup;
+        }
     }
-
 
     nlSpecList = wifiConfigCommand->attr_start(QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SPEC);
     if(!nlSpecList)
@@ -817,7 +835,6 @@ wifi_error wifi_select_SARv02_tx_power_scenario(wifi_interface_handle handle,
         ret = WIFI_ERROR_UNKNOWN;
         goto cleanup;
     }
-
 
     for (int i = 0; i < NUM_OF_SPEC_CHAINS; i++) {
         nlSpec = wifiConfigCommand->attr_start(0);
@@ -833,25 +850,45 @@ wifi_error wifi_select_SARv02_tx_power_scenario(wifi_interface_handle handle,
             ret = WIFI_ERROR_UNKNOWN;
             goto cleanup;
         }
-
-        if(wifiConfigCommand->put_u32(
-            QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SPEC_POWER_LIMIT_INDEX,
-            power_lim_idx))
+        if(info->sar_version != QCA_WLAN_VENDOR_SAR_VERSION_5)
         {
-            ALOGE("Failed to put: QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SPEC_POWER_LIMIT_INDEX");
-            ret = WIFI_ERROR_UNKNOWN;
-            goto cleanup;
+            ALOGV("%s: Using SAR Version %u logic. filling power index.", __FUNCTION__,(u32)info->sar_version);
+            if(wifiConfigCommand->put_u32(
+                     QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SPEC_POWER_LIMIT_INDEX,
+                     power_lim_idx))
+            {
+                 ALOGE("Failed to put: QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SPEC_POWER_LIMIT_INDEX");
+                 ret = WIFI_ERROR_UNKNOWN;
+                 goto cleanup;
+            }
+        }
+        else
+        {
+            ALOGV("%s: Using SAR Version %u logic. filling user scenario.", __FUNCTION__,(u32)info->sar_version);
+            if(check_feature(QCA_WLAN_VENDOR_FEATURE_SUPPORT_USER_SCENARIO_TO_DSI_MAPPING,
+                         &info->driver_supported_features)) {
+                   ret = wifiConfigCommand->put_u32(
+                               QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SPEC_USER_SCENARIO,
+                               scenario);
+                   if(ret !=WIFI_SUCCESS) {
+                         ALOGE("wifi_select_SARv05_tx_power_scenario: put user scenario failed. Error:%d", ret);
+                         goto cleanup;
+                   }
+            } else {
+                   ALOGE("wifi_select_SARv05_tx_power_scenario: DSI mapping feature not supported");
+                   ret = WIFI_ERROR_NOT_SUPPORTED;
+                   goto cleanup;
+            }
         }
 
         wifiConfigCommand->attr_end(nlSpec);
     }
 
 
-
     wifiConfigCommand->attr_end(nlSpecList);
 
     wifiConfigCommand->attr_end(nlData);
-    ALOGV("wifi_select_tx_power_scenario %u selected", power_lim_idx);
+
     ret = wifiConfigCommand->requestEvent();
     if (ret != WIFI_SUCCESS) {
         ALOGE("wifi_select_tx_power_scenario(): requestEvent Error:%d", ret);
@@ -881,7 +918,7 @@ wifi_error wifi_select_tx_power_scenario(wifi_interface_handle handle,
             info->sar_version == QCA_WLAN_VENDOR_SAR_VERSION_3 ||
             info->sar_version == QCA_WLAN_VENDOR_SAR_VERSION_4 ||
             info->sar_version == QCA_WLAN_VENDOR_SAR_VERSION_5)
-        return wifi_select_SARv02_tx_power_scenario(handle,scenario);
+        return wifi_select_SARv_tx_power_scenario(handle,scenario);
     else {
       ALOGE("wifi_select_tx_power_scenario %u invalid or not supported", (u32)info->sar_version);
       return WIFI_ERROR_UNKNOWN;

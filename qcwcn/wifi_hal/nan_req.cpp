@@ -975,9 +975,9 @@ wifi_error NanCommand::putNanPublish(transaction_id id, const NanPublishRequest 
         }
         if (pReq->sdea_params.security_cfg ||
             pReq->nan_pairing_config.enable_pairing_setup) {
-            pNanFWSdeaCtrlParams.security_required =
-                                         pReq->sdea_params.security_cfg;
+            pNanFWSdeaCtrlParams.security_required = 1;
         }
+        ALOGV("pReq->sdea_params.ranging_state = %zu", pReq->sdea_params.ranging_state);
         if (pReq->sdea_params.ranging_state) {
             pNanFWSdeaCtrlParams.ranging_required =
                                          pReq->sdea_params.ranging_state;
@@ -997,7 +997,8 @@ wifi_error NanCommand::putNanPublish(transaction_id id, const NanPublishRequest 
             pNanFWSdeaCtrlParams.fsd_required =  pReq->sdea_params.enable_fsd_req;
             ALOGV("fsd_required :%d", pNanFWSdeaCtrlParams.fsd_required);
         }
-        if (pReq->sdea_params.gtk_protection) {
+        if (pReq->sdea_params.gtk_protection ||
+            (pNanFWSdeaCtrlParams.security_required && grpKeys)) {
             pNanFWSdeaCtrlParams.gtk_protection = 1;
             ALOGV("gtk_protection :%d", pNanFWSdeaCtrlParams.gtk_protection);
         }
@@ -1438,9 +1439,9 @@ wifi_error NanCommand::putNanSubscribe(transaction_id id,
         }
         if (pReq->sdea_params.security_cfg ||
             pReq->nan_pairing_config.enable_pairing_setup) {
-            pNanFWSdeaCtrlParams.security_required =
-                                         pReq->sdea_params.security_cfg;
+            pNanFWSdeaCtrlParams.security_required = 1;
         }
+        ALOGV("pReq->sdea_params.ranging_state = %zu", pReq->sdea_params.ranging_state);
         if (pReq->sdea_params.ranging_state) {
             pNanFWSdeaCtrlParams.ranging_required =
                                          pReq->sdea_params.ranging_state;
@@ -1460,7 +1461,8 @@ wifi_error NanCommand::putNanSubscribe(transaction_id id,
             pNanFWSdeaCtrlParams.fsd_required =  pReq->sdea_params.enable_fsd_req;
             ALOGI("%s: fsd_required :%d",__func__, pNanFWSdeaCtrlParams.fsd_required);
         }
-        if (pReq->sdea_params.gtk_protection) {
+        if (pReq->sdea_params.gtk_protection ||
+            (pNanFWSdeaCtrlParams.security_required && grpKeys)) {
             pNanFWSdeaCtrlParams.gtk_protection = 1;
             ALOGI("%s: gtk_protection :%d",__func__, pNanFWSdeaCtrlParams.gtk_protection);
         }
@@ -1752,7 +1754,7 @@ wifi_error NanCommand::putNanSharedKeyDescriptorReq(transaction_id id,
 
 wifi_error NanCommand::putNanBootstrappingReq(transaction_id id,
                                               const NanBootstrappingRequest *pReq,
-                                              u16 pub_sub_id)
+                                              u16 pub_sub_id, u8 dialog_token)
 {
     wifi_error ret;
     struct nlattr *nl_data;
@@ -1823,7 +1825,7 @@ wifi_error NanCommand::putNanBootstrappingReq(transaction_id id,
     } else {
         pNanFWBootstrappingParams.status = NAN_BS_STATUS_ACCEPT;
     }
-    pNanFWBootstrappingParams.dialog_token = 0;
+    pNanFWBootstrappingParams.dialog_token = dialog_token;
     pNanFWBootstrappingParams.bootstrapping_method_bitmap =
                                            pReq->request_bootstrapping_method;
     pNanFWBootstrappingParams.comeback_after = 0;
@@ -1856,6 +1858,37 @@ wifi_error NanCommand::putNanBootstrappingReq(transaction_id id,
 
     hexdump(mVendorData, mDataLen);
     return ret;
+}
+
+u16 get_matching_bootstrap_method(u16 method)
+{
+   switch (method) {
+   case NAN_PAIRING_BOOTSTRAPPING_OPPORTUNISTIC_MASK:
+       return NAN_PAIRING_BOOTSTRAPPING_OPPORTUNISTIC_MASK;
+   case NAN_PAIRING_BOOTSTRAPPING_PIN_CODE_DISPLAY_MASK:
+       return NAN_PAIRING_BOOTSTRAPPING_PIN_CODE_KEYPAD_MASK;
+   case NAN_PAIRING_BOOTSTRAPPING_PASSPHRASE_DISPLAY_MASK:
+       return NAN_PAIRING_BOOTSTRAPPING_PASSPHRASE_KEYPAD_MASK;
+   case NAN_PAIRING_BOOTSTRAPPING_QR_DISPLAY_MASK:
+       return NAN_PAIRING_BOOTSTRAPPING_QR_SCAN_MASK;
+   case NAN_PAIRING_BOOTSTRAPPING_NFC_TAG_MASK:
+       return NAN_PAIRING_BOOTSTRAPPING_NFC_READER_MASK;
+   case NAN_PAIRING_BOOTSTRAPPING_PIN_CODE_KEYPAD_MASK:
+       return NAN_PAIRING_BOOTSTRAPPING_PIN_CODE_DISPLAY_MASK;
+   case NAN_PAIRING_BOOTSTRAPPING_PASSPHRASE_KEYPAD_MASK:
+       return NAN_PAIRING_BOOTSTRAPPING_PASSPHRASE_DISPLAY_MASK;
+   case NAN_PAIRING_BOOTSTRAPPING_QR_SCAN_MASK:
+       return NAN_PAIRING_BOOTSTRAPPING_QR_DISPLAY_MASK;
+   case NAN_PAIRING_BOOTSTRAPPING_NFC_READER_MASK:
+       return NAN_PAIRING_BOOTSTRAPPING_NFC_TAG_MASK;
+   case NAN_PAIRING_BOOTSTRAPPING_SERVICE_MANAGED_MASK:
+       return NAN_PAIRING_BOOTSTRAPPING_SERVICE_MANAGED_MASK;
+   case NAN_PAIRING_BOOTSTRAPPING_HANDSHAKE_SHIP_MASK:
+       return NAN_PAIRING_BOOTSTRAPPING_HANDSHAKE_SHIP_MASK;
+   default:
+       ALOGE("Invalid Bootstrap method = %d", method);
+   }
+   return 0;
 }
 
 wifi_error NanCommand::putNanBootstrappingIndicationRsp(transaction_id id,
@@ -1945,13 +1978,11 @@ wifi_error NanCommand::putNanBootstrappingIndicationRsp(transaction_id id,
     memset(pNanFWBootstrappingParams, 0, sizeof(NanFWBootstrappingParams));
     pNanFWBootstrappingParams->type = NAN_BS_TYPE_RESPONSE;
     pNanFWBootstrappingParams->status = pRsp->rsp_code;
-    pNanFWBootstrappingParams->dialog_token = 0;
-    if (entry)
+    if (entry) {
+        pNanFWBootstrappingParams->dialog_token = entry->dialog_token;
         pNanFWBootstrappingParams->bootstrapping_method_bitmap =
-                                               entry->peer_supported_bootstrap;
-    else
-        pNanFWBootstrappingParams->bootstrapping_method_bitmap =
-                                         info->secure_nan->supported_bootstrap;
+                get_matching_bootstrap_method(entry->peer_supported_bootstrap);
+    }
 
     pNanFWBootstrappingParams->comeback_after = (u16)pRsp->come_back_delay;
 
