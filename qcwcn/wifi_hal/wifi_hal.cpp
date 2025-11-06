@@ -1361,11 +1361,6 @@ wifi_error wifi_initialize(wifi_handle *handle)
             ALOGE("Failed to add mcast group host_logs :%d", status);
             goto cld80211_cleanup;
         }
-        status = cld80211_add_mcast_group(info->cldctx, "fw_logs");
-        if (status) {
-            ALOGE("Failed to add mcast group fw_logs :%d", status);
-            goto cld80211_cleanup;
-        }
         status = cld80211_add_mcast_group(info->cldctx, "per_pkt_stats");
         if (status) {
             ALOGE("Failed to add mcast group per_pkt_stats :%d", status);
@@ -1573,7 +1568,14 @@ wifi_error wifi_initialize(wifi_handle *handle)
         info->sar_version = QCA_WLAN_VENDOR_SAR_VERSION_1;
         ret = WIFI_SUCCESS;
     }
-
+    if (info->cldctx != NULL) {
+        status = cld80211_add_mcast_group(info->cldctx, "fw_logs");
+        if (status) {
+            ALOGE("Failed to add mcast group fw_logs :%d", status);
+            goto cld80211_cleanup;
+        }
+    }
+    ALOGI("ret %d  status %d", ret, status);
 cld80211_cleanup:
     if (status != 0 || ret != WIFI_SUCCESS) {
         ret = WIFI_ERROR_UNKNOWN;
