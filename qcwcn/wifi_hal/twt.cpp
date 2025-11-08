@@ -250,7 +250,7 @@ int TwtCommand::handleResponse(WifiEvent &reply)
                 ALOGE("max wake interval attribute is not present");
             }
 
-            ALOGV("TWT caps: %s%s%s%s SP:[min:%d max:%d] SI:[min:%d max:%d]",
+            ALOGV("TWT caps: %s%s%s%s SP:[min:%d max:%d] SI:[min:%llu max:%llu]",
                   mTWTCapabilities->is_twt_requester_supported ? "[Requestor]" : "",
                   mTWTCapabilities->is_twt_responder_supported ? "[Responder]" : "",
                   mTWTCapabilities->is_broadcast_twt_supported ? "[Broadcast]" : "",
@@ -909,7 +909,7 @@ int TwtCommand::handleEvent(WifiEvent &event)
         {
             wifi_twt_session twt_session;
             wifi_twt_error_code error_code;
-            u32 exp, mantissa;
+            u32 exp = 1, mantissa;
 
             if (!tb_vendor[QCA_WLAN_VENDOR_ATTR_CONFIG_TWT_PARAMS]) {
                 ALOGE("TWT session setup nested attributes is null");
@@ -962,8 +962,15 @@ int TwtCommand::handleEvent(WifiEvent &event)
                 ALOGE("TWT_SETUP_WAKE_DURATION is missing");
 
             attr_id = QCA_WLAN_VENDOR_ATTR_TWT_SETUP_WAKE_INTVL_EXP;
-            if (tb2[attr_id])
-                exp = pow(2, get_u8(tb2[attr_id]));
+            if (!tb2[attr_id]) {
+                ALOGE("TWT_SETUP_WAKE_INTVL_EXP attribute is missing");
+                if (mHandler.on_twt_failure)
+                    (*mHandler.on_twt_failure)(mRequestId, WIFI_TWT_ERROR_CODE_INVALID_PARAMS);
+                else
+                    ALOGE("TWT: Failure Callback is not registered");
+                return NL_SKIP;
+            }
+            exp = pow(2, get_u8(tb2[attr_id]));
 
             attr_id = QCA_WLAN_VENDOR_ATTR_TWT_SETUP_WAKE_INTVL2_MANTISSA;
             if (!tb2[attr_id]) {
@@ -1030,7 +1037,7 @@ int TwtCommand::handleEvent(WifiEvent &event)
             else
                 ALOGE("TWT: No Callback registered:");
 
-            ALOGV("TWT Response: session_id:%d, SP:%ld, SI:%ld %s%s%s%s%s%s%s%s",
+            ALOGV("TWT Response: session_id:%d, SP:%llu, SI:%u %s%s%s%s%s%s%s%s",
                   twt_session.session_id,
                   twt_session.wake_interval_micros,
                   twt_session.wake_duration_micros,
