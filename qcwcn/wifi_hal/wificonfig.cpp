@@ -762,6 +762,8 @@ wifi_error wifi_select_SARv_tx_power_scenario(wifi_interface_handle handle,
     wifi_handle wifiHandle = getWifiHandle(handle);
     hal_info *info = getHalInfo(wifiHandle);
     u32 power_lim_idx = 0;
+    qca_wlan_vendor_sar_version sar_version = QCA_WLAN_VENDOR_SAR_VERSION_2;
+
     if (info == NULL) {
         ALOGE("%s: Error hal_info NULL", __FUNCTION__);
         return WIFI_ERROR_UNKNOWN;
@@ -799,9 +801,14 @@ wifi_error wifi_select_SARv_tx_power_scenario(wifi_interface_handle handle,
         goto cleanup;
     }
 
+    if(info->sar_version == QCA_WLAN_VENDOR_SAR_VERSION_5 &&
+       check_feature(QCA_WLAN_VENDOR_FEATURE_SUPPORT_USER_SCENARIO_TO_DSI_MAPPING,
+        &info->driver_supported_features))
+	sar_version = QCA_WLAN_VENDOR_SAR_VERSION_5;
+
     if (wifiConfigCommand->put_u32(
                   QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SAR_ENABLE,
-                  (info->sar_version == QCA_WLAN_VENDOR_SAR_VERSION_5)
+                  (sar_version == QCA_WLAN_VENDOR_SAR_VERSION_5)
                        ? QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SELECT_V5_0
                        : QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SELECT_V2_0)) {
         ret = WIFI_ERROR_UNKNOWN;
@@ -817,15 +824,12 @@ wifi_error wifi_select_SARv_tx_power_scenario(wifi_interface_handle handle,
         goto cleanup;
     }
 
-    if(info->sar_version != QCA_WLAN_VENDOR_SAR_VERSION_5)
+    power_lim_idx = get_power_lim_idx(scenario);
+    if(power_lim_idx < 0)
     {
-        power_lim_idx = get_power_lim_idx(scenario);
-        if(power_lim_idx < 0)
-        {
-            ALOGE("wifi_select_tx_power_scenario: invalid scenario %d", scenario);
-            ret = WIFI_ERROR_INVALID_ARGS;
-            goto cleanup;
-        }
+        ALOGE("wifi_select_tx_power_scenario: invalid scenario %d", scenario);
+        ret = WIFI_ERROR_INVALID_ARGS;
+        goto cleanup;
     }
 
     nlSpecList = wifiConfigCommand->attr_start(QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SPEC);
@@ -850,8 +854,18 @@ wifi_error wifi_select_SARv_tx_power_scenario(wifi_interface_handle handle,
             ret = WIFI_ERROR_UNKNOWN;
             goto cleanup;
         }
-        if(info->sar_version != QCA_WLAN_VENDOR_SAR_VERSION_5)
-        {
+
+        if(sar_version == QCA_WLAN_VENDOR_SAR_VERSION_5)
+	{
+            ALOGV("%s: Using SAR Version %u logic. filling user scenario.", __FUNCTION__,(u32)info->sar_version);
+            ret = wifiConfigCommand->put_u32(
+                           QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SPEC_USER_SCENARIO,
+                           scenario);
+            if(ret !=WIFI_SUCCESS) {
+                 ALOGE("wifi_select_SARv05_tx_power_scenario: put user scenario failed. Error:%d", ret);
+                 goto cleanup;
+            }
+        } else {
             ALOGV("%s: Using SAR Version %u logic. filling power index.", __FUNCTION__,(u32)info->sar_version);
             if(wifiConfigCommand->put_u32(
                      QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SPEC_POWER_LIMIT_INDEX,
@@ -860,24 +874,6 @@ wifi_error wifi_select_SARv_tx_power_scenario(wifi_interface_handle handle,
                  ALOGE("Failed to put: QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SPEC_POWER_LIMIT_INDEX");
                  ret = WIFI_ERROR_UNKNOWN;
                  goto cleanup;
-            }
-        }
-        else
-        {
-            ALOGV("%s: Using SAR Version %u logic. filling user scenario.", __FUNCTION__,(u32)info->sar_version);
-            if(check_feature(QCA_WLAN_VENDOR_FEATURE_SUPPORT_USER_SCENARIO_TO_DSI_MAPPING,
-                         &info->driver_supported_features)) {
-                   ret = wifiConfigCommand->put_u32(
-                               QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SPEC_USER_SCENARIO,
-                               scenario);
-                   if(ret !=WIFI_SUCCESS) {
-                         ALOGE("wifi_select_SARv05_tx_power_scenario: put user scenario failed. Error:%d", ret);
-                         goto cleanup;
-                   }
-            } else {
-                   ALOGE("wifi_select_SARv05_tx_power_scenario: DSI mapping feature not supported");
-                   ret = WIFI_ERROR_NOT_SUPPORTED;
-                   goto cleanup;
             }
         }
 
