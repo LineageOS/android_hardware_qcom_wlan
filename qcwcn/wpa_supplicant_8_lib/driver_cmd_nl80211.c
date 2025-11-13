@@ -100,6 +100,7 @@
 #define TWT_CLEAR_STATS_STR  "twt_session_clear_stats "
 #define TWT_GET_CAP_STR      "twt_get_capability"
 #define TWT_SET_PARAM_STR    "twt_set_param "
+#define TWT_EARLY_TERMINATION_IND_STR    "twt_session_early_end_ind "
 
 #define TWT_SETUP_STRLEN         strlen(TWT_SETUP_STR)
 #define TWT_TERMINATE_STR_LEN    strlen(TWT_TERMINATE_STR)
@@ -111,6 +112,7 @@
 #define TWT_CLEAR_STATS_STR_LEN  strlen(TWT_CLEAR_STATS_STR)
 #define TWT_GET_CAP_STR_LEN      strlen(TWT_GET_CAP_STR)
 #define TWT_SET_PARAM_STR_LEN    strlen(TWT_SET_PARAM_STR)
+#define TWT_EARLY_TERMINATION_IND_STR_LEN strlen(TWT_EARLY_TERMINATION_IND_STR)
 
 #define TWT_CMD_NOT_EXIST -EINVAL
 #define DEFAULT_IFNAME "wlan0"
@@ -2796,6 +2798,9 @@ static int check_for_twt_cmd(char *cmd)
 	} else if (os_strncasecmp(cmd, TWT_SET_PARAM_STR,
 				  TWT_SET_PARAM_STR_LEN) == 0) {
 		return QCA_WLAN_TWT_SET_PARAM;
+	} else if (os_strncasecmp(cmd, TWT_EARLY_TERMINATION_IND_STR,
+				  TWT_EARLY_TERMINATION_IND_STR_LEN) == 0) {
+		return QCA_WLAN_TWT_EARLY_TERMINATION_IND;
 	} else {
 		return TWT_CMD_NOT_EXIST;
 	}
@@ -3918,6 +3923,68 @@ fail:
 	return -EINVAL;
 }
 
+static int prepare_twt_early_terminate_params(struct nl_msg *nlmsg, char *cmd)
+{
+	u8 dialog_id;
+	struct nlattr *twt_attr;
+	int ret = 0;
+	uint8_t peer_mac[MAC_ADDR_LEN];
+
+	if (check_cmd_input(cmd))
+		return -EINVAL;
+
+	cmd = skip_white_space(cmd);
+
+	if (nla_put_u8(nlmsg, QCA_WLAN_VENDOR_ATTR_CONFIG_TWT_OPERATION,
+		       QCA_WLAN_TWT_EARLY_TERMINATION_IND)) {
+		wpa_printf(MSG_ERROR, "TWT: Failed to put QCA_WLAN_TWT_EARLY_TERMINATION_IND");
+		goto fail;
+	}
+
+	twt_attr = nla_nest_start(nlmsg,
+				  QCA_WLAN_VENDOR_ATTR_CONFIG_TWT_PARAMS);
+	if (twt_attr == NULL)
+		goto fail;
+
+	if (os_strncasecmp(cmd, DIALOG_ID_STR, DIALOG_ID_STR_LEN) == 0) {
+		cmd = move_to_next_str(cmd);
+		dialog_id = get_u8_from_string(cmd, &ret);
+		if (ret < 0)
+			goto fail;
+		if (nla_put_u8(nlmsg, QCA_WLAN_VENDOR_ATTR_TWT_EARLY_TERM_FLOW_ID,
+			       dialog_id)) {
+			wpa_printf(MSG_DEBUG, "TWT: Failed to put dialog_id");
+			goto fail;
+		}
+		cmd = move_to_next_str(cmd);
+		if (os_strncasecmp(cmd, MAC_ADDRESS_STR, strlen(MAC_ADDRESS_STR)) == 0) {
+			cmd = move_to_next_str(cmd);
+			if (convert_string_to_bytes(peer_mac, cmd, MAC_ADDR_LEN) !=
+						    MAC_ADDR_LEN) {
+				wpa_printf(MSG_ERROR, "TWT: invalid mac addr");
+				goto fail;
+			}
+			if (nla_put(nlmsg, QCA_WLAN_VENDOR_ATTR_TWT_EARLY_TERM_PEER_MAC_ADDR,
+				    MAC_ADDR_LEN, peer_mac)) {
+				wpa_printf(MSG_ERROR,
+					   "TWT: Failed to put mac address");
+				goto fail;
+			}
+		}
+	} else {
+		wpa_printf(MSG_ERROR, "TWT: no dialog_id found");
+		goto fail;
+	}
+
+	nla_nest_end(nlmsg, twt_attr);
+	wpa_printf(MSG_DEBUG, "TWT: early terminate sent with dialog_id: %x",
+		   dialog_id);
+
+	return 0;
+fail:
+	return -EINVAL;
+}
+
 static int pack_nlmsg_twt_params(struct nl_msg *twt_nl_msg, char *cmd,
 				 enum qca_wlan_twt_operation type)
 {
@@ -3982,6 +4049,9 @@ static int pack_nlmsg_twt_params(struct nl_msg *twt_nl_msg, char *cmd,
 		break;
 	case QCA_WLAN_TWT_GET:
 		ret = prepare_twt_get_params_nlmsg(twt_nl_msg, cmd);
+		break;
+	case QCA_WLAN_TWT_EARLY_TERMINATION_IND:
+		ret = prepare_twt_early_terminate_params(twt_nl_msg, cmd);
 		break;
 	default:
 		wpa_printf(MSG_DEBUG, "Unsupported command: %d", type);
@@ -5022,6 +5092,7 @@ static int wpa_driver_twt_cmd_handler(struct wpa_driver_nl80211_data *drv,
 	case QCA_WLAN_TWT_RESUME:
 	case QCA_WLAN_TWT_NUDGE:
 	case QCA_WLAN_TWT_SET_PARAM:
+	case QCA_WLAN_TWT_EARLY_TERMINATION_IND:
 		if (check_wifi_twt_async_feature(drv, ifname) == 0) {
 			wpa_printf(MSG_ERROR, "Asynchronous TWT Feature is missing");
 			ret = -EINVAL;
