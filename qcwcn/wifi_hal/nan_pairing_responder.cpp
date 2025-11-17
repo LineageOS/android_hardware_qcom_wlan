@@ -464,7 +464,7 @@ int nan_pairing_handle_pasn_auth(wifi_handle handle, const u8 *data, size_t len)
             ALOGE("PASN Responder: Handle PASN Auth3 failed ");
             return WIFI_ERROR_UNKNOWN;
         }
-        if (!(entry->dcea_cap_info & DCEA_NPK_CACHING_ENABLED)) {
+        if (entry->is_paired || !(entry->dcea_cap_info & DCEA_NPK_CACHING_ENABLED)) {
         // Send Pairing Confirmation as Followup with Peer NIK is not mandatory
             NanPairingConfirmInd evt;
             evt.pairing_instance_id = entry->pairing_instance_id;
