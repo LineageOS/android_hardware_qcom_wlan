@@ -12,6 +12,7 @@
 #include <netlink/genl/ctrl.h>
 #include <netlink/object-api.h>
 #include <linux/pkt_sched.h>
+#include <sys/ioctl.h>
 #include <net/if.h>
 
 #define MGMT_FRAME_RX_TX BIT(0)
