@@ -204,6 +204,10 @@ wifi_error NanCommand::putNanEnable(transaction_id id, const NanEnableRequest *p
         (
           pReq->config_unsync_srvdsc? (SIZEOF_TLV_HDR + \
           sizeof(pReq->enable_unsync_srvdsc)) : 0 \
+        ) + \
+        (
+           pReq->config_enable_instant_mode ? (SIZEOF_TLV_HDR + \
+           sizeof(u32)) : 0 \
         );
 
     if (followup_mgmt_rx_enable)
@@ -401,6 +405,18 @@ wifi_error NanCommand::putNanEnable(transaction_id id, const NanEnableRequest *p
     if (pReq->config_dw_early_termination) {
         tlvs = addTlv(NAN_TLV_TYPE_DW_EARLY_TERMINATION, sizeof(u32),
                       (const u8*)&pReq->enable_dw_termination, tlvs);
+    }
+    if (pReq->config_enable_instant_mode) {
+        u32 nan_instant_mode = 0;
+
+        if (pReq->enable_instant_mode)
+            nan_instant_mode |= BIT_0;
+
+        if (pReq->config_instant_mode_channel)
+            nan_instant_mode |= (pReq->instant_mode_channel << 16);
+
+        tlvs = addTlv(NAN_TLV_TYPE_IC_MODE_ENABLE_BAND, sizeof(u32),
+                      (const u8*)&nan_instant_mode, tlvs);
     }
     if (pReq->config_unsync_srvdsc) {
         ALOGV("%s: enable unsync dsc:%d",__func__, pReq->enable_unsync_srvdsc);
@@ -603,6 +619,10 @@ wifi_error NanCommand::putNanConfig(transaction_id id, const NanConfigRequest *p
         (
            pReq->config_dw_early_termination ? (SIZEOF_TLV_HDR + \
            sizeof(u32)) : 0 \
+        ) + \
+        (
+           pReq->config_enable_instant_mode ? (SIZEOF_TLV_HDR + \
+           sizeof(u32)) : 0 \
         );
 
     if (pReq->num_config_discovery_attr) {
@@ -761,6 +781,19 @@ wifi_error NanCommand::putNanConfig(transaction_id id, const NanConfigRequest *p
     if (pReq->config_dw_early_termination) {
         tlvs = addTlv(NAN_TLV_TYPE_DW_EARLY_TERMINATION, sizeof(u32),
                       (const u8*)&pReq->enable_dw_termination, tlvs);
+    }
+
+    if (pReq->config_enable_instant_mode) {
+        u32 nan_instant_mode = 0;
+
+        if (pReq->enable_instant_mode)
+            nan_instant_mode |= BIT_0;
+
+        if (pReq->config_instant_mode_channel)
+            nan_instant_mode |= (pReq->instant_mode_channel << 16);
+
+        tlvs = addTlv(NAN_TLV_TYPE_IC_MODE_ENABLE_BAND, sizeof(u32),
+                      (const u8*)&nan_instant_mode, tlvs);
     }
 
     mVendorData = (char*)pFwReq;
