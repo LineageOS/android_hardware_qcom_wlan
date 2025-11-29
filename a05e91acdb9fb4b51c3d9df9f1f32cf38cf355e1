@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "9e545ac5_44c15065",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 2
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 35850
+      },
+      "writtenOn": "2025-11-29T11:20:45Z",
+      "side": 1,
+      "message": "Should be moved to a lineage-23.1-caf branch.",
+      "revId": "a05e91acdb9fb4b51c3d9df9f1f32cf38cf355e1",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    }
+  ]
+}
