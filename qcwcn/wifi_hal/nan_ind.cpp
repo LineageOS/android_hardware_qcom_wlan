@@ -1883,6 +1883,17 @@ int NanCommand::getNanRangeReportInd(NanRangeReportInd *event)
     return WIFI_SUCCESS;
 }
 
+
+static u64 get_time_boot_usec()
+{
+    u64 current_time_usec = 0;
+    struct timespec tp = {};
+    clock_gettime(CLOCK_BOOTTIME, &tp);
+    current_time_usec = (u64)tp.tv_sec * 1000000 + (tp.tv_nsec / 1000);
+
+    return current_time_usec;
+}
+
 /*
  * Function: getNanContinuousRangingResult
  * Populates periodic ranging result from FW
@@ -1975,11 +1986,12 @@ int NanCommand::getNanContinuousRangingResult()
                 result[index]->success_number = rangeResult.num_successful_measurements;
                 result[index]->number_per_burst_peer = rangeResult.number_per_burst_peer;
                 result[index]->burst_duration = (int)rangeResult.burst_duration_ms;
+                // avg rssi in steps of 0.5dB and positive
                 result[index]->rssi =
-                   (wifi_rssi) ((rangeResult.avg_rssi + NOISE_FLOOR) * 2);
+                   (wifi_rssi) ((rangeResult.avg_rssi + NOISE_FLOOR) * -2);
                 result[index]->distance_mm = (int)rangeResult.distance_mm;
                 result[index]->distance_sd_mm = (int)rangeResult.distance_stdev_mm;
-                result[index]->ts = static_cast<wifi_timestamp>(rangeResult.meas_start_time);
+                result[index]->ts = get_time_boot_usec();
                 result[index]->type = RTT_TYPE_2_SIDED_11MC;
                 ALOGV("Mac Address: " MAC_ADDR_STR "\n"
                       "timestamp:%" PRIu64 "\n"
@@ -1988,7 +2000,7 @@ int NanCommand::getNanContinuousRangingResult()
                       "number_per_burst_peer:%u\n"
                       "burst_duration:%d\n"
                       "distance_mm:%d\n"
-                      "distance_sd_mm:%d rssi\n",
+                      "distance_sd_mm:%d rssi %d\n",
                       MAC_ADDR_ARRAY(result[index]->addr),
                       result[index]->ts,
                       result[index]->measurement_number,
