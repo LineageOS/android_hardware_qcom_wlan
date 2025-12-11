@@ -845,7 +845,7 @@ int NanCommand::handleNanSharedKeyDescIndication()
                pasn_get_pmk_len(pasn));
         evt.npk_security_association.npk.pmk_len = pasn_get_pmk_len(pasn);
     } else {
-        ALOGE("%s: Invalid pmk len: %d", __FUNCTION__, pasn_get_pmk_len(pasn));
+        ALOGE("%s: Invalid pmk len: %zu", __FUNCTION__, pasn_get_pmk_len(pasn));
     }
     wpa_pasn_reset(pasn);
     handleNanPairingConfirm(&evt);
