@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "12abcc71_e81dff27",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 2
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 20370
+      },
+      "writtenOn": "2025-12-11T16:45:29Z",
+      "side": 1,
+      "message": "Fixed build errors still occuring with PS1 applied:\n```\nhardware/qcom-caf/wlan/qcwcn/wifi_hal/twt.cpp:260:19: error: format specifies type \u0027long\u0027 but the argument has type \u0027u64\n\u0027 (aka \u0027unsigned long long\u0027) [-Werror,-Wformat]\n  253 |             ALOGV(\"TWT caps: %s%s%s%s SP:[min:%d max:%d] SI:[min:%ld max:%ld]\",\n      |                                                                  ~~~\n      |                                                                  %llu\n\nhardware/qcom-caf/wlan/qcwcn/wifi_hal/twt.cpp:261:19: error: format specifies type \u0027long\u0027 but the argument has type \u0027u64\n\u0027 (aka \u0027unsigned long long\u0027) [-Werror,-Wformat]\n  253 |             ALOGV(\"TWT caps: %s%s%s%s SP:[min:%d max:%d] SI:[min:%ld max:%ld]\",\n      |                                                                          ~~~\n      |                                                                          %llu\n\nhardware/qcom-caf/wlan/qcwcn/wifi_hal/twt.cpp:1042:19: error: format specifies type \u0027unsigned long\u0027 but the argument has\n type \u0027u64\u0027 (aka \u0027unsigned long long\u0027) [-Werror,-Wformat]\n 1040 |             ALOGV(\"TWT Response: session_id:%d, SP:%lu, SI:%u %s%s%s%s%s%s%s%s\",\n      |                                                    ~~~\n      |                                                    %llu\n\n```",
+      "revId": "c4b159db011304569348b26bfdd7802ee36db350",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    }
+  ]
+}
