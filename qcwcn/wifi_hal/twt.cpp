@@ -257,8 +257,8 @@ int TwtCommand::handleResponse(WifiEvent &reply)
                   mTWTCapabilities->is_flexible_twt_supported ? "[Flexible]" : "",
                   mTWTCapabilities->min_wake_duration_micros,
                   mTWTCapabilities->max_wake_duration_micros,
-                  mTWTCapabilities->min_wake_interval_micros,
-                  mTWTCapabilities->max_wake_interval_micros);
+                  (unsigned long long)mTWTCapabilities->min_wake_interval_micros,
+                  (unsigned long long)mTWTCapabilities->max_wake_interval_micros);
             break;
         case QCA_WLAN_TWT_GET_STATS:
             struct nlattr *tb1[QCA_WLAN_VENDOR_ATTR_CONFIG_TWT_MAX + 1];
@@ -1039,7 +1039,7 @@ int TwtCommand::handleEvent(WifiEvent &event)
 
             ALOGV("TWT Response: session_id:%d, SP:%llu, SI:%u %s%s%s%s%s%s%s%s",
                   twt_session.session_id,
-                  twt_session.wake_interval_micros,
+                  (unsigned long long)twt_session.wake_interval_micros,
                   twt_session.wake_duration_micros,
                   twt_session.negotiation_type ? "[Broadcast]" : "[Individual]",
                   twt_session.is_trigger_enabled ? "[Trigger]" : "",
