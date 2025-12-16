@@ -874,6 +874,23 @@ int NanCommand::handleNanResponse()
         handleNanBootstrappingConfirm(&bootstrapConfirmInd);
     }
 
+    if ((rsp_data.response_type == NAN_SUSPEND_REQUEST_RESPONSE ||
+         rsp_data.response_type == NAN_RESUME_REQUEST_RESPONSE) &&
+        rsp_data.status == NAN_STATUS_SUCCESS) {
+
+        NanSuspensionModeChangeInd suspensionModeChangeInd;
+        memset(&suspensionModeChangeInd, 0, sizeof(NanSuspensionModeChangeInd));
+
+        if (rsp_data.response_type == NAN_SUSPEND_REQUEST_RESPONSE)
+            suspensionModeChangeInd.is_suspended = true;
+        else
+            suspensionModeChangeInd.is_suspended = false;
+
+        if (mHandler.EventSuspensionModeChange)
+            (*mHandler.EventSuspensionModeChange)(&suspensionModeChangeInd);
+    }
+
+
     return ret;
 }
 
