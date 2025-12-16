@@ -82,6 +82,7 @@ int NanCommand::isNanResponse()
     case NAN_MSG_ID_GROUP_KEY_INSTALL_RSP:
     case NAN_MSG_ID_GET_TX_PN_RSP:
     case NAN_MSG_ID_TESTMODE_RSP:
+    case NAN_MSG_ID_SUSPEND_RSP:
         return 1;
     default:
         return 0;
@@ -751,15 +752,18 @@ int NanCommand::getNanResponse(transaction_id *id, NanResponseMsg *pRsp)
                        pFwRsp->numRxChainsSupported;
             pRsp->body.nan_capabilities.is_instant_mode_supported = \
                        pFwRsp->nan_instant_mode_supported;
+            pRsp->body.nan_capabilities.is_suspension_supported = \
+                       pFwRsp->nan_suspension_supported;
 
             ALOGI("Nan Capabilities: 6g supported: %s, HE supported: %s\n"
                   "supported bw: %d, num_rx_chains_supported: %d\n"
-                  "Instant mode supported: %s",
+                  "Instant mode supported: %s suspension supported: %s",
                   pRsp->body.nan_capabilities.is_6g_supported ? "yes" : "no",
                   pRsp->body.nan_capabilities.is_he_supported ? "yes" : "no",
                   pRsp->body.nan_capabilities.supported_bw,
                   pRsp->body.nan_capabilities.num_rx_chains_supported,
-                  pRsp->body.nan_capabilities.is_instant_mode_supported ? "yes" : "no");
+                  pRsp->body.nan_capabilities.is_instant_mode_supported ? "yes" : "no",
+                  pRsp->body.nan_capabilities.is_suspension_supported ? "yes" : "no");
 
             break;
         }
@@ -773,6 +777,15 @@ int NanCommand::getNanResponse(transaction_id *id, NanResponseMsg *pRsp)
                 nan_handle_pn_response(wifiHandle(), *id, pFwRsp->key_rsc);
             /* return -1 for internal message */
             return -1;
+        }
+        case NAN_MSG_ID_SUSPEND_RSP:
+        {
+            pNanSuspendResumeRspMsg pFwRsp = \
+                (pNanSuspendResumeRspMsg)mNanVendorEvent;
+            *id = (transaction_id)pFwRsp->fwHeader.transactionId;
+            NanErrorTranslation((NanInternalStatusType)pFwRsp->status, 0, pRsp, false);
+            pRsp->response_type = NAN_SUSPEND_REQUEST_RESPONSE;
+            break;
         }
         default:
             return  -1;

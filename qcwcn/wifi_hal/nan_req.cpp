@@ -2793,6 +2793,58 @@ wifi_error NanCommand::putNanCapabilities(transaction_id id)
     return ret;
 }
 
+wifi_error NanCommand::putNanSuspend(transaction_id id,
+                                     const NanSuspendRequest *pReq)
+{
+    wifi_error ret;
+    struct nlattr *nl_data;
+
+    ALOGV("NAN_SUSPEND");
+    if (pReq == NULL) {
+        cleanup();
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+    size_t message_len = sizeof(NanSuspendResumeReqMsg);
+
+    pNanSuspendResumeReqMsg pFwReq =
+        (pNanSuspendResumeReqMsg)malloc(message_len);
+    if (pFwReq == NULL) {
+        cleanup();
+        return WIFI_ERROR_OUT_OF_MEMORY;
+    }
+
+    ALOGV("Message Len %zu", message_len);
+    memset(pFwReq, 0, message_len);
+    pFwReq->fwHeader.msgVersion = (u16)NAN_MSG_VERSION1;
+    pFwReq->fwHeader.msgId = NAN_MSG_ID_SUSPEND_REQ;
+    pFwReq->fwHeader.msgLen = message_len;
+    pFwReq->fwHeader.handle = (pReq->publish_subscribe_id & 0xFF);
+    pFwReq->fwHeader.transactionId = id;
+
+    mVendorData = (char *)pFwReq;
+    mDataLen = message_len;
+
+    ret = WIFI_SUCCESS;
+
+    nl_data = attr_start(NL80211_ATTR_VENDOR_DATA);
+    if (!nl_data) {
+        cleanup();
+        return WIFI_ERROR_OUT_OF_MEMORY;
+    }
+
+    ret = mMsg.put_bytes(QCA_WLAN_VENDOR_ATTR_NAN_CMD_DATA,
+                         mVendorData, mDataLen);
+    if (ret != WIFI_SUCCESS) {
+        ALOGE("%s: put_bytes Error:%d",__func__, ret);
+        cleanup();
+        return ret;
+    }
+    attr_end(nl_data);
+
+    hexdump(mVendorData, mDataLen);
+    return ret;
+}
+
 wifi_error NanCommand::putNanIdentityResolutionParams(transaction_id id,
                                                       NanNIRARequest *pReq)
 {
