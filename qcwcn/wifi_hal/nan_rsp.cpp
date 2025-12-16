@@ -83,6 +83,7 @@ int NanCommand::isNanResponse()
     case NAN_MSG_ID_GET_TX_PN_RSP:
     case NAN_MSG_ID_TESTMODE_RSP:
     case NAN_MSG_ID_SUSPEND_RSP:
+    case NAN_MSG_ID_RESUME_RSP:
         return 1;
     default:
         return 0;
@@ -787,6 +788,15 @@ int NanCommand::getNanResponse(transaction_id *id, NanResponseMsg *pRsp)
             pRsp->response_type = NAN_SUSPEND_REQUEST_RESPONSE;
             break;
         }
+        case NAN_MSG_ID_RESUME_RSP:
+        {
+            pNanSuspendResumeRspMsg pFwRsp = \
+                (pNanSuspendResumeRspMsg)mNanVendorEvent;
+            *id = (transaction_id)pFwRsp->fwHeader.transactionId;
+            NanErrorTranslation((NanInternalStatusType)pFwRsp->status, 0, pRsp, false);
+            pRsp->response_type = NAN_RESUME_REQUEST_RESPONSE;
+            break;
+         }
         default:
             return  -1;
     }

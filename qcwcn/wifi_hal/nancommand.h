@@ -247,6 +247,7 @@ public:
     wifi_error putNanBootstrappingIndicationRsp(transaction_id id,
                                 const NanBootstrappingIndicationResponse *pRsp);
     wifi_error putNanSuspend(transaction_id id, const NanSuspendRequest *pReq);
+    wifi_error putNanResume(transaction_id id, const NanResumeRequest *pReq);
     wifi_error putNanIdentityResolutionParams(transaction_id id,
                                               NanNIRARequest *pReq);
     wifi_error putNanSharedKeyDescriptorReq(transaction_id id,

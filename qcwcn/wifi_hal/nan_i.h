@@ -430,6 +430,8 @@ typedef enum
     NAN_MSG_ID_CONTINUOUS_RANGE_RESULT_IND  = 48,
     NAN_MSG_ID_SUSPEND_REQ                  = 49,
     NAN_MSG_ID_SUSPEND_RSP                  = 50,
+    NAN_MSG_ID_RESUME_REQ                   = 51,
+    NAN_MSG_ID_RESUME_RSP                   = 52,
     NAN_MSG_ID_TESTMODE_REQ                 = 1025,
     NAN_MSG_ID_TESTMODE_RSP                 = 1026
 } NanMsgId;
