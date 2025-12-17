@@ -280,6 +280,7 @@ wifi_error nan_pairing_request(transaction_id id,
     peer->trans_id = id;
     peer->trans_id_valid = true;
     peer->is_pairing_in_progress = true;
+    peer->cipher_type = msg->cipher_type;
     wifi_get_iface_name(iface, secure_nan->iface_name,
                         sizeof(secure_nan->iface_name));
 
