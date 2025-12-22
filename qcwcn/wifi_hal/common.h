@@ -317,6 +317,8 @@ wifi_error wifi_twt_session_suspend(wifi_request_id id,
 wifi_error wifi_twt_session_resume(wifi_request_id id,
                                    wifi_interface_handle iface,
                                    int session_id);
+wifi_error wifi_enable_sta_channel_for_peer_network(wifi_handle handle,
+                                                    uint32_t channelCategoryEnableFlag);
 // some common macros
 
 #define min(x, y)       ((x) < (y) ? (x) : (y))
