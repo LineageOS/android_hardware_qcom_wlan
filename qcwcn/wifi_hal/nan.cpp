@@ -669,9 +669,13 @@ wifi_error nan_bootstrapping_request(transaction_id id,
         goto cleanup;
     }
 
+    memset(&rsp_data, 0, sizeof(rsp_data));
+    rsp_data.response_type = NAN_BOOTSTRAPPING_INITIATOR_RESPONSE;
     entry = nan_pairing_get_peer_from_list(info->secure_nan, msg->peer_disc_mac_addr);
     if (entry && entry->is_pairing_in_progress) {
         ALOGV("%s: pairing in progress", __FUNCTION__);
+        rsp_data.status = NAN_STATUS_INTERNAL_FAILURE;
+        t_nanCommand->sendNanResponse(id, &rsp_data);
         goto cleanup;
     }
 
@@ -688,8 +692,6 @@ wifi_error nan_bootstrapping_request(transaction_id id,
     if (msg->request_bootstrapping_method)
         info->secure_nan->supported_bootstrap = msg->request_bootstrapping_method;
 
-    memset(&rsp_data, 0, sizeof(rsp_data));
-    rsp_data.response_type = NAN_BOOTSTRAPPING_INITIATOR_RESPONSE;
     rsp_data.status = NAN_STATUS_SUCCESS;
     rsp_data.body.bootstrapping_request_response.bootstrapping_instance_id =
                                              info->secure_nan->bootstrapping_id;

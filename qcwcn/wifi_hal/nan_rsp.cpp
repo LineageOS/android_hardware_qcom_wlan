@@ -1153,3 +1153,10 @@ int NanCommand::handleNdpResponse(NanResponseType ndpCmdType,
     }
     return WIFI_SUCCESS;
 }
+
+int NanCommand::sendNanResponse(transaction_id id, NanResponseMsg *rsp_data)
+{
+    if (mHandler.NotifyResponse)
+        (*mHandler.NotifyResponse)(id, rsp_data);
+    return 0;
+}

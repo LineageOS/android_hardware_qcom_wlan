@@ -285,6 +285,7 @@ public:
     transaction_id getTransactionId();
     void saveNanResponseMsg(transaction_id id, NanResponseMsg &msg);
     int getNanResponseMsg(transaction_id id, NanResponseMsg *msg);
+    int sendNanResponse(transaction_id id, NanResponseMsg *rsp_data);
     /* Functions for NAN Bootstrapping and Pairing */
     int handleNanBootstrappingReqInd(NanBootstrappingRequestInd  *evt);
     int handleNanBootstrappingConfirm(NanBootstrappingConfirmInd *evt);
