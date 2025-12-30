@@ -53,6 +53,7 @@ cc_library_static {
     srcs: [
         "driver_cmd_nl80211.c",
         "driver_cmd_nl80211_extn.c",
+        "driver_cmd_nl80211_oem_data.c",
         "driver_cmd_nl80211_sr.c",
         "driver_cmd_nl80211_mon.c",
         "driver_cmd_nl80211_mlo.c",

@@ -63,6 +63,7 @@ struct nl_msg *prepare_vendor_nlmsg(struct wpa_driver_nl80211_data *drv,
 
 int send_nlmsg(struct nl_sock *cmd_sock, struct nl_msg *nlmsg,
 	       nl_recvmsg_msg_cb_t customer_cb, void *arg);
+int wpa_driver_oem_data_cmd(struct i802_bss *bss, char *cmd, char *buf, size_t buf_len);
 
 char *result_copy_to_buf(char *src, char *dst_buf, int *dst_len);
 int wpa_driver_sr_cmd(struct i802_bss *bss, char *cmd, char *buf, size_t buf_len);

@@ -7206,6 +7206,10 @@ int wpa_driver_nl80211_driver_cmd(void *priv, char *cmd, char *buf,
 	} else if (os_strncasecmp(cmd, "SPATIAL_REUSE ", 14) == 0) {
 		cmd += 14;
 		return wpa_driver_sr_cmd(priv, cmd, buf, buf_len);
+	} else if (os_strncasecmp(cmd, "OEM_DATA ", 9) == 0) {
+		/* DRIVER OEM_DATA xxx */
+		cmd += 9;
+		return wpa_driver_oem_data_cmd(priv, cmd, buf, buf_len);
 	} else if (os_strncasecmp(cmd, "SET_ELNABYPASS_MODE ", 20) == 0) {
 		cmd += 20;
 		return wpa_driver_set_elnabypass_cmd(priv, cmd, buf, buf_len);
