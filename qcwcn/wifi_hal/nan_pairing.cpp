@@ -1492,7 +1492,7 @@ wifi_error nan_get_shared_key_descriptor(hal_info *info, const u8 *addr,
     pos += sizeof(struct nanKDE);
 
     nik_kde = (struct nikKDE *)pos;
-    nik_kde->cipher = NCS_SK_128;
+    nik_kde->cipher = 0;
     memcpy(nik_kde->nik_data, nik->nik_data, nik->nik_len);
     pos += sizeof(struct nikKDE) + nik->nik_len;
 
