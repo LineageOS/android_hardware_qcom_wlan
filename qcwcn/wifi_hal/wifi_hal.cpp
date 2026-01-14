@@ -1206,6 +1206,8 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn) {
     fn->wifi_twt_session_update = wifi_twt_session_update;
     fn->wifi_twt_session_suspend = wifi_twt_session_suspend;
     fn->wifi_twt_session_resume = wifi_twt_session_resume;
+    fn->wifi_enable_sta_channel_for_peer_network =
+                                wifi_enable_sta_channel_for_peer_network;
 
     return WIFI_SUCCESS;
 }
@@ -4363,6 +4365,85 @@ wifi_error wifi_enable_tx_power_limits(wifi_interface_handle iface,
     ret = vCommand->requestResponse();
     if (ret != WIFI_SUCCESS)
         ALOGE("%s: requestResponse Error:%d", __func__, ret);
+
+cleanup:
+    delete vCommand;
+    return ret;
+}
+
+
+wifi_error wifi_enable_sta_channel_for_peer_network(wifi_handle handle,
+                                                    uint32_t channelCategoryEnableFlag)
+{
+    wifi_error ret;
+    struct nlattr *nlData;
+    WifiVendorCommand *vCommand = NULL;
+    wifi_interface_handle iface = NULL;
+    hal_info *info;
+    uint8_t enable_indoor_scc = 0;
+
+    info = getHalInfo(handle);
+    if (!info) {
+        ALOGE("%s: hal_info is NULL", __func__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+
+    iface = wifi_get_iface_handle(handle, (char*)"wlan0");
+    if (!iface) {
+        ALOGE("%s: Failed to get primary interface handle (wlan0).", __func__);
+        return WIFI_ERROR_NOT_AVAILABLE;
+    }
+
+    if (!info->driver_supported_features.flags) {
+        ALOGE("%s: Driver features not initialized", __func__);
+        return WIFI_ERROR_NOT_AVAILABLE;
+    }
+
+    if (!check_feature(QCA_WLAN_VENDOR_FEATURE_SUPPORT_STA_INDOOR_CH_SCC,
+                       &info->driver_supported_features)) {
+        ALOGE("%s: STA Indoor Channel SCC is not supported by "
+              "the driver (feature flag not set).", __func__);
+        return WIFI_ERROR_NOT_SUPPORTED;
+    }
+
+    ret = initialize_vendor_cmd(iface, get_requestid(),
+                                QCA_NL80211_VENDOR_SUBCMD_SET_WIFI_CONFIGURATION,
+                                &vCommand);
+    if (ret != WIFI_SUCCESS) {
+        ALOGE("%s: Initialization of vendor command "
+              "failed with error: %d", __func__, ret);
+        return ret;
+    }
+
+    nlData = vCommand->attr_start(NL80211_ATTR_VENDOR_DATA);
+    if (!nlData) {
+        ALOGE("%s: Failed to start vendor data attribute.", __func__);
+        ret = WIFI_ERROR_UNKNOWN;
+        goto cleanup;
+    }
+
+    enable_indoor_scc = (channelCategoryEnableFlag != 0) ? 1 : 0;
+
+    ALOGV("%s: Attempting to set "
+          "QCA_WLAN_VENDOR_ATTR_CONFIG_ALLOW_STA_INDOOR_CH_SCC to %u",
+          __func__, enable_indoor_scc);
+
+    // Add the indoor channel SCC attribute with its u8 value.
+    ret = vCommand->put_u8(QCA_WLAN_VENDOR_ATTR_CONFIG_ALLOW_STA_INDOOR_CH_SCC,
+                           enable_indoor_scc);
+    if (ret != WIFI_SUCCESS) {
+        ALOGE("%s: Failed to put "
+              "QCA_WLAN_VENDOR_ATTR_CONFIG_ALLOW_STA_INDOOR_CH_SCC, error: %d",
+              __func__, ret);
+        goto cleanup;
+    }
+
+    vCommand->attr_end(nlData);
+
+    ret = vCommand->requestResponse();
+    if (ret != WIFI_SUCCESS) {
+        ALOGE("%s: requestResponse failed with error: %d", __func__, ret);
+    }
 
 cleanup:
     delete vCommand;

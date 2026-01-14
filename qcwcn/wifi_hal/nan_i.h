@@ -532,6 +532,7 @@ typedef enum
     NAN_TLV_TYPE_ENABLE_DEVICE_RANGING = 4138,
     NAN_TLV_TYPE_UNSYNC_DISCOVERY_ENABLED = 4139,
     NAN_TLV_TYPE_FOLLOWUP_MGMT_RX_ENABLED = 4140,
+    NAN_TLV_TYPE_IC_MODE_ENABLE_BAND = 4141,
 
     NAN_TLV_TYPE_CONFIG_LAST = 8191,
 
@@ -1560,7 +1561,9 @@ typedef struct PACKED
     u32 supportsPeriodicRanging:1;
     u32 maxSupportedBandWidth:16;
     u32 numRxChainsSupported:4;
-    u32 reserved:9;
+    u32 nan_suspension_supported:1;
+    u32 nan_instant_mode_supported:1;
+    u32 reserved:7;
 } NanCapabilitiesRspMsg, *pNanCapabilitiesRspMsg;
 
 /* NAN Self Transmit Followup */
@@ -1806,6 +1809,10 @@ typedef enum {
     NAN_I_STATUS_TX_FAIL = 24,
     NAN_I_STATUS_NAN_ALREADY_ENABLED = 25,
     NAN_I_STATUS_FOLLOWUP_QUEUE_FULL = 26,
+    NAN_I_STATUS_INVALID_5G_CHANNEL = 27,
+    NAN_I_STATUS_POLICY_MANAGER_NOT_SINGLE_MAC_MODE = 28,
+    NAN_I_STATUS_VDEV_NOT_CREATED = 29,
+    NAN_I_STATUS_IC_MODE_FAIL = 30,
     /* 27-4095 Reserved */
     /* NAN Configuration Response codes */
     NAN_I_STATUS_INVALID_RSSI_CLOSE_VALUE = 4096,

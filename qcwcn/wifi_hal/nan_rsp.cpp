@@ -336,6 +336,8 @@ struct errorCode errorCodeTranslation[] = {
      "NAN is Already enabled"},
     {NAN_STATUS_FOLLOWUP_QUEUE_FULL, NAN_I_STATUS_FOLLOWUP_QUEUE_FULL,
      "Follow-up queue full"},
+    {NAN_STATUS_INTERNAL_FAILURE, NAN_I_STATUS_IC_MODE_FAIL,
+     "Instant Mode failed"},
 
     {NAN_STATUS_UNSUPPORTED_CONCURRENCY_NAN_DISABLED, NDP_I_UNSUPPORTED_CONCURRENCY,
      "Unsupported Concurrency"},
@@ -747,13 +749,17 @@ int NanCommand::getNanResponse(transaction_id *id, NanResponseMsg *pRsp)
                        get_wifi_rtt_bw(pFwRsp->maxSupportedBandWidth);
             pRsp->body.nan_capabilities.num_rx_chains_supported = \
                        pFwRsp->numRxChainsSupported;
+            pRsp->body.nan_capabilities.is_instant_mode_supported = \
+                       pFwRsp->nan_instant_mode_supported;
 
             ALOGI("Nan Capabilities: 6g supported: %s, HE supported: %s\n"
-                  "supported bw: %d, num_rx_chains_supported: %d",
+                  "supported bw: %d, num_rx_chains_supported: %d\n"
+                  "Instant mode supported: %s",
                   pRsp->body.nan_capabilities.is_6g_supported ? "yes" : "no",
                   pRsp->body.nan_capabilities.is_he_supported ? "yes" : "no",
                   pRsp->body.nan_capabilities.supported_bw,
-                  pRsp->body.nan_capabilities.num_rx_chains_supported);
+                  pRsp->body.nan_capabilities.num_rx_chains_supported,
+                  pRsp->body.nan_capabilities.is_instant_mode_supported ? "yes" : "no");
 
             break;
         }
@@ -1152,4 +1158,11 @@ int NanCommand::handleNdpResponse(NanResponseType ndpCmdType,
         (*mHandler.NotifyResponse)(id, &rsp_data);
     }
     return WIFI_SUCCESS;
+}
+
+int NanCommand::sendNanResponse(transaction_id id, NanResponseMsg *rsp_data)
+{
+    if (mHandler.NotifyResponse)
+        (*mHandler.NotifyResponse)(id, rsp_data);
+    return 0;
 }
