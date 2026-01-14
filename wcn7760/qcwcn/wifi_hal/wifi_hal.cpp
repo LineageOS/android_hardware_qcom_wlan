@@ -1223,6 +1223,7 @@ static void cld80211lib_cleanup(hal_info *info)
     exit_cld80211_recv(info->cldctx);
     cld80211_deinit(info->cldctx);
     info->cldctx = NULL;
+    info->user_sock = NULL;
 }
 
 static int wifi_get_iface_id(hal_info *info, const char *iface)
@@ -1320,7 +1321,7 @@ wifi_error wifi_initialize(wifi_handle *handle)
 
     info->nl80211_family_id = genl_ctrl_resolve(cmd_sock, "nl80211");
     if (info->nl80211_family_id < 0) {
-        ALOGE("Could not resolve nl80211 family id");
+        ALOGE("Could not resolve nl80211 familty id");
         ret = WIFI_ERROR_UNKNOWN;
         goto unload;
     }
@@ -1339,7 +1340,7 @@ wifi_error wifi_initialize(wifi_handle *handle)
 
     wifi_create_ctrl_socket(info);
 
-    //! Initialise the monitoring clients list
+    //! Initailise the monitoring clients list
     INITIALISE_LIST(&info->monitor_sockets);
 
     info->cldctx = cld80211_init();
@@ -1358,11 +1359,6 @@ wifi_error wifi_initialize(wifi_handle *handle)
         status = cld80211_add_mcast_group(info->cldctx, "host_logs");
         if (status) {
             ALOGE("Failed to add mcast group host_logs :%d", status);
-            goto cld80211_cleanup;
-        }
-        status = cld80211_add_mcast_group(info->cldctx, "fw_logs");
-        if (status) {
-            ALOGE("Failed to add mcast group fw_logs :%d", status);
             goto cld80211_cleanup;
         }
         status = cld80211_add_mcast_group(info->cldctx, "per_pkt_stats");
@@ -1572,7 +1568,14 @@ wifi_error wifi_initialize(wifi_handle *handle)
         info->sar_version = QCA_WLAN_VENDOR_SAR_VERSION_1;
         ret = WIFI_SUCCESS;
     }
-
+    if (info->cldctx != NULL) {
+        status = cld80211_add_mcast_group(info->cldctx, "fw_logs");
+        if (status) {
+            ALOGE("Failed to add mcast group fw_logs :%d", status);
+            goto cld80211_cleanup;
+        }
+    }
+    ALOGI("ret %d  status %d", ret, status);
 cld80211_cleanup:
     if (status != 0 || ret != WIFI_SUCCESS) {
         ret = WIFI_ERROR_UNKNOWN;
@@ -2071,7 +2074,7 @@ static int register_monitor_sock(wifi_handle handle, wifihal_ctrl_req_t *ctrl_ms
     }
     else
     {
-       //! Not attached, so can't be dettached
+       //! Not attached, so cant be dettached
        ALOGE("%s: Dettaching the unregistered socket \n", __FUNCTION__);
        return -2;
     }
@@ -2457,7 +2460,7 @@ public:
 
     virtual int handleResponse(WifiEvent& reply) {
 
-        // ALOGI("handling response in %s", __func__);
+        // ALOGI("handling reponse in %s", __func__);
 
         struct nlattr **tb = reply.attributes();
         struct nlattr *mcgrp = NULL;
@@ -3110,7 +3113,7 @@ static wifi_error wifi_get_packet_filter_capabilities(
             /* Packet filtering is not supported currently, so return version
              * and length as 0
              */
-            ALOGI("Packet filtering is not supported");
+            ALOGI("Packet filtering is not supprted");
             *version = 0;
             *max_len = 0;
             ret = WIFI_SUCCESS;
@@ -3166,11 +3169,11 @@ cleanup:
 /**
  * Copy 'len' bytes of raw data from host memory at source address 'program'
  * to APF (Android Packet Filter) working memory starting at offset 'dst_offset'.
- * The size of the program length passed to the interpreter is set to
- * 'progaram_length'
+ * The size of the program lenght passed to the interpreter is set to
+ * 'progaram_lenght'
  *
- * The implementation is allowed to translate this write into a series of smaller
- * writes,but this function is not allowed to return until all write operations
+ * The implementation is allowed to tranlate this wrtie into a series of smaller
+ * writes,but this function is not allowed to return untill all write operations
  * have been completed
  * additionally visible memory not targeted by this function must remain
  * unchanged
@@ -3330,7 +3333,7 @@ cleanup:
  * pointed to by host_dst.
  * Memory can be text, data or some combination of the two. The implementiion is
  * allowed to translate this read into a series of smaller reads, but this
- * function is not allowed to return until all the reads operations
+ * function is not allowed to return untill all the reads operations
  * into host_dst have been completed.
  *
  * @param src_offset offset in bytes of destination memory within APF working
@@ -3358,7 +3361,7 @@ static wifi_error wifi_read_packet_filter(wifi_interface_handle handle,
     if (length == 0)
         return  WIFI_ERROR_INVALID_ARGS;
 
-    /*Temporary variables to support the read complete length in chunks */
+    /*Temporary varibles to support the read complete length in chunks */
     u8 *temp_host_dst;
     u32 remainingLengthToBeRead, currentLength;
     u8 apf_locally_disabled = 0;
@@ -3734,7 +3737,7 @@ public:
             wifi_iface_combination *iface_combination;
             wifi_iface_limit *iface_limits;
             int rem, i = 1;
-            // The initial value of 'i; is '1' for all concurrency.
+            // The initial value of 'i; is '1' for all concurency.
             // '0' position is for only single iface.
 
             matrix->num_iface_combinations = 0;

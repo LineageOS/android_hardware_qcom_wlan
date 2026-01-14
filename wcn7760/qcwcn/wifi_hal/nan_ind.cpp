@@ -56,6 +56,8 @@
 #include "nancommand.h"
 #include <inttypes.h>
 
+#define NOISE_FLOOR (-100)
+
 //Function which calls the necessaryIndication callback
 //based on the indication type
 int NanCommand::handleNanIndication()
@@ -670,7 +672,7 @@ int NanCommand::handleNanBootstrappingIndication()
                                          pRsp->followupIndParams.matchHandle;
            memcpy(bootstrapReqInd.peer_disc_mac_addr, mac, NAN_MAC_ADDR_LEN);
            bootstrapReqInd.request_bootstrapping_method =
-                                          params->bootstrapping_method_bitmap;
+             get_matching_bootstrap_method(params->bootstrapping_method_bitmap);
            handleNanBootstrappingReqInd(&bootstrapReqInd);
            entry = nan_pairing_add_peer_to_list(info->secure_nan, mac);
            if (entry) {
@@ -680,7 +682,8 @@ int NanCommand::handleNanBootstrappingIndication()
                                       bootstrapReqInd.bootstrapping_instance_id;
                entry->peer_role = SECURE_NAN_BOOTSTRAPPING_INITIATOR;
                entry->peer_supported_bootstrap =
-                                   bootstrapReqInd.request_bootstrapping_method;
+                                      params->bootstrapping_method_bitmap;
+               entry->dialog_token = params->dialog_token;
            }
        } else if (params->type == NAN_BS_TYPE_RESPONSE) {
            entry = nan_pairing_get_peer_from_list(info->secure_nan, mac);
@@ -688,6 +691,15 @@ int NanCommand::handleNanBootstrappingIndication()
                ALOGE("%s: peer not found: ADDR=" MACSTR, __FUNCTION__, MAC2STR(mac));
                return WIFI_ERROR_UNKNOWN;
            }
+
+           if (entry->dialog_token != params->dialog_token) {
+               ALOGE("Dialog token not matching. Req token: %d, Rsp token: %d",
+                      entry->dialog_token, params->dialog_token);
+#ifdef CONFIG_NAN_STRICT_MODE
+               return WIFI_ERROR_UNKNOWN;
+#endif /* CONFIG_NAN_STRICT_MODE */
+           }
+
            NanBootstrappingConfirmInd *bootstrapConfirmInd =
              (NanBootstrappingConfirmInd *)malloc(sizeof(NanBootstrappingConfirmInd)
                                                   + cookie_length);
@@ -822,13 +834,17 @@ int NanCommand::handleNanSharedKeyDescIndication()
     }
 
     pasn = entry->pasn;
+
+    if (entry->is_paired) {
+        wpa_pasn_reset(pasn);
+        entry->is_pairing_in_progress = false;
+        return retval;
+    }
+
     evt.pairing_instance_id = entry->pairing_instance_id;
     evt.rsp_code = NAN_PAIRING_REQUEST_ACCEPT;
     evt.reason_code = NAN_STATUS_SUCCESS;
-    if (entry->is_paired)
-        evt.nan_pairing_request_type = NAN_PAIRING_VERIFICATION;
-    else
-        evt.nan_pairing_request_type = NAN_PAIRING_SETUP;
+    evt.nan_pairing_request_type = NAN_PAIRING_SETUP;
 
     evt.enable_pairing_cache = !!(entry->dcea_cap_info & DCEA_NPK_CACHING_ENABLED);
 
@@ -836,6 +852,11 @@ int NanCommand::handleNanSharedKeyDescIndication()
         evt.npk_security_association.akm = PASN;
     else
         evt.npk_security_association.akm = SAE;
+
+    if (pasn_get_cipher(pasn) == WPA_CIPHER_CCMP_256)
+        evt.npk_security_association.cipher_type = NAN_CIPHER_SUITE_PUBLIC_KEY_PASN_256_MASK;
+    else
+        evt.npk_security_association.cipher_type = NAN_CIPHER_SUITE_PUBLIC_KEY_PASN_128_MASK;
 
     if (info->secure_nan->dev_nik)
         memcpy(evt.npk_security_association.local_nan_identity_key,
@@ -1866,6 +1887,17 @@ int NanCommand::getNanRangeReportInd(NanRangeReportInd *event)
     return WIFI_SUCCESS;
 }
 
+
+static u64 get_time_boot_usec()
+{
+    u64 current_time_usec = 0;
+    struct timespec tp = {};
+    clock_gettime(CLOCK_BOOTTIME, &tp);
+    current_time_usec = (u64)tp.tv_sec * 1000000 + (tp.tv_nsec / 1000);
+
+    return current_time_usec;
+}
+
 /*
  * Function: getNanContinuousRangingResult
  * Populates periodic ranging result from FW
@@ -1958,10 +1990,12 @@ int NanCommand::getNanContinuousRangingResult()
                 result[index]->success_number = rangeResult.num_successful_measurements;
                 result[index]->number_per_burst_peer = rangeResult.number_per_burst_peer;
                 result[index]->burst_duration = (int)rangeResult.burst_duration_ms;
-                result[index]->rssi = (wifi_rssi)rangeResult.avg_rssi+100;
+                // avg rssi in steps of 0.5dB and positive
+                result[index]->rssi =
+                   (wifi_rssi) ((rangeResult.avg_rssi + NOISE_FLOOR) * -2);
                 result[index]->distance_mm = (int)rangeResult.distance_mm;
                 result[index]->distance_sd_mm = (int)rangeResult.distance_stdev_mm;
-                result[index]->ts = static_cast<wifi_timestamp>(rangeResult.meas_start_time);
+                result[index]->ts = get_time_boot_usec();
                 result[index]->type = RTT_TYPE_2_SIDED_11MC;
                 ALOGV("Mac Address: " MAC_ADDR_STR "\n"
                       "timestamp:%" PRIu64 "\n"
@@ -1970,7 +2004,7 @@ int NanCommand::getNanContinuousRangingResult()
                       "number_per_burst_peer:%u\n"
                       "burst_duration:%d\n"
                       "distance_mm:%d\n"
-                      "distance_sd_mm:%d\n",
+                      "distance_sd_mm:%d rssi %d\n",
                       MAC_ADDR_ARRAY(result[index]->addr),
                       result[index]->ts,
                       result[index]->measurement_number,
@@ -1978,7 +2012,8 @@ int NanCommand::getNanContinuousRangingResult()
                       result[index]->number_per_burst_peer,
                       result[index]->burst_duration,
                       result[index]->distance_mm,
-                      result[index]->distance_sd_mm);
+                      result[index]->distance_sd_mm,
+                      result[index]->rssi);
                 break;
 
             default:

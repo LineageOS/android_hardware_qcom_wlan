@@ -177,7 +177,7 @@ typedef enum {
  * as indicated below.
  *
  * command: NAN_TEST_MODE_CMD_NAN_AVAILABILITY
- * content: NAN Availability attribute blob
+ * content: NAN Avaiability attribute blob
  *
  * command: NAN_TEST_MODE_CMD_NDP_INCLUDE_IMMUTABLE
  * content: u32 value (0 - Ignore 1 - Include immuatable,

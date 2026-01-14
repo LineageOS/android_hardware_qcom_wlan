@@ -104,7 +104,7 @@ GScanCommandEventHandler::GScanCommandEventHandler(wifi_handle handle, int id,
     {
         case QCA_NL80211_VENDOR_SUBCMD_GSCAN_START:
         {
-            /* Register handlers for northbound asynchronous scan events. */
+            /* Register handlers for northbound asychronous scan events. */
             ret = registerVendorHandler(mVendor_id,
                     QCA_NL80211_VENDOR_SUBCMD_GSCAN_SCAN_RESULTS_AVAILABLE) ||
                   registerVendorHandler(mVendor_id,
@@ -1278,7 +1278,7 @@ int GScanCommandEventHandler::handleEvent(WifiEvent &event)
             resultsBufSize += mHotlistApFoundNumResults *
                                             sizeof(wifi_scan_result);
 
-            /* Check if this chunk of scan results is a continuation of
+            /* Check if this chunck of scan results is a continuation of
              * a previous one.
              */
             if (mHotlistApFoundMoreData) {
@@ -1381,7 +1381,7 @@ int GScanCommandEventHandler::handleEvent(WifiEvent &event)
             resultsBufSize += mHotlistApLostNumResults *
                                             sizeof(wifi_scan_result);
 
-            /* Check if this chunk of scan results is a continuation of
+            /* Check if this chunck of scan results is a continuation of
              * a previous one.
              */
             if (mHotlistApLostMoreData) {
@@ -1491,7 +1491,7 @@ int GScanCommandEventHandler::handleEvent(WifiEvent &event)
             index = mSignificantChangeNumResults;
             mSignificantChangeNumResults += numResults;
             /*
-             * Check if this chunk of wifi_significant_change results is a
+             * Check if this chunck of wifi_significant_change results is a
              * continuation of a previous one.
              */
             if (mSignificantChangeMoreData) {
@@ -1699,7 +1699,7 @@ int GScanCommandEventHandler::handleEvent(WifiEvent &event)
             resultsBufSize += mPnoNetworkFoundNumResults *
                                             sizeof(wifi_scan_result);
 
-            /* Check if this chunk of scan results is a continuation of
+            /* Check if this chunck of scan results is a continuation of
              * a previous one.
              */
             if (mPnoNetworkFoundMoreData) {

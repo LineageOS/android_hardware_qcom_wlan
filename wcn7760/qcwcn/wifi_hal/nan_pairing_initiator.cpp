@@ -227,7 +227,8 @@ wifi_error nan_pairing_request(transaction_id id,
                                      msg->key_info.body.passphrase_info.passphrase_len);
 
         // construct wrapped data for dcea, csia, npba
-        nan_pairing_add_setup_ies(secure_nan, pasn, peer->peer_role);
+        nan_pairing_add_setup_ies(secure_nan, pasn, peer->peer_role,
+                                  msg->cipher_type);
         ret = wpas_pasn_start(pasn, nanCommand->getNmi(), msg->peer_disc_mac_addr,
                               nanCommand->getClusterAddr(), akmp,
                               cipher, group, 0, NULL, 0, NULL, 0, NULL);
@@ -242,7 +243,8 @@ wifi_error nan_pairing_request(transaction_id id,
         secure_nan->dev_nik->nik_len = NAN_IDENTITY_KEY_LEN;
         nan_pairing_set_nira(info->secure_nan);
         // construct wrapped data for csia, nira
-        nan_pairing_add_verification_ies(secure_nan, pasn, peer->peer_role);
+        nan_pairing_add_verification_ies(secure_nan, pasn, peer->peer_role,
+                                         msg->cipher_type);
 
         os_memcpy(pmkid, secure_nan->dev_nik->nira_nonce,
                   secure_nan->dev_nik->nira_nonce_len);

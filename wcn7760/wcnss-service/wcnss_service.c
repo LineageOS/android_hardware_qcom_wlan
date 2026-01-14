@@ -149,7 +149,7 @@ int wcnss_write_cal_data(int fd_dev)
 	}
 
 	/* write the file size first, so that platform driver knows
-	 * when it receives the full data */
+	 * when it recieves the full data */
 	wcount = write(fd_dev, (void *)&size, 4);
 	if (wcount != 4) {
 		ALOGE("Failed to write to wcnss device : %s",
@@ -716,7 +716,7 @@ void dynamic_nv_replace()
 		return;
 	}
 
-	ALOGI("dynamic nv replace successfully!\n");
+	ALOGI("dynamic nv replace sucessfully!\n");
 
 }
 
@@ -736,7 +736,7 @@ int main(int argc, char *argv[])
 #ifdef WCNSS_QMI
 	/* Call ESOC API to get the number of modems.
 	   If the number of modems is not zero, only then proceed
-	   with the eap_proxy initialization.*/
+	   with the eap_proxy intialization.*/
 
 	nom = get_system_info(&mdm_detect_info);
 
@@ -806,7 +806,7 @@ nomodem:
 	if (rc != SUCCESS)
 		ALOGE("Failed to read and save cal data %d", rc);
 	else
-		ALOGI("Calibration data was successful written to %s",
+		ALOGI("Calibration data was successfull written to %s",
 			WCNSS_CAL_FILE);
 
 	close(fd_dev);

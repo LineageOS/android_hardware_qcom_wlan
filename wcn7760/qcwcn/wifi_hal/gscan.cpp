@@ -637,7 +637,7 @@ wifi_error wifi_set_bssid_hotlist(wifi_request_id id,
     callbackHandler.on_hotlist_ap_lost = handler.on_hotlist_ap_lost;
 
     /* Create an object of the event handler class to take care of the
-      * asynchronous events on the north-bound.
+      * asychronous events on the north-bound.
       */
     if (gScanSetBssidHotlistCmdEventHandler == NULL) {
         gScanSetBssidHotlistCmdEventHandler = new GScanCommandEventHandler(
@@ -904,7 +904,7 @@ wifi_error wifi_set_significant_change_handler(wifi_request_id id,
     callbackHandler.on_significant_change = handler.on_significant_change;
 
     /* Create an object of the event handler class to take care of the
-      * asynchronous events on the north-bound.
+      * asychronous events on the north-bound.
       */
     if (gScanSetSignificantChangeCmdEventHandler == NULL) {
         gScanSetSignificantChangeCmdEventHandler =
@@ -1822,7 +1822,7 @@ wifi_error wifi_set_epno_list(wifi_request_id id,
             num_networks))
     {
         ret = WIFI_ERROR_UNKNOWN;
-        ALOGE("%s: Failed to add vendor attributes. Error:%d", __FUNCTION__, ret);
+        ALOGE("%s: Failed to add vendor atributes. Error:%d", __FUNCTION__, ret);
         goto cleanup;
     }
 
@@ -1874,7 +1874,7 @@ wifi_error wifi_set_epno_list(wifi_request_id id,
     callbackHandler.on_pno_network_found = handler.on_network_found;
 
     /* Create an object of the event handler class to take care of the
-      * asynchronous events on the north-bound.
+      * asychronous events on the north-bound.
       */
     if (gScanSetPnoListCmdEventHandler == NULL) {
         gScanSetPnoListCmdEventHandler = new GScanCommandEventHandler(
@@ -1977,7 +1977,7 @@ wifi_error wifi_reset_epno_list(wifi_request_id id, wifi_interface_handle iface)
             EPNO_NO_NETWORKS))
     {
         ret = WIFI_ERROR_UNKNOWN;
-        ALOGE("%s: Failed to add vendor attributes Error:%d", __FUNCTION__, ret);
+        ALOGE("%s: Failed to add vendor atributes Error:%d", __FUNCTION__, ret);
         goto cleanup;
     }
 
@@ -2071,7 +2071,7 @@ wifi_error wifi_set_passpoint_list(wifi_request_id id,
             num))
     {
         ret = WIFI_ERROR_UNKNOWN;
-        ALOGE("%s: Failed to add vendor attributes. Error:%d", __FUNCTION__, ret);
+        ALOGE("%s: Failed to add vendor atributes. Error:%d", __FUNCTION__, ret);
         goto cleanup;
     }
 
@@ -2128,7 +2128,7 @@ wifi_error wifi_set_passpoint_list(wifi_request_id id,
                         handler.on_passpoint_network_found;
 
     /* Create an object of the event handler class to take care of the
-      * asynchronous events on the north-bound.
+      * asychronous events on the north-bound.
       */
     if (gScanPnoSetPasspointListCmdEventHandler == NULL) {
         gScanPnoSetPasspointListCmdEventHandler = new GScanCommandEventHandler(

@@ -514,6 +514,8 @@ void *cld80211_init(void)
 		return NULL;
 	}
 	memset(ctx, 0, sizeof(struct cld80211_ctx));
+	ctx->exit_sockets[0] = -1;
+	ctx->exit_sockets[1] = -1;
 
 	ctx->sock = create_nl_socket(NETLINK_GENERIC);
 	if (ctx->sock == NULL) {
@@ -562,11 +564,16 @@ void cld80211_deinit(void *cldctx)
 {
 	struct cld80211_ctx *ctx = (struct cld80211_ctx *) cldctx;
 
-	if (!ctx || !ctx->sock) {
-		ALOGE("%s: ctx/sock is NULL", getprogname());
+	if (!ctx) {
+		ALOGE("%s: ctx is NULL", getprogname());
 		return;
 	}
-	nl_socket_free(ctx->sock);
+
+	if (ctx->sock)
+		nl_socket_free(ctx->sock);
+	else
+		ALOGE("%s: sock is NULL", getprogname());
+
 	cleanup_exit_sockets(ctx);
 	free (ctx);
 }

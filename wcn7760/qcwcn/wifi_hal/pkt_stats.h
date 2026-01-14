@@ -96,7 +96,7 @@
 #define MAX_OFDM_MCS_IDX 8
 
 /* MASK value of flags based on RX_STAT content.
- * These are the events that carry Rx descriptor
+ * These are the events that carry Rx decriptor
  */
 #define PKT_INFO_FLG_RX_RXDESC_MASK \
         (PKT_INFO_FLG_RX_HOST_RXD | \

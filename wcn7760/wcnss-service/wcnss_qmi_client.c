@@ -104,7 +104,7 @@ int wcnss_qmi_get_wlan_address(unsigned char *pBdAddr)
 		(addr_resp.mac_address_len == WLAN_ADDR_SIZE)) {
 		memcpy(pBdAddr, addr_resp.mac_address,
 			addr_resp.mac_address_len);
-		ALOGE("%s: Successfully Read WLAN MAC Address", __func__);
+		ALOGE("%s: Succesfully Read WLAN MAC Address", __func__);
 		return SUCCESS;
 	} else {
 		ALOGE("%s: Failed to Read WLAN MAC Address", __func__);

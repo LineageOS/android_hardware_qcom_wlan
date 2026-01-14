@@ -989,7 +989,7 @@ wifi_error WifiVendorCommand::get_mac_addr(struct nlattr **tb_vendor,
     }
 
     if (nla_len(tb_vendor[attribute]) != sizeof(mac_addr)) {
-        ALOGE("Invalid mac addr length\n");
+        ALOGE("Invalid mac addr lenght\n");
         return WIFI_ERROR_INVALID_ARGS;
     }
 
