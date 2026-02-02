@@ -1187,6 +1187,8 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn) {
     fn->wifi_get_supported_iface_concurrency_matrix =
                                 wifi_get_supported_iface_concurrency_matrix;
 #endif /* TARGET_SUPPORTS_WEARABLES */
+    fn->wifi_nan_suspend_request = nan_suspend_request;
+    fn->wifi_nan_resume_request = nan_resume_request;
     fn->wifi_nan_pairing_request = nan_pairing_request;
     fn->wifi_nan_pairing_indication_response = nan_pairing_indication_response;
     fn->wifi_nan_bootstrapping_request = nan_bootstrapping_request;
@@ -1206,6 +1208,8 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn) {
     fn->wifi_twt_session_update = wifi_twt_session_update;
     fn->wifi_twt_session_suspend = wifi_twt_session_suspend;
     fn->wifi_twt_session_resume = wifi_twt_session_resume;
+    fn->wifi_enable_sta_channel_for_peer_network =
+                                wifi_enable_sta_channel_for_peer_network;
 
     return WIFI_SUCCESS;
 }
@@ -1696,6 +1700,8 @@ static void internal_cleaned_up_handler(wifi_handle handle)
     hal_info *info = getHalInfo(handle);
     wifi_cleaned_up_handler cleaned_up_handler = info->cleaned_up_handler;
     wifihal_mon_sock_t *reg, *tmp;
+
+    nan_ssi_cache_clear_all();
 
     if (info->cmd_sock != 0) {
         nl_socket_free(info->cmd_sock);
@@ -4156,10 +4162,8 @@ void wifihal_event_mgmt_tx_status(wifi_handle handle, struct nlattr *cookie,
 
     if (mgmt->u.auth.auth_transaction == 1)
         nan_pairing_notify_initiator_response(handle, (u8 *)mgmt->da);
-    else if (mgmt->u.auth.auth_transaction == 2) {
-        peer->is_pairing_in_progress = false;
+    else if (mgmt->u.auth.auth_transaction == 2)
         nan_pairing_notify_responder_response(handle, (u8 *)mgmt->da);
-     }
 
     ALOGV("nl80211: Authentication frame TX status: ack=%d", !!ack);
     ret = wpa_pasn_auth_tx_status(pasn, frame, len, ack != NULL);
@@ -4363,6 +4367,89 @@ wifi_error wifi_enable_tx_power_limits(wifi_interface_handle iface,
     ret = vCommand->requestResponse();
     if (ret != WIFI_SUCCESS)
         ALOGE("%s: requestResponse Error:%d", __func__, ret);
+
+cleanup:
+    delete vCommand;
+    return ret;
+}
+
+
+wifi_error wifi_enable_sta_channel_for_peer_network(wifi_handle handle,
+                                                    uint32_t channelCategoryEnableFlag)
+{
+    wifi_error ret;
+    struct nlattr *nlData;
+    WifiVendorCommand *vCommand = NULL;
+    wifi_interface_handle iface = NULL;
+    hal_info *info;
+    uint8_t peer_protocol_indoor_bitmap = 0;
+
+    info = getHalInfo(handle);
+    if (!info) {
+        ALOGE("%s: hal_info is NULL", __func__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+
+    iface = wifi_get_iface_handle(handle, (char*)"wlan0");
+    if (!iface) {
+        ALOGE("%s: Failed to get primary interface handle (wlan0).", __func__);
+        return WIFI_ERROR_NOT_AVAILABLE;
+    }
+
+    if (!info->driver_supported_features.flags) {
+        ALOGE("%s: Driver features not initialized", __func__);
+        return WIFI_ERROR_NOT_AVAILABLE;
+    }
+
+    if (channelCategoryEnableFlag & 0x1) {
+        peer_protocol_indoor_bitmap |= 0x1;  // Set bit 0 for P2P
+        peer_protocol_indoor_bitmap |= 0x2;  // Set bit 1 for NAN
+    }
+
+    if (peer_protocol_indoor_bitmap &&
+        !check_feature(QCA_WLAN_VENDOR_FEATURE_SUPPORT_STA_INDOOR_CH_SCC,
+                       &info->driver_supported_features)) {
+        ALOGE("%s: STA Indoor Channel SCC is not supported by "
+              "the driver (feature flag not set).", __func__);
+        return WIFI_ERROR_NOT_SUPPORTED;
+    }
+
+    ret = initialize_vendor_cmd(iface, get_requestid(),
+                                QCA_NL80211_VENDOR_SUBCMD_SET_WIFI_CONFIGURATION,
+                                &vCommand);
+    if (ret != WIFI_SUCCESS) {
+        ALOGE("%s: Initialization of vendor command "
+              "failed with error: %d", __func__, ret);
+        return ret;
+    }
+
+    nlData = vCommand->attr_start(NL80211_ATTR_VENDOR_DATA);
+    if (!nlData) {
+        ALOGE("%s: Failed to start vendor data attribute.", __func__);
+        ret = WIFI_ERROR_UNKNOWN;
+        goto cleanup;
+    }
+
+    ALOGV("%s: Attempting to set "
+          "QCA_WLAN_VENDOR_ATTR_CONFIG_ALLOW_PEER_PROTOCOL_INDOOR_CH_STA_SCC to %u",
+          __func__, peer_protocol_indoor_bitmap);
+
+    // Add the indoor channel SCC attribute with its u8 value.
+    ret = vCommand->put_u8(QCA_WLAN_VENDOR_ATTR_CONFIG_ALLOW_PEER_PROTOCOL_INDOOR_CH_STA_SCC,
+                           peer_protocol_indoor_bitmap);
+    if (ret != WIFI_SUCCESS) {
+        ALOGE("%s: Failed to put "
+              "QCA_WLAN_VENDOR_ATTR_CONFIG_ALLOW_PEER_PROTOCOL_INDOOR_CH_STA_SCC,"
+              " error: %d", __func__, ret);
+        goto cleanup;
+    }
+
+    vCommand->attr_end(nlData);
+
+    ret = vCommand->requestResponse();
+    if (ret != WIFI_SUCCESS) {
+        ALOGE("%s: requestResponse failed with error: %d", __func__, ret);
+    }
 
 cleanup:
     delete vCommand;

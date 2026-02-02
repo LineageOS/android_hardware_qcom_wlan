@@ -1492,7 +1492,12 @@ wifi_error nan_get_shared_key_descriptor(hal_info *info, const u8 *addr,
     shared_key_desc->attrID = NAN_SHARED_KEY_ATTR_ID;
     shared_key_desc->length = buf_len - offsetof(struct sharedKeyDesc,
                                                  publishID);
-    shared_key_desc->publishID = secure_nan->pub_sub_id;
+
+    if (secure_nan->is_publish)
+        shared_key_desc->publishID = secure_nan->pub_sub_id;
+    else
+        shared_key_desc->publishID = peer->requestor_instance_id >> 24;
+
     pos += sizeof(struct sharedKeyDesc);
 
     key_desc = (struct keyDescriptor *)pos;
@@ -2933,6 +2938,7 @@ wifi_error nan_pairing_end(transaction_id id,
 
     peer = nan_pairing_get_peer_from_id(info->secure_nan, msg->pairing_instance_id);
     if (peer) {
+        peer->is_pairing_in_progress = false;
         nan_pairing_set_key(info, WPA_ALG_NONE, peer->bssid, 0, 0, NULL, 0,
                             NULL, 0, KEY_FLAG_PAIRWISE);
         nan_pairing_delete_peer_from_list(info->secure_nan, peer->bssid);
