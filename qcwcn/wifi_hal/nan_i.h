@@ -428,6 +428,10 @@ typedef enum
     NAN_MSG_ID_GET_TX_PN_REQ                = 46,
     NAN_MSG_ID_GET_TX_PN_RSP                = 47,
     NAN_MSG_ID_CONTINUOUS_RANGE_RESULT_IND  = 48,
+    NAN_MSG_ID_SUSPEND_REQ                  = 49,
+    NAN_MSG_ID_SUSPEND_RSP                  = 50,
+    NAN_MSG_ID_RESUME_REQ                   = 51,
+    NAN_MSG_ID_RESUME_RSP                   = 52,
     NAN_MSG_ID_TESTMODE_REQ                 = 1025,
     NAN_MSG_ID_TESTMODE_RSP                 = 1026
 } NanMsgId;
@@ -1765,6 +1769,21 @@ typedef struct PACKED
     u16 value;
     u8  key_rsc[NAN_MAX_GROUP_KEY_RSC_LEN];
 } NanTxPnRspMsg, *pNanTxPnRspMsg;
+
+/* NAN Suspend/Resume Req */
+typedef struct PACKED
+{
+    NanMsgHeader fwHeader;
+} NanSuspendResumeReqMsg, *pNanSuspendResumeReqMsg;
+
+/* NAN Suspend/Resume Rsp */
+typedef struct PACKED
+{
+    NanMsgHeader fwHeader;
+    /* status of the request */
+    u16 status;
+    u16 reserved;
+} NanSuspendResumeRspMsg, *pNanSuspendResumeRspMsg;
 
 typedef struct PACKED
 {

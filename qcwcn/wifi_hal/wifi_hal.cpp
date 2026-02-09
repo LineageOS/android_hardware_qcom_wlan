@@ -1187,6 +1187,8 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn) {
     fn->wifi_get_supported_iface_concurrency_matrix =
                                 wifi_get_supported_iface_concurrency_matrix;
 #endif /* TARGET_SUPPORTS_WEARABLES */
+    fn->wifi_nan_suspend_request = nan_suspend_request;
+    fn->wifi_nan_resume_request = nan_resume_request;
     fn->wifi_nan_pairing_request = nan_pairing_request;
     fn->wifi_nan_pairing_indication_response = nan_pairing_indication_response;
     fn->wifi_nan_bootstrapping_request = nan_bootstrapping_request;
