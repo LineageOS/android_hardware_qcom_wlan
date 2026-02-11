@@ -1701,6 +1701,8 @@ static void internal_cleaned_up_handler(wifi_handle handle)
     wifi_cleaned_up_handler cleaned_up_handler = info->cleaned_up_handler;
     wifihal_mon_sock_t *reg, *tmp;
 
+    nan_ssi_cache_clear_all();
+
     if (info->cmd_sock != 0) {
         nl_socket_free(info->cmd_sock);
         nl_socket_free(info->event_sock);

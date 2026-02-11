@@ -547,6 +547,12 @@ int NanCommand::getNanResponse(transaction_id *id, NanResponseMsg *pRsp)
             pRsp->response_type = NAN_RESPONSE_SUBSCRIBE;
             pRsp->body.subscribe_response.subscribe_id = \
                 pFwRsp->fwHeader.handle;
+            if (pFwRsp->status == NAN_STATUS_SUCCESS) {
+                nan_ssi_cache_store((u16)pFwRsp->fwHeader.handle,
+                                    *id, NULL, 0);
+            } else {
+                nan_ssi_cache_clear_by_trans(*id);
+            }
             if (info && info->secure_nan)
                 info->secure_nan->pub_sub_id = pFwRsp->fwHeader.handle;
         }

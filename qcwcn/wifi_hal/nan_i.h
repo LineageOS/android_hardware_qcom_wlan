@@ -1570,6 +1570,14 @@ typedef struct PACKED
     u32 reserved:7;
 } NanCapabilitiesRspMsg, *pNanCapabilitiesRspMsg;
 
+/* SSI cache helpers */
+void nan_ssi_cache_store(u16 subscribe_id, transaction_id trans_id,
+                         const u8 *ssi, u16 ssi_len);
+u16 nan_ssi_cache_get(u16 subscribe_id, u8 *buf, u16 buf_len);
+void nan_ssi_cache_clear(u16 subscribe_id);
+void nan_ssi_cache_clear_by_trans(transaction_id trans_id);
+void nan_ssi_cache_clear_all(void);
+
 /* NAN Self Transmit Followup */
 typedef struct PACKED
 {
