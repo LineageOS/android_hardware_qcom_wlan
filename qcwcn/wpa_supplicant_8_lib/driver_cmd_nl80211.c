@@ -196,6 +196,11 @@
 #define CTRL_FRAME_VALUE_MAX     0x8FFF
 #define DATA_FRAME_VALUE_MAX     0x8FFF
 
+/**
+ * NAN PS configuration constant
+ */
+#define NAN_PS_CONFIG_TRANSACTION_ID 1000
+
 static int twt_async_support = -1;
 
 struct twt_setup_parameters {
@@ -6832,6 +6837,151 @@ nlmsg_fail:
 	return ret;
 }
 
+/**
+ * wpa_driver_nan_ps_config()- Sends the nan powersave params to the driver.
+ *
+ * @bss: Pointer to the BSS context
+ * @cmd: NAN PS vendor command
+ *
+ * Return: returns 0 on Success, error code on invalid response.
+ */
+static int wpa_driver_nan_ps_config(struct i802_bss *bss, char *cmd)
+{
+	struct wpa_driver_nl80211_data *drv = bss->drv;
+	struct nl_msg *nlmsg = NULL;
+	struct nlattr *attr;
+	int ret, status = 0;
+	u32 value;
+
+	if (!cmd) {
+		wpa_printf(MSG_ERROR, "nan_ps: Invalid command");
+		return -EINVAL;
+	}
+
+	cmd = skip_white_space(cmd);
+	if (*cmd == '\0') {
+		wpa_printf(MSG_ERROR, "nan_ps: Insufficient parameters");
+		return -EINVAL;
+	}
+
+	nlmsg = prepare_vendor_nlmsg(drv, bss->ifname,
+				     QCA_NL80211_VENDOR_SUBCMD_NDP);
+	if (!nlmsg) {
+		wpa_printf(MSG_ERROR,
+			   "nan_ps: Failed to allocate nl message");
+		return -ENOMEM;
+	}
+
+	attr = nla_nest_start(nlmsg, NL80211_ATTR_VENDOR_DATA);
+	if (!attr) {
+		wpa_printf(MSG_ERROR, "nan_ps: Failed to start nesting");
+		ret = -ENOMEM;
+		goto fail;
+	}
+
+	ret = nla_put_u32(nlmsg, QCA_WLAN_VENDOR_ATTR_NDP_SUBCMD,
+			  QCA_WLAN_VENDOR_NDP_SUB_CMD_UPDATE_CONFIG);
+	if (ret) {
+		wpa_printf(MSG_ERROR,
+			   "nan_ps: Failed to add attr_ndp_submd %d", ret);
+		goto fail;
+	}
+
+	ret = nla_put_u16(nlmsg, QCA_WLAN_VENDOR_ATTR_NDP_TRANSACTION_ID,
+			  NAN_PS_CONFIG_TRANSACTION_ID);
+	if (ret) {
+		wpa_printf(MSG_ERROR,
+			   "nan_ps: Failed to add transaction id %d", ret);
+		goto fail;
+	}
+
+	if (os_strncasecmp(cmd, "ndp_instance_id ", 16) == 0) {
+		cmd += 16;
+		cmd = skip_white_space(cmd);
+	} else {
+		wpa_printf(MSG_ERROR, "nan_ps: Invalid ndp_instance_id parameter");
+		ret = -EINVAL;
+		goto fail;
+	}
+
+	value = get_u32_from_string(cmd, &status);
+	if (status < 0) {
+		wpa_printf(MSG_ERROR, "nan_ps: Invalid ndp_instance_id value");
+		ret = -EINVAL;
+		goto fail;
+	}
+
+	ret = nla_put_u32(nlmsg, QCA_WLAN_VENDOR_ATTR_NDP_INSTANCE_ID, value);
+	if (ret) {
+		wpa_printf(MSG_ERROR,
+			   "nan_ps: Failed to add ndp_instance_id attr %d", ret);
+		goto fail;
+	}
+
+	cmd = move_to_next_str(cmd);
+
+	if (os_strncasecmp(cmd, "latency ", 8) == 0) {
+		cmd += 8;
+		cmd = skip_white_space(cmd);
+	} else {
+		wpa_printf(MSG_ERROR, "nan_ps: Invalid latency_in_ms parameter");
+		ret = -EINVAL;
+		goto fail;
+	}
+
+	value = get_u32_from_string(cmd, &status);
+	if (status < 0) {
+		wpa_printf(MSG_ERROR, "nan_ps: Invalid latency_in_ms value");
+		ret = -EINVAL;
+		goto fail;
+	}
+
+	ret = nla_put_u32(nlmsg, QCA_WLAN_VENDOR_ATTR_NDP_MAX_LATENCY_MS,
+			  value);
+	if (ret) {
+		wpa_printf(MSG_ERROR,
+			   "nan_ps: Failed to add latency attr %d", ret);
+		goto fail;
+	}
+
+	cmd = move_to_next_str(cmd);
+
+	if (os_strncasecmp(cmd, "throughput ", 11) == 0) {
+		cmd += 11;
+		cmd = skip_white_space(cmd);
+	} else {
+		wpa_printf(MSG_ERROR, "nan_ps: Invalid throughput parameter");
+		ret = -EINVAL;
+		goto fail;
+	}
+
+	value = get_u32_from_string(cmd, &status);
+	if (status < 0) {
+		wpa_printf(MSG_ERROR, "nan_ps: Invalid throughput value");
+		ret = -EINVAL;
+		goto fail;
+	}
+
+	ret = nla_put_u32(nlmsg, QCA_WLAN_VENDOR_ATTR_NDP_TPUT, value);
+	if (ret) {
+		wpa_printf(MSG_ERROR,
+			   "nan_ps: Failed to add throughput attr %d", ret);
+		goto fail;
+	}
+
+	nla_nest_end(nlmsg, attr);
+
+	ret = send_nlmsg((struct nl_sock *)drv->global->nl, nlmsg, NULL, NULL);
+
+	if (ret)
+		wpa_printf(MSG_ERROR, "nan_ps: Error sending nlmsg %d", ret);
+
+	return ret;
+fail:
+	nlmsg_free(nlmsg);
+	return ret;
+}
+
 static int wpa_driver_cfg_coex_traffic_shaping(struct i802_bss *bss, char *cmd)
 {
 	struct wpa_driver_nl80211_data *drv;
@@ -7291,6 +7441,16 @@ int wpa_driver_nl80211_driver_cmd(void *priv, char *cmd, char *buf,
 		cmd += 25;
 		return wpa_driver_set_mlo_links_control_mode(bss, cmd, buf,
 							     buf_len);
+	} else if (os_strncasecmp(cmd, "SET_NAN_PS_CONFIG ", 18) == 0) {
+		/**
+		 * DRIVER SET_NAN_PS_CONFIG ndp_instance_id <val> latency
+		 * <val> throughput <val>
+		 * value 0 - NDP instance id
+		 * value 1 - Latency (in ms)
+		 * value 2 - Throughput (in Mbps)
+		 */
+		cmd += 18;
+		return wpa_driver_nan_ps_config(bss, cmd);
 	} else { /* Use private command */
 		memset(&ifr, 0, sizeof(ifr));
 		memset(&priv_cmd, 0, sizeof(priv_cmd));
