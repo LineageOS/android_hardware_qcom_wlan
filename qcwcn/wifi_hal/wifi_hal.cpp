@@ -4382,7 +4382,7 @@ wifi_error wifi_enable_sta_channel_for_peer_network(wifi_handle handle,
     WifiVendorCommand *vCommand = NULL;
     wifi_interface_handle iface = NULL;
     hal_info *info;
-    uint8_t enable_indoor_scc = 0;
+    uint8_t peer_protocol_indoor_bitmap = 0;
 
     info = getHalInfo(handle);
     if (!info) {
@@ -4401,7 +4401,13 @@ wifi_error wifi_enable_sta_channel_for_peer_network(wifi_handle handle,
         return WIFI_ERROR_NOT_AVAILABLE;
     }
 
-    if (!check_feature(QCA_WLAN_VENDOR_FEATURE_SUPPORT_STA_INDOOR_CH_SCC,
+    if (channelCategoryEnableFlag & 0x1) {
+        peer_protocol_indoor_bitmap |= 0x1;  // Set bit 0 for P2P
+        peer_protocol_indoor_bitmap |= 0x2;  // Set bit 1 for NAN
+    }
+
+    if (peer_protocol_indoor_bitmap &&
+        !check_feature(QCA_WLAN_VENDOR_FEATURE_SUPPORT_STA_INDOOR_CH_SCC,
                        &info->driver_supported_features)) {
         ALOGE("%s: STA Indoor Channel SCC is not supported by "
               "the driver (feature flag not set).", __func__);
@@ -4424,19 +4430,17 @@ wifi_error wifi_enable_sta_channel_for_peer_network(wifi_handle handle,
         goto cleanup;
     }
 
-    enable_indoor_scc = (channelCategoryEnableFlag != 0) ? 1 : 0;
-
     ALOGV("%s: Attempting to set "
-          "QCA_WLAN_VENDOR_ATTR_CONFIG_ALLOW_STA_INDOOR_CH_SCC to %u",
-          __func__, enable_indoor_scc);
+          "QCA_WLAN_VENDOR_ATTR_CONFIG_ALLOW_PEER_PROTOCOL_INDOOR_CH_STA_SCC to %u",
+          __func__, peer_protocol_indoor_bitmap);
 
     // Add the indoor channel SCC attribute with its u8 value.
-    ret = vCommand->put_u8(QCA_WLAN_VENDOR_ATTR_CONFIG_ALLOW_STA_INDOOR_CH_SCC,
-                           enable_indoor_scc);
+    ret = vCommand->put_u8(QCA_WLAN_VENDOR_ATTR_CONFIG_ALLOW_PEER_PROTOCOL_INDOOR_CH_STA_SCC,
+                           peer_protocol_indoor_bitmap);
     if (ret != WIFI_SUCCESS) {
         ALOGE("%s: Failed to put "
-              "QCA_WLAN_VENDOR_ATTR_CONFIG_ALLOW_STA_INDOOR_CH_SCC, error: %d",
-              __func__, ret);
+              "QCA_WLAN_VENDOR_ATTR_CONFIG_ALLOW_PEER_PROTOCOL_INDOOR_CH_STA_SCC,"
+              " error: %d", __func__, ret);
         goto cleanup;
     }
 
