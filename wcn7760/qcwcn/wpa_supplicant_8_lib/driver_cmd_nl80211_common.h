@@ -54,8 +54,8 @@
 #define MAX_NUM_MLO_LINKS      15
 #define NL80211_ATTR_MAX_INTERNAL 256
 
-struct wpa_driver_nl80211_data *drv;
-struct i802_bss *bss;
+struct wpa_driver_nl80211_data;
+struct i802_bss;
 struct nl_msg *prepare_nlmsg(struct wpa_driver_nl80211_data *drv,
 		             char *ifname, int cmdid, int subcmd, int flag);
 struct nl_msg *prepare_vendor_nlmsg(struct wpa_driver_nl80211_data *drv,
