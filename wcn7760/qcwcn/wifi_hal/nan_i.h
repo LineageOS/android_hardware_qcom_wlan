@@ -428,6 +428,10 @@ typedef enum
     NAN_MSG_ID_GET_TX_PN_REQ                = 46,
     NAN_MSG_ID_GET_TX_PN_RSP                = 47,
     NAN_MSG_ID_CONTINUOUS_RANGE_RESULT_IND  = 48,
+    NAN_MSG_ID_SUSPEND_REQ                  = 49,
+    NAN_MSG_ID_SUSPEND_RSP                  = 50,
+    NAN_MSG_ID_RESUME_REQ                   = 51,
+    NAN_MSG_ID_RESUME_RSP                   = 52,
     NAN_MSG_ID_TESTMODE_REQ                 = 1025,
     NAN_MSG_ID_TESTMODE_RSP                 = 1026
 } NanMsgId;
@@ -532,6 +536,7 @@ typedef enum
     NAN_TLV_TYPE_ENABLE_DEVICE_RANGING = 4138,
     NAN_TLV_TYPE_UNSYNC_DISCOVERY_ENABLED = 4139,
     NAN_TLV_TYPE_FOLLOWUP_MGMT_RX_ENABLED = 4140,
+    NAN_TLV_TYPE_IC_MODE_ENABLE_BAND = 4141,
 
     NAN_TLV_TYPE_CONFIG_LAST = 8191,
 
@@ -1560,8 +1565,18 @@ typedef struct PACKED
     u32 supportsPeriodicRanging:1;
     u32 maxSupportedBandWidth:16;
     u32 numRxChainsSupported:4;
-    u32 reserved:9;
+    u32 nan_suspension_supported:1;
+    u32 nan_instant_mode_supported:1;
+    u32 reserved:7;
 } NanCapabilitiesRspMsg, *pNanCapabilitiesRspMsg;
+
+/* SSI cache helpers */
+void nan_ssi_cache_store(u16 subscribe_id, transaction_id trans_id,
+                         const u8 *ssi, u16 ssi_len);
+u16 nan_ssi_cache_get(u16 subscribe_id, u8 *buf, u16 buf_len);
+void nan_ssi_cache_clear(u16 subscribe_id);
+void nan_ssi_cache_clear_by_trans(transaction_id trans_id);
+void nan_ssi_cache_clear_all(void);
 
 /* NAN Self Transmit Followup */
 typedef struct PACKED
@@ -1763,6 +1778,21 @@ typedef struct PACKED
     u8  key_rsc[NAN_MAX_GROUP_KEY_RSC_LEN];
 } NanTxPnRspMsg, *pNanTxPnRspMsg;
 
+/* NAN Suspend/Resume Req */
+typedef struct PACKED
+{
+    NanMsgHeader fwHeader;
+} NanSuspendResumeReqMsg, *pNanSuspendResumeReqMsg;
+
+/* NAN Suspend/Resume Rsp */
+typedef struct PACKED
+{
+    NanMsgHeader fwHeader;
+    /* status of the request */
+    u16 status;
+    u16 reserved;
+} NanSuspendResumeRspMsg, *pNanSuspendResumeRspMsg;
+
 typedef struct PACKED
 {
     NanMsgHeader fwHeader;
@@ -1806,6 +1836,10 @@ typedef enum {
     NAN_I_STATUS_TX_FAIL = 24,
     NAN_I_STATUS_NAN_ALREADY_ENABLED = 25,
     NAN_I_STATUS_FOLLOWUP_QUEUE_FULL = 26,
+    NAN_I_STATUS_INVALID_5G_CHANNEL = 27,
+    NAN_I_STATUS_POLICY_MANAGER_NOT_SINGLE_MAC_MODE = 28,
+    NAN_I_STATUS_VDEV_NOT_CREATED = 29,
+    NAN_I_STATUS_IC_MODE_FAIL = 30,
     /* 27-4095 Reserved */
     /* NAN Configuration Response codes */
     NAN_I_STATUS_INVALID_RSSI_CLOSE_VALUE = 4096,

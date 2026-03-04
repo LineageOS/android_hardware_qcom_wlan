@@ -82,6 +82,8 @@ int NanCommand::isNanResponse()
     case NAN_MSG_ID_GROUP_KEY_INSTALL_RSP:
     case NAN_MSG_ID_GET_TX_PN_RSP:
     case NAN_MSG_ID_TESTMODE_RSP:
+    case NAN_MSG_ID_SUSPEND_RSP:
+    case NAN_MSG_ID_RESUME_RSP:
         return 1;
     default:
         return 0;
@@ -336,6 +338,8 @@ struct errorCode errorCodeTranslation[] = {
      "NAN is Already enabled"},
     {NAN_STATUS_FOLLOWUP_QUEUE_FULL, NAN_I_STATUS_FOLLOWUP_QUEUE_FULL,
      "Follow-up queue full"},
+    {NAN_STATUS_INTERNAL_FAILURE, NAN_I_STATUS_IC_MODE_FAIL,
+     "Instant Mode failed"},
 
     {NAN_STATUS_UNSUPPORTED_CONCURRENCY_NAN_DISABLED, NDP_I_UNSUPPORTED_CONCURRENCY,
      "Unsupported Concurrency"},
@@ -543,6 +547,12 @@ int NanCommand::getNanResponse(transaction_id *id, NanResponseMsg *pRsp)
             pRsp->response_type = NAN_RESPONSE_SUBSCRIBE;
             pRsp->body.subscribe_response.subscribe_id = \
                 pFwRsp->fwHeader.handle;
+            if (pFwRsp->status == NAN_STATUS_SUCCESS) {
+                nan_ssi_cache_store((u16)pFwRsp->fwHeader.handle,
+                                    *id, NULL, 0);
+            } else {
+                nan_ssi_cache_clear_by_trans(*id);
+            }
             if (info && info->secure_nan)
                 info->secure_nan->pub_sub_id = pFwRsp->fwHeader.handle;
         }
@@ -747,13 +757,20 @@ int NanCommand::getNanResponse(transaction_id *id, NanResponseMsg *pRsp)
                        get_wifi_rtt_bw(pFwRsp->maxSupportedBandWidth);
             pRsp->body.nan_capabilities.num_rx_chains_supported = \
                        pFwRsp->numRxChainsSupported;
+            pRsp->body.nan_capabilities.is_instant_mode_supported = \
+                       pFwRsp->nan_instant_mode_supported;
+            pRsp->body.nan_capabilities.is_suspension_supported = \
+                       pFwRsp->nan_suspension_supported;
 
             ALOGI("Nan Capabilities: 6g supported: %s, HE supported: %s\n"
-                  "supported bw: %d, num_rx_chains_supported: %d",
+                  "supported bw: %d, num_rx_chains_supported: %d\n"
+                  "Instant mode supported: %s suspension supported: %s",
                   pRsp->body.nan_capabilities.is_6g_supported ? "yes" : "no",
                   pRsp->body.nan_capabilities.is_he_supported ? "yes" : "no",
                   pRsp->body.nan_capabilities.supported_bw,
-                  pRsp->body.nan_capabilities.num_rx_chains_supported);
+                  pRsp->body.nan_capabilities.num_rx_chains_supported,
+                  pRsp->body.nan_capabilities.is_instant_mode_supported ? "yes" : "no",
+                  pRsp->body.nan_capabilities.is_suspension_supported ? "yes" : "no");
 
             break;
         }
@@ -768,6 +785,24 @@ int NanCommand::getNanResponse(transaction_id *id, NanResponseMsg *pRsp)
             /* return -1 for internal message */
             return -1;
         }
+        case NAN_MSG_ID_SUSPEND_RSP:
+        {
+            pNanSuspendResumeRspMsg pFwRsp = \
+                (pNanSuspendResumeRspMsg)mNanVendorEvent;
+            *id = (transaction_id)pFwRsp->fwHeader.transactionId;
+            NanErrorTranslation((NanInternalStatusType)pFwRsp->status, 0, pRsp, false);
+            pRsp->response_type = NAN_SUSPEND_REQUEST_RESPONSE;
+            break;
+        }
+        case NAN_MSG_ID_RESUME_RSP:
+        {
+            pNanSuspendResumeRspMsg pFwRsp = \
+                (pNanSuspendResumeRspMsg)mNanVendorEvent;
+            *id = (transaction_id)pFwRsp->fwHeader.transactionId;
+            NanErrorTranslation((NanInternalStatusType)pFwRsp->status, 0, pRsp, false);
+            pRsp->response_type = NAN_RESUME_REQUEST_RESPONSE;
+            break;
+         }
         default:
             return  -1;
     }
@@ -844,6 +879,23 @@ int NanCommand::handleNanResponse()
 
         handleNanBootstrappingConfirm(&bootstrapConfirmInd);
     }
+
+    if ((rsp_data.response_type == NAN_SUSPEND_REQUEST_RESPONSE ||
+         rsp_data.response_type == NAN_RESUME_REQUEST_RESPONSE) &&
+        rsp_data.status == NAN_STATUS_SUCCESS) {
+
+        NanSuspensionModeChangeInd suspensionModeChangeInd;
+        memset(&suspensionModeChangeInd, 0, sizeof(NanSuspensionModeChangeInd));
+
+        if (rsp_data.response_type == NAN_SUSPEND_REQUEST_RESPONSE)
+            suspensionModeChangeInd.is_suspended = true;
+        else
+            suspensionModeChangeInd.is_suspended = false;
+
+        if (mHandler.EventSuspensionModeChange)
+            (*mHandler.EventSuspensionModeChange)(&suspensionModeChangeInd);
+    }
+
 
     return ret;
 }
@@ -1152,4 +1204,11 @@ int NanCommand::handleNdpResponse(NanResponseType ndpCmdType,
         (*mHandler.NotifyResponse)(id, &rsp_data);
     }
     return WIFI_SUCCESS;
+}
+
+int NanCommand::sendNanResponse(transaction_id id, NanResponseMsg *rsp_data)
+{
+    if (mHandler.NotifyResponse)
+        (*mHandler.NotifyResponse)(id, rsp_data);
+    return 0;
 }
