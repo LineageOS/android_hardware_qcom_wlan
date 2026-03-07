@@ -1221,6 +1221,10 @@ void NanCommand::getNanReceiveSdeaCtrlParams(const u8* pInValue,
         pPeerSdeaParams->ranging_state =
                            (NanRangingState)((pInValue[0] & BIT_7) ?
                             NAN_RANGING_ENABLE : NAN_RANGING_DISABLE);
+
+        u16 value = (u16)pInValue[0] | ((u16)pInValue[1] << 8);
+        pPeerSdeaParams->gtk_protection = (value & BIT_10) ? 1 : 0;
+
 #if 0
         pPeerSdeaParams->enable_ranging_limit =
                          (NanRangingLimitState)((pInValue[0] & BIT_8) ?
