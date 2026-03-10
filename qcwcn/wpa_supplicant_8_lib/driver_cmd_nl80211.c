@@ -198,6 +198,9 @@
 
 #define MAX_GPIO_MUX_CONFIG 15
 
+#define CHAIN_MAX_NUM 8
+#define MAX_SUPPORTED_VAL 0x1FFF
+
 static int twt_async_support = -1;
 
 struct twt_setup_parameters {
@@ -2830,6 +2833,25 @@ static u32 get_u32_from_string(char *cmd_string, int *ret)
 		*ret = -EINVAL;
 	}
 	return (u32)val;
+}
+
+s16 get_s16_from_string(char *cmd_string, int *ret)
+{
+	long val;
+	char *endptr = NULL;
+	*ret = 0;
+	errno = 0;
+
+	val = strtol(cmd_string, &endptr, 10);
+	if (errno == ERANGE || (errno != 0 && val == 0) || *cmd_string == *endptr) {
+		wpa_printf(MSG_ERROR, "invalid value");
+		*ret = -EINVAL;
+	}
+
+	if (val > SHRT_MAX || val < SHRT_MIN)
+		*ret = -EINVAL;
+
+	return (s16)val;
 }
 
 s32 get_s32_from_string(char *cmd_string, int *ret)
@@ -7228,6 +7250,437 @@ nlmsg_fail:
 	return ret;
 }
 
+static int wpa_driver_set_ant_div_conf(struct i802_bss *bss, char *cmd)
+{
+	struct wpa_driver_nl80211_data *drv = bss->drv;
+	struct nl_msg *nlmsg;
+	struct nlattr *attr;
+	int ret;
+	uint32_t val32;
+	uint16_t val16;
+	s16 wlan_rssi_th, bt_rssi_th;
+
+	nlmsg = prepare_vendor_nlmsg(drv, bss->ifname,
+				     QCA_NL80211_VENDOR_SUBCMD_SET_WIFI_CONFIGURATION);
+	if (!nlmsg) {
+		wpa_printf(MSG_ERROR, "Failed to allocate nlmsg ");
+		return -ENOMEM;
+	}
+
+	attr = nla_nest_start(nlmsg, NL80211_ATTR_VENDOR_DATA);
+	if (!attr) {
+		ret = -ENOMEM;
+		wpa_printf(MSG_ERROR, "Failed to create nl attribute");
+		goto nlmsg_fail;
+	}
+
+	while (*cmd != '\0') {
+		if (os_strncasecmp(cmd, "ENABLE ", 7) == 0) {
+			cmd += 7;
+			cmd = skip_white_space(cmd);
+			val32 = get_u32_from_string(cmd, &ret);
+			if (ret < 0) {
+				wpa_printf(MSG_ERROR, "Input error: enable val");
+				goto nlmsg_fail;
+			}
+			if (val32 != 0 && val32 != 1) {
+				wpa_printf(MSG_ERROR, "Invalid ENABLE val %d", val32);
+				ret = -EINVAL;
+				goto nlmsg_fail;
+			}
+			ret = nla_put_u32(nlmsg, QCA_WLAN_VENDOR_ATTR_CONFIG_ANT_DIV_ENA, val32);
+			if (ret) {
+				wpa_printf(MSG_ERROR, "Failed to put enable value");
+				goto nlmsg_fail;
+			}
+			cmd = move_to_next_str(cmd);
+		} else if (os_strncasecmp(cmd, "CHAIN ", 6) == 0) {
+			cmd += 6;
+			cmd = skip_white_space(cmd);
+			val32 = get_u32_from_string(cmd, &ret);
+			if (ret < 0) {
+				wpa_printf(MSG_ERROR, "Input error: SET chain");
+				goto nlmsg_fail;
+			}
+			ret = nla_put_u32(nlmsg, QCA_WLAN_VENDOR_ATTR_CONFIG_ANT_DIV_CHAIN, val32);
+			if (ret) {
+				wpa_printf(MSG_ERROR, "Failed to put ant_div_chain value");
+				goto nlmsg_fail;
+			}
+			cmd = move_to_next_str(cmd);
+		} else if (os_strncasecmp(cmd, "STAY_PERIOD ", 12) == 0) {
+			cmd += 12;
+			cmd = skip_white_space(cmd);
+			val32 = get_u32_from_string(cmd, &ret);
+			if (ret < 0) {
+				wpa_printf(MSG_ERROR, "Input error: stay_period");
+				goto nlmsg_fail;
+			}
+			if (val32 > MAX_SUPPORTED_VAL) {
+				wpa_printf(MSG_ERROR,
+					   "stay period val %d higher than supported",
+					   val32);
+				ret = -EINVAL;
+				goto nlmsg_fail;
+			}
+			ret = nla_put_u32(nlmsg,
+					  QCA_WLAN_VENDOR_ATTR_CONFIG_ANT_DIV_STAY_PERIOD,
+					  val32);
+			if (ret) {
+				wpa_printf(MSG_ERROR, "Failed to put stay_period value");
+				goto nlmsg_fail;
+			}
+			cmd = move_to_next_str(cmd);
+		} else if (os_strncasecmp(cmd, "PROBE_PERIOD ", 13) == 0) {
+			cmd += 13;
+			cmd = skip_white_space(cmd);
+			val32 = get_u32_from_string(cmd, &ret);
+			if (ret < 0) {
+				wpa_printf(MSG_ERROR, "Input error: probe_period");
+				goto nlmsg_fail;
+			}
+			if (val32 > MAX_SUPPORTED_VAL) {
+				wpa_printf(MSG_ERROR,
+					   "probe period val %d higher than supported",
+					   val32);
+				ret = -EINVAL;
+				goto nlmsg_fail;
+			}
+			ret = nla_put_u32(nlmsg,
+					  QCA_WLAN_VENDOR_ATTR_CONFIG_ANT_DIV_PROBE_PERIOD,
+					  val32);
+			if (ret) {
+				wpa_printf(MSG_ERROR, "Failed to put probe_period value");
+				goto nlmsg_fail;
+			}
+			cmd = move_to_next_str(cmd);
+		} else if (os_strncasecmp(cmd, "PROBE_COUNT_WLAN ", 17) == 0) {
+			cmd += 17;
+			cmd = skip_white_space(cmd);
+			val16 = get_u16_from_string(cmd, &ret);
+			if (ret < 0) {
+				wpa_printf(MSG_ERROR, "Input error: count_wlan");
+				goto nlmsg_fail;
+			}
+			if (val16 > MAX_SUPPORTED_VAL) {
+				wpa_printf(MSG_ERROR,
+					   "probe wlan val %d higher than supported",
+					   val16);
+				ret = -EINVAL;
+				goto nlmsg_fail;
+			}
+			ret = nla_put_u16(nlmsg,
+					  QCA_WLAN_VENDOR_ATTR_CONFIG_ANT_DIV_PROBE_COUNT_WLAN,
+					  val16);
+			if (ret) {
+				wpa_printf(MSG_ERROR, "Failed to put count_wlan value");
+				goto nlmsg_fail;
+			}
+			cmd = move_to_next_str(cmd);
+		} else if (os_strncasecmp(cmd, "PROBE_COUNT_BT ", 15) == 0) {
+			cmd += 15;
+			cmd = skip_white_space(cmd);
+			val16 = get_u16_from_string(cmd, &ret);
+			if (ret < 0) {
+				wpa_printf(MSG_ERROR, "Input error: count_bt");
+				goto nlmsg_fail;
+			}
+			if (val16 > MAX_SUPPORTED_VAL) {
+				wpa_printf(MSG_ERROR,
+					   "probe bt val %d higher than supported",
+					   val16);
+				ret = -EINVAL;
+				goto nlmsg_fail;
+			}
+			ret = nla_put_u16(nlmsg,
+					  QCA_WLAN_VENDOR_ATTR_CONFIG_ANT_DIV_PROBE_COUNT_BT,
+					  val16);
+			if (ret) {
+				wpa_printf(MSG_ERROR, "Failed to put count_bt value");
+				goto nlmsg_fail;
+			}
+			cmd = move_to_next_str(cmd);
+		} else if (os_strncasecmp(cmd, "WLAN_RSSI_TH ", 13) == 0) {
+			cmd += 13;
+			cmd = skip_white_space(cmd);
+			wlan_rssi_th  = get_s16_from_string(cmd, &ret);
+			if (ret < 0) {
+				wpa_printf(MSG_ERROR, "Input error: wlan_rssi_th");
+				goto nlmsg_fail;
+			}
+			if (wlan_rssi_th > 0 || wlan_rssi_th < -100) {
+				wpa_printf(MSG_ERROR,
+					   "wlan th val %d is not valid",
+					   wlan_rssi_th);
+				ret = -EINVAL;
+				goto nlmsg_fail;
+			}
+			ret = nla_put_u16(nlmsg,
+				QCA_WLAN_VENDOR_ATTR_CONFIG_ANT_DIV_PROBE_WLAN_RSSI_THRESHOLD,
+				(u16)wlan_rssi_th);
+			if (ret) {
+				wpa_printf(MSG_ERROR, "Failed to put wlan_rssi_th value");
+				goto nlmsg_fail;
+			}
+			cmd = move_to_next_str(cmd);
+		} else if (os_strncasecmp(cmd, "BT_RSSI_TH ", 11) == 0) {
+			cmd += 11;
+			cmd = skip_white_space(cmd);
+			bt_rssi_th = get_s16_from_string(cmd, &ret);
+			if (ret < 0) {
+				wpa_printf(MSG_ERROR, "Input error: bt_rssi_th");
+				goto nlmsg_fail;
+			}
+			if (bt_rssi_th > 0 || bt_rssi_th < -100) {
+				wpa_printf(MSG_ERROR,
+					   "bt th value %d is not valid",
+					   bt_rssi_th);
+				ret = -EINVAL;
+				goto nlmsg_fail;
+			}
+			ret = nla_put_u16(nlmsg,
+				QCA_WLAN_VENDOR_ATTR_CONFIG_ANT_DIV_PROBE_BT_RSSI_THRESHOLD,
+				(u16)bt_rssi_th);
+			if (ret) {
+				wpa_printf(MSG_ERROR, "Failed to put bt_rssi_th value");
+				goto nlmsg_fail;
+			}
+			cmd = move_to_next_str(cmd);
+		} else if (os_strncasecmp(cmd, "WLAN_RSSI_DIFF ", 15) == 0) {
+			cmd += 15;
+			cmd = skip_white_space(cmd);
+			val16 = get_u16_from_string(cmd, &ret);
+			if (ret < 0) {
+				wpa_printf(MSG_ERROR, "Input error: wlan_diff");
+				goto nlmsg_fail;
+			}
+			if (val16 > MAX_SUPPORTED_VAL) {
+				wpa_printf(MSG_ERROR,
+					   "wlan diff %d higher than supported",
+					   val16);
+				ret = -EINVAL;
+				goto nlmsg_fail;
+			}
+			ret = nla_put_u16(nlmsg,
+					  QCA_WLAN_VENDOR_ATTR_CONFIG_ANT_DIV_SWITCH_WLAN_RSSI_DIFF,
+					  val16);
+			if (ret) {
+				wpa_printf(MSG_ERROR, "Failed to put wlan_diff value");
+				goto nlmsg_fail;
+			}
+			cmd = move_to_next_str(cmd);
+		} else if (os_strncasecmp(cmd, "BT_RSSI_DIFF ", 13) == 0) {
+			cmd += 13;
+			cmd = skip_white_space(cmd);
+			val16 = get_u16_from_string(cmd, &ret);
+			if (ret < 0) {
+				wpa_printf(MSG_ERROR, "Input error: bt_diff");
+				goto nlmsg_fail;
+			}
+			if (val16 > MAX_SUPPORTED_VAL) {
+				wpa_printf(MSG_ERROR,
+					   "bt diff val %d higher than supported",
+					   val16);
+				ret = -EINVAL;
+				goto nlmsg_fail;
+			}
+			ret = nla_put_u16(nlmsg,
+					  QCA_WLAN_VENDOR_ATTR_CONFIG_ANT_DIV_SWITCH_BT_RSSI_DIFF,
+					  val16);
+			if (ret) {
+				wpa_printf(MSG_ERROR, "Failed to put bt_diff value");
+				goto nlmsg_fail;
+			}
+			cmd = move_to_next_str(cmd);
+		} else {
+			wpa_printf(MSG_ERROR, "Invalid attribute");
+			ret = -EINVAL;
+			goto nlmsg_fail;
+		}
+	}
+	nla_nest_end(nlmsg, attr);
+	ret = send_nlmsg((struct nl_sock *)drv->global->nl, nlmsg, NULL, NULL);
+	if (ret)
+		wpa_printf(MSG_ERROR, "Error sending nlmsg, ret: %d", ret);
+
+	return ret;
+nlmsg_fail:
+	nlmsg_free(nlmsg);
+	return ret;
+}
+
+static int get_ant_div_response_handler(struct nl_msg *msg, void *arg)
+{
+	struct genlmsghdr *msg_hdr;
+	struct nlattr *tb[NL80211_ATTR_MAX_INTERNAL + 1];
+	struct nlattr *tb_vendor[QCA_WLAN_VENDOR_ATTR_MAX + 1];
+	struct nlattr *vendor_data;
+	int vendor_len;
+	struct resp_info *info = (struct resp_info *)arg;
+	struct wpa_driver_nl80211_data *drv = info->drv;
+	uint32_t chain_rssi[CHAIN_MAX_NUM] = {0};
+	int32_t chain_evm[CHAIN_MAX_NUM] = {0};
+	uint32_t ant_id[CHAIN_MAX_NUM] = {0};
+	bool is_rssi_valid = false;
+	size_t rssi_len, evm_len, ant_len, num_chains;
+
+	if (!info) {
+		wpa_printf(MSG_ERROR, "Invalid arg");
+		return NL_STOP;
+	}
+
+	msg_hdr = (struct genlmsghdr *)nlmsg_data(nlmsg_hdr(msg));
+	nla_parse(tb, NL80211_ATTR_MAX_INTERNAL, genlmsg_attrdata(msg_hdr, 0),
+		  genlmsg_attrlen(msg_hdr, 0), NULL);
+
+	if (!tb[NL80211_ATTR_VENDOR_DATA]) {
+		wpa_printf(MSG_ERROR, "NL80211_ATTR_VENDOR_DATA not found");
+		return NL_STOP;
+	}
+
+	vendor_data = nla_data(tb[NL80211_ATTR_VENDOR_DATA]);
+	vendor_len = nla_len(tb[NL80211_ATTR_VENDOR_DATA]);
+
+	if (nla_parse(tb_vendor, QCA_WLAN_VENDOR_ATTR_MAX,
+		      vendor_data, vendor_len, NULL)) {
+		wpa_printf(MSG_ERROR, "NL80211_ATTR_VENDOR_DATA parse error");
+		return NL_STOP;
+	}
+
+	if (tb_vendor[QCA_WLAN_VENDOR_ATTR_CHAIN_RSSI]) {
+		rssi_len = nla_len(tb_vendor[QCA_WLAN_VENDOR_ATTR_CHAIN_RSSI]);
+		if (rssi_len > sizeof(chain_rssi)) {
+			wpa_printf(MSG_ERROR, "RSSI data size mismatch");
+			return NL_STOP;
+		}
+		nla_memcpy(chain_rssi,
+			   tb_vendor[QCA_WLAN_VENDOR_ATTR_CHAIN_RSSI],
+			   rssi_len);
+	} else {
+		wpa_printf(MSG_ERROR, "RSSI data not present");
+		return NL_STOP;
+	}
+
+	if (tb_vendor[QCA_WLAN_VENDOR_ATTR_CHAIN_EVM]) {
+		evm_len = nla_len(tb_vendor[QCA_WLAN_VENDOR_ATTR_CHAIN_EVM]);
+		if (evm_len > sizeof(chain_evm)) {
+			wpa_printf(MSG_ERROR, "EVM data size mismatch");
+			return NL_STOP;
+		}
+		nla_memcpy(chain_evm,
+			   tb_vendor[QCA_WLAN_VENDOR_ATTR_CHAIN_EVM],
+			   evm_len);
+	} else {
+		wpa_printf(MSG_ERROR, "EVM data not present");
+		return NL_STOP;
+	}
+
+	if (tb_vendor[QCA_WLAN_VENDOR_ATTR_ANTENNA_INFO]) {
+		ant_len = nla_len(tb_vendor[QCA_WLAN_VENDOR_ATTR_ANTENNA_INFO]);
+		if (ant_len > sizeof(ant_id)) {
+			wpa_printf(MSG_ERROR, "Antenna ID data size mismatch");
+			return NL_STOP;
+		}
+		nla_memcpy(ant_id,
+			   tb_vendor[QCA_WLAN_VENDOR_ATTR_ANTENNA_INFO],
+			   ant_len);
+	} else {
+		wpa_printf(MSG_ERROR, "Antenna ID data not present");
+		return NL_STOP;
+	}
+
+	num_chains = rssi_len / sizeof(uint32_t);
+	if (num_chains > CHAIN_MAX_NUM)
+		num_chains = CHAIN_MAX_NUM;
+
+	if (evm_len / sizeof(int32_t) != num_chains ||
+	    ant_len / sizeof(uint32_t) != num_chains) {
+		wpa_printf(MSG_ERROR, "Inconsistent chain data sizes");
+		return NL_STOP;
+	}
+
+	for (int i = 0; i < num_chains; i++) {
+		if (chain_rssi[i] != 0) {
+			is_rssi_valid = true;
+			wpa_msg(drv->ctx, MSG_INFO, "RSSI %d, AntID %u, EVM %d",
+				(int32_t)chain_rssi[i], ant_id[i], chain_evm[i]);
+		}
+	}
+
+	if (!is_rssi_valid)
+		wpa_msg(drv->ctx, MSG_INFO, "Rssi is invalid");
+
+	return 0;
+}
+
+static int wpa_driver_get_ant_div_conf(struct i802_bss *bss, char *cmd,
+				       char *buf, size_t buf_len)
+{
+	struct resp_info info;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
+	struct nl_msg *nlmsg;
+	struct nlattr *attr;
+	int ret;
+	u8 mac_addr[MAC_ADDR_LEN];
+
+	if (!cmd) {
+		wpa_printf(MSG_ERROR, "cmd is NULL");
+		return -EINVAL;
+	}
+
+	memset(&info, 0, sizeof(struct resp_info));
+	info.subcmd = QCA_NL80211_VENDOR_SUBCMD_GET_CHAIN_RSSI;
+	info.reply_buf = buf;
+	info.reply_buf_len = buf_len;
+	info.drv = drv;
+
+	nlmsg = prepare_vendor_nlmsg(bss->drv, bss->ifname,
+				     QCA_NL80211_VENDOR_SUBCMD_GET_CHAIN_RSSI);
+	if (!nlmsg) {
+		wpa_printf(MSG_ERROR, "Failed to allocate nl message");
+		return -ENOMEM;
+	}
+
+	attr = nla_nest_start(nlmsg, NL80211_ATTR_VENDOR_DATA);
+	if (!attr) {
+		wpa_printf(MSG_ERROR, "Failed to create attribute");
+		ret = -ENOMEM;
+		goto nlmsg_fail;
+	}
+
+	cmd = skip_white_space(cmd);
+	if (os_strncasecmp(cmd, "MAC_ADDR ", 9) != 0) {
+		wpa_printf(MSG_ERROR, "MAC address not present");
+		ret = -EINVAL;
+		goto nlmsg_fail;
+	}
+	cmd += 9;
+	cmd = skip_white_space(cmd);
+	if (convert_string_to_bytes(mac_addr, cmd, MAC_ADDR_LEN) != MAC_ADDR_LEN) {
+		wpa_printf(MSG_ERROR, "MAC ADDR is not correct");
+		ret = -EINVAL;
+		goto nlmsg_fail;
+	}
+
+	ret = nla_put(nlmsg, QCA_WLAN_VENDOR_ATTR_MAC_ADDR,
+		      MAC_ADDR_LEN, mac_addr);
+	if (ret) {
+		wpa_printf(MSG_ERROR, "Failed to put QCA_WLAN_VENDOR_ATTR_MAC_ADDR");
+		goto nlmsg_fail;
+	}
+
+	nla_nest_end(nlmsg, attr);
+
+	ret = send_nlmsg((struct nl_sock *)drv->global->nl, nlmsg,
+			 get_ant_div_response_handler, &info);
+	if (ret)
+		wpa_printf(MSG_ERROR, "Failed to send nl_msg");
+	return ret;
+nlmsg_fail:
+	nlmsg_free(nlmsg);
+	return ret;
+}
+
 int wpa_driver_nl80211_driver_cmd(void *priv, char *cmd, char *buf,
 				  size_t buf_len )
 {
@@ -7631,6 +8084,26 @@ int wpa_driver_nl80211_driver_cmd(void *priv, char *cmd, char *buf,
 		 */
 		cmd += 12;
 		return wpa_driver_gpio_config_cmd(bss, cmd);
+	} else if (os_strncasecmp(cmd, "SET_ANT_DIV ", 12) == 0) {
+		/**
+		 * Driver command for firmware based Antenna Diversity
+		 * Syntax: DRIVER SET_ANT_DIV ENABLE <enable_val> [CHAIN <chain_val>
+		 * STAY_PERIOD <stay_period> PROBE_PERIOD <probe_period>
+		 * PROBE_COUNT_WLAN <probe_count_wlan> PROBE_COUNT_BT <probe_count_bt>
+		 * WLAN_RSSI_TH <wlan_rssi_th> BT_RSSI_TH <bt_rssi_th>
+		 * WLAN_RSSI_DIFF <wlan_rssi_diff> BT_RSSI_DIFF <bt_rssi_diff>]
+		 * <enable_val> 1 to enable, 0 to disable
+		 */
+		cmd += 12;
+		return wpa_driver_set_ant_div_conf(bss, cmd);
+	} else if (os_strncasecmp(cmd, "GET_ANT_DIV ", 12) == 0) {
+		/**
+		 * Driver command to get current Antenna info
+		 * Driver GET_ANT_DIV MAC_ADDR <mac_addr>
+		 * <mac_addr> is mac address of peer
+		 */
+		cmd += 12;
+		return wpa_driver_get_ant_div_conf(bss, cmd, buf, buf_len);
 	} else { /* Use private command */
 		memset(&ifr, 0, sizeof(ifr));
 		memset(&priv_cmd, 0, sizeof(priv_cmd));
