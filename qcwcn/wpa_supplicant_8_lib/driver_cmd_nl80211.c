@@ -7049,7 +7049,6 @@ static int gpio_handle_output(struct wpa_driver_nl80211_data *drv,
 {
 	int ret;
 	u32 val;
-	enum qca_gpio_value gpio_val;
 
 	if (os_strncasecmp(cmd, "GPIO_VALUE ", 11) != 0) {
 		wpa_printf(MSG_ERROR, "Invalid gpio cmd");
@@ -7065,14 +7064,7 @@ static int gpio_handle_output(struct wpa_driver_nl80211_data *drv,
 		goto nlmsg_fail;
 	}
 
-	switch (val) {
-	case 0:
-		gpio_val = QCA_WLAN_GPIO_LEVEL_LOW;
-		break;
-	case 1:
-		gpio_val = QCA_WLAN_GPIO_LEVEL_HIGH;
-		break;
-	default:
+	if (val != QCA_WLAN_GPIO_LEVEL_LOW && val != QCA_WLAN_GPIO_LEVEL_HIGH) {
 		wpa_printf(MSG_ERROR, "Invalid gpio_value %d", val);
 		ret = -EINVAL;
 		goto nlmsg_fail;
@@ -7080,7 +7072,7 @@ static int gpio_handle_output(struct wpa_driver_nl80211_data *drv,
 
 	ret = nla_put_u32(nlmsg,
 			  QCA_WLAN_VENDOR_ATTR_GPIO_PARAM_VALUE,
-			  gpio_val);
+			  val);
 	if (ret) {
 		wpa_printf(MSG_ERROR, "Failed to put gpio_value");
 		goto nlmsg_fail;
@@ -7207,8 +7199,7 @@ static int wpa_driver_gpio_config_cmd(struct i802_bss *bss, char *cmd)
 	struct wpa_driver_nl80211_data *drv = bss->drv;
 	struct nl_msg *nlmsg;
 	struct nlattr *attr;
-	enum qca_gpio_cmd_type gpio_cmd_val;
-	u32 val;
+	u32 val, gpio_cmd_val;
 
 	cmd = skip_white_space(cmd);
 	if (*cmd == '\0') {
@@ -7246,14 +7237,7 @@ static int wpa_driver_gpio_config_cmd(struct i802_bss *bss, char *cmd)
 		goto nlmsg_fail;
 	}
 
-	switch (val) {
-	case 0:
-		gpio_cmd_val = QCA_WLAN_VENDOR_GPIO_CONFIG;
-		break;
-	case 1:
-		gpio_cmd_val = QCA_WLAN_VENDOR_GPIO_OUTPUT;
-		break;
-	default:
+	if (val != QCA_WLAN_VENDOR_GPIO_CONFIG && val != QCA_WLAN_VENDOR_GPIO_OUTPUT) {
 		wpa_printf(MSG_ERROR, "Invalid gpio_command value %d", val);
 		ret = -EINVAL;
 		goto nlmsg_fail;
@@ -7261,12 +7245,13 @@ static int wpa_driver_gpio_config_cmd(struct i802_bss *bss, char *cmd)
 
 	ret = nla_put_u32(nlmsg,
 			  QCA_WLAN_VENDOR_ATTR_GPIO_PARAM_COMMAND,
-			  gpio_cmd_val);
+			  val);
 	if (ret) {
 		wpa_printf(MSG_ERROR, "Failed to put gpio_command value");
 		goto nlmsg_fail;
 	}
 
+	gpio_cmd_val = val;
 	cmd = move_to_next_str(cmd);
 	if (os_strncasecmp(cmd, "GPIO_PINNUM ", 12) != 0) {
 		ret = -EINVAL;
