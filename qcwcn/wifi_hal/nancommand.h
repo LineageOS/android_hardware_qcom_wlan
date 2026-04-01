@@ -242,7 +242,7 @@ public:
     wifi_error putNanDebugCommand(NanDebugParams debug, int debug_msg_length);
     wifi_error putNanBootstrappingReq(transaction_id id,
                                       const NanBootstrappingRequest *pReq,
-                                      u16 pub_sub_id);
+                                      u16 pub_sub_id, u8 dialog_token);
     wifi_error putNanBootstrappingIndicationRsp(transaction_id id,
                                 const NanBootstrappingIndicationResponse *pRsp);
     wifi_error putNanIdentityResolutionParams(transaction_id id,

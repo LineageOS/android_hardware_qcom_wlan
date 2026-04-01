@@ -1007,6 +1007,11 @@ enum nan_attr_id {
 #define NAN_SHARED_KEY_ATTR_ID 0x24
 #define NAN_ENCRYPT_KEY_DATA   BIT(12)
 #define NAN_VENDOR_ATTR_TYPE   0xdd
+#define NAN_KEY_TYPE BIT(3)
+#define NAN_INSTALL_KEY BIT(6)
+#define NAN_KEY_ACK BIT(7)
+#define NAN_KEY_MIC BIT(8)
+#define NAN_SECURE BIT(9)
 
 #define NAN_KDE_TYPE_IGTK                 0x09
 #define NAN_KDE_TYPE_BIGTK                0x0E
@@ -1523,6 +1528,14 @@ typedef struct PACKED
     u32 reserved:30;
 
 } NanCapabilitiesRspMsg, *pNanCapabilitiesRspMsg;
+
+/* SSI cache helpers */
+void nan_ssi_cache_store(u16 subscribe_id, transaction_id trans_id,
+                         const u8 *ssi, u16 ssi_len);
+u16 nan_ssi_cache_get(u16 subscribe_id, u8 *buf, u16 buf_len);
+void nan_ssi_cache_clear(u16 subscribe_id);
+void nan_ssi_cache_clear_by_trans(transaction_id trans_id);
+void nan_ssi_cache_clear_all(void);
 
 /* NAN Self Transmit Followup */
 typedef struct PACKED
@@ -2094,6 +2107,8 @@ struct nan_pairing_peer_info {
     /* capability info in CSIA attribute */
     u8 csia_cap_info;
     struct pasn_auth_frame *frame;
+    /* dialog token in bootstrapping request/response */
+    u8 dialog_token;
 };
 
 struct wpa_secure_nan {
@@ -2139,6 +2154,10 @@ struct wpa_secure_nan {
     struct nan_pairing_peer_info* pending_peer;
     /* device group keys capability info*/
     u8 csia_cap_info;
+    /* dialog token in bootstrapping request */
+    u8 dialog_token;
+    /* instance is in publisher role */
+    bool is_publish;
 };
 
 /***************************************************
@@ -2220,9 +2239,11 @@ const u8 *nan_attr_from_nan_ie(const u8 *nan_ie, enum nan_attr_id attr);
 const u8 *nan_get_attr_from_ies(const u8 *ies, size_t ies_len,
                                 enum nan_attr_id attr);
 void nan_pairing_add_setup_ies(struct wpa_secure_nan *secure_nan,
-                               struct pasn_data *pasn, int peer_role);
+                               struct pasn_data *pasn, int peer_role,
+                               u32 cipher);
 void nan_pairing_add_verification_ies(struct wpa_secure_nan *secure_nan,
-                                      struct pasn_data *pasn, int peer_role);
+                                      struct pasn_data *pasn, int peer_role,
+                                      u32 cipher);
 int nan_pasn_kdk_to_ndp_pmk(const u8 *kdk, size_t kdk_len, const u8 *spa,
                             const u8 *bssid, u8 *ndp_pmk, u32 *ndp_pmk_len);
 int nan_pasn_kdk_to_opportunistic_npk(const u8 *kdk, size_t kdk_len,
@@ -2278,6 +2299,7 @@ int nan_pairing_prepare_skda_data(wifi_interface_handle iface);
 wifi_error nan_group_key_pn_request(transaction_id id,
                                     wifi_interface_handle iface,
                                     u32 key_index);
+u16 get_matching_bootstrap_method(u16 method);
 
 #ifdef __cplusplus
 }

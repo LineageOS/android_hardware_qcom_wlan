@@ -1679,6 +1679,8 @@ static void internal_cleaned_up_handler(wifi_handle handle)
     wifi_cleaned_up_handler cleaned_up_handler = info->cleaned_up_handler;
     wifihal_mon_sock_t *reg, *tmp;
 
+    nan_ssi_cache_clear_all();
+
     if (info->cmd_sock != 0) {
         nl_socket_free(info->cmd_sock);
         nl_socket_free(info->event_sock);
@@ -4182,4 +4184,109 @@ void wifihal_event_mgmt(wifi_handle handle, struct nlattr *freq, const u8 *frame
 #endif /* WPA_PASN_LIB */
 
     return;
+}
+
+static int ext_feature_isset(const u8 *ext_features, int ext_features_len,
+                             int ftidx)
+{
+    u8 ft_byte;
+
+    if ((int) ftidx / 8 >= ext_features_len)
+        return 0;
+
+    ft_byte = ext_features[ftidx / 8];
+    return (ft_byte & BIT(ftidx % 8)) != 0;
+}
+
+class GetSupportedFeatureFlag : public WifiCommand
+{
+private:
+    bool mStatus;
+    int mFeatureIndex;
+
+public:
+    GetSupportedFeatureFlag(wifi_handle handle) : WifiCommand(handle, 0)
+    {
+        mStatus = false;
+        mFeatureIndex = 0;
+    }
+
+    void setFeatureIndex(int feature) {
+        mFeatureIndex = feature;
+    }
+
+    virtual wifi_error create() {
+        int nl80211_id = genl_ctrl_resolve(mInfo->cmd_sock, "nl80211");
+
+        if (nl80211_id < 0) {
+            ALOGE("%s: Failed to resolve nl80211 family", __FUNCTION__);
+            return WIFI_ERROR_UNKNOWN;
+        }
+        wifi_error ret = mMsg.create(nl80211_id, NL80211_CMD_GET_WIPHY, NLM_F_DUMP, 0);
+        mMsg.put_flag(NL80211_ATTR_SPLIT_WIPHY_DUMP);
+
+        return ret;
+    }
+
+    virtual wifi_error requestResponse() {
+        return WifiCommand::requestResponse(mMsg);
+    }
+    virtual wifi_error set_iface_id(const char* name) {
+        unsigned ifindex = if_nametoindex(name);
+        return mMsg.set_iface_id(ifindex);
+    }
+
+    virtual int handleResponse(WifiEvent& reply) {
+        struct nlattr **tb = reply.attributes();
+
+        if (tb[NL80211_ATTR_EXT_FEATURES]) {
+            int len;
+            u8 *ext_features;
+
+            ext_features = (u8 *)nla_data(tb[NL80211_ATTR_EXT_FEATURES]);
+            len = nla_len(tb[NL80211_ATTR_EXT_FEATURES]);
+
+            if (ext_feature_isset(ext_features, len, mFeatureIndex))
+                mStatus = true;
+        }
+        return NL_SKIP;
+    }
+
+    int isFeatureFlagSupported() {
+        return mStatus;
+    }
+};
+
+int is_feature_supported(wifi_interface_handle iface_handle, int feature)
+{
+    wifi_error ret;
+    wifi_handle handle = getWifiHandle(iface_handle);
+    interface_info *info = getIfaceInfo(iface_handle);
+    GetSupportedFeatureFlag cmd(handle);
+
+    if (!info) {
+        ALOGE("%s: Invalid interface info", __func__);
+        return 0;
+    }
+
+    ret = cmd.create();
+    if (ret != WIFI_SUCCESS) {
+        ALOGE("%s: create command failed", __func__);
+        return 0;
+    }
+
+    ret = cmd.set_iface_id(info->name);
+    if (ret != WIFI_SUCCESS) {
+        ALOGE("%s: set iface id failed", __func__);
+        return 0;
+    }
+
+    cmd.setFeatureIndex(feature);
+
+    ret = cmd.requestResponse();
+    if (ret != WIFI_SUCCESS) {
+        ALOGE("Failed to query feature flag, ret=%d", ret);
+        return 0;
+    }
+    return cmd.isFeatureFlagSupported();
 }

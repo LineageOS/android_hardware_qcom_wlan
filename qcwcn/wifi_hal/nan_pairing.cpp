@@ -259,6 +259,7 @@ static int nan_get_npba_attr(const u8* buf, size_t buf_len,
 {
     u16 attr_len;
     u8 type_status = 0;
+    u8 type, dialog_token;
 
     if (!buf || buf_len < 3) {
         ALOGE("%s: Invalid attribute", __FUNCTION__);
@@ -274,12 +275,20 @@ static int nan_get_npba_attr(const u8* buf, size_t buf_len,
         return -1;
     }
 
-    npba->dialog_token = *buf++;
+    dialog_token = *buf++;
     attr_len--;
 
     type_status = *buf++;
     attr_len--;
-    npba->type = type_status & 0x0F;
+    type = type_status & 0x0F;
+
+    if (type == NAN_BS_TYPE_ADVERTISE) {
+        ALOGV("Discard NPBA of type 'Advertise' in followup frames");
+        return 0;
+    }
+
+    npba->dialog_token = dialog_token;
+    npba->type = type;
     npba->status = (type_status & 0xF0) >> 4;
 
     npba->reason_code = *buf++;
@@ -295,6 +304,7 @@ static int nan_get_npba_attr(const u8* buf, size_t buf_len,
                 return -1;
             }
             npba->comeback_after = WPA_GET_LE16(buf);
+            buf += 2;
             attr_len -= 2;
         }
 
@@ -1235,6 +1245,7 @@ wifi_error nan_validate_shared_key_desc(wifi_interface_handle iface,
     struct nan_groupkey_info grpkey_info;
     wifi_handle wifiHandle = getWifiHandle(iface);
     hal_info *info = getHalInfo(wifiHandle);
+    int groupMfp;
 
     if (len < sizeof(struct sharedKeyDesc) +
               sizeof(struct keyDescriptor))
@@ -1377,11 +1388,16 @@ skip_kde:
         remainingLen -= 2 + nan_kde->length;
     }
 
+    groupMfp = NAN_CSIA_GRPKEY_SUPPORT_GET(peer->csia_cap_info);
+    ALOGI("%s: CSIA capabilities %d", __FUNCTION__, peer->csia_cap_info);
+
     if (igtk_rcvd || bigtk_rcvd) {
         memset(&grpkey_info, 0, sizeof(struct nan_groupkey_info));
         memcpy(grpkey_info.addr, addr, NAN_MAC_ADDR_LEN);
 
-        if(igtk_rcvd) {
+        if(igtk_rcvd &&
+           (groupMfp == NAN_GTKSA_IGTKSA_BIGTKSA_SUPPORTED ||
+            groupMfp == NAN_GTKSA_IGTKSA_SUPPORTED_BIGTKSA_NOT_SUPPORTED)) {
            grpkey_info.igtk_valid = 1;
            grpkey_info.igtk.key_cipher = WPA_CIPHER_GCMP;
            grpkey_info.igtk.key_idx = NAN_IGTK_KEY_IDX;
@@ -1390,7 +1406,7 @@ skip_kde:
            memcpy(grpkey_info.igtk.rsc, igtk_kde->pn, NAN_MAX_GROUP_KEY_RSC_LEN);
         }
 
-        if(bigtk_rcvd) {
+        if (bigtk_rcvd && groupMfp == NAN_GTKSA_IGTKSA_BIGTKSA_SUPPORTED) {
            grpkey_info.bigtk_valid = 1;
            grpkey_info.bigtk.key_cipher = WPA_CIPHER_GCMP;
            grpkey_info.bigtk.key_idx = NAN_BIGTK_KEY_IDX;
@@ -1398,7 +1414,8 @@ skip_kde:
            memcpy(grpkey_info.bigtk.key_data, bigtk_kde->bigtk, NAN_CSIA_GRPKEY_LEN_16);
            memcpy(grpkey_info.bigtk.rsc, bigtk_kde->pn, NAN_MAX_GROUP_KEY_RSC_LEN);
         }
-        nan_pairing_set_group_key(0, iface, &grpkey_info);
+        if (grpkey_info.igtk_valid || grpkey_info.bigtk_valid)
+            nan_pairing_set_group_key(0, iface, &grpkey_info);
     }
 fail:
      free(data);
@@ -1479,7 +1496,12 @@ wifi_error nan_get_shared_key_descriptor(hal_info *info, const u8 *addr,
     pos += sizeof(struct sharedKeyDesc);
 
     key_desc = (struct keyDescriptor *)pos;
-    WPA_PUT_BE16((u8 *)&key_desc->keyInfo, NAN_ENCRYPT_KEY_DATA);
+    /* Need to set key descriptor type to 0x2 for EAPOL Key packet */
+    key_desc->descriptorType = 0x02;
+    /* Setting required flags in Keyinfo field */
+    WPA_PUT_BE16((u8 *)&key_desc->keyInfo, (NAN_ENCRYPT_KEY_DATA | NAN_SECURE |
+                                            NAN_INSTALL_KEY | NAN_KEY_ACK |
+                                            NAN_KEY_MIC | NAN_KEY_TYPE));
     WPA_PUT_BE16((u8 *)&key_desc->keyDataLen, key_data_len);
     pos += sizeof(struct keyDescriptor);
 
@@ -1873,7 +1895,9 @@ int nan_pairing_set_keys_from_cache(wifi_handle handle, u8 *src_addr, u8 *bssid,
     if (peer->dcea_cap_info & DCEA_NPK_CACHING_ENABLED) {
         info->secure_nan->pending_peer = peer;
         nan_pairing_prepare_skda_data(ifaceHandle);
-    } else {
+    }
+
+    if (peer->is_paired || !(peer->dcea_cap_info & DCEA_NPK_CACHING_ENABLED)) {
         // Send Pairing Confirmation as Followup with Peer NIK is not mandatory
         NanPairingConfirmInd evt;
         evt.pairing_instance_id = peer->pairing_instance_id;
@@ -1881,15 +1905,20 @@ int nan_pairing_set_keys_from_cache(wifi_handle handle, u8 *src_addr, u8 *bssid,
         evt.reason_code = NAN_STATUS_SUCCESS;
         evt.enable_pairing_cache = 0;
 
-        if (peer->is_paired)
-            evt.nan_pairing_request_type = NAN_PAIRING_VERIFICATION;
+	if (peer->is_paired)
+		evt.nan_pairing_request_type = NAN_PAIRING_VERIFICATION;
         else
-            evt.nan_pairing_request_type = NAN_PAIRING_SETUP;
+		evt.nan_pairing_request_type = NAN_PAIRING_SETUP;
 
         if (pasn_get_akmp(pasn) == WPA_KEY_MGMT_PASN)
             evt.npk_security_association.akm = PASN;
         else
             evt.npk_security_association.akm = SAE;
+
+        if (pasn_get_cipher(pasn) == WPA_CIPHER_CCMP_256)
+            evt.npk_security_association.cipher_type = NAN_CIPHER_SUITE_PUBLIC_KEY_PASN_256_MASK;
+        else
+            evt.npk_security_association.cipher_type = NAN_CIPHER_SUITE_PUBLIC_KEY_PASN_128_MASK;
 
         if (info->secure_nan->dev_nik)
             memcpy(evt.npk_security_association.local_nan_identity_key,
@@ -2304,7 +2333,8 @@ const u8 *nan_get_attr_from_ies(const u8 *ies, size_t ies_len,
 }
 
 void nan_pairing_add_setup_ies(struct wpa_secure_nan *secure_nan,
-                               struct pasn_data *pasn, int peer_role)
+                               struct pasn_data *pasn, int peer_role,
+                               u32 cipher)
 {
     u8 *pos;
     nan_dcea *dcea;
@@ -2312,6 +2342,8 @@ void nan_pairing_add_setup_ies(struct wpa_secure_nan *secure_nan,
     nan_npba *npba;
     u8 *extra_ies;
     size_t extra_ies_len;
+    struct nan_pairing_peer_info *entry;
+    u16 publish_id;
 
     if (!secure_nan || !pasn) {
         ALOGE("%s: Secure NAN/PASN Null ", __FUNCTION__);
@@ -2330,6 +2362,13 @@ void nan_pairing_add_setup_ies(struct wpa_secure_nan *secure_nan,
     if (!extra_ies) {
         ALOGE("%s: Memory allocation failed", __FUNCTION__);
         return;
+    }
+
+    if (secure_nan->is_publish) {
+        publish_id = secure_nan->pub_sub_id;
+    } else {
+        entry = nan_pairing_add_peer_to_list(secure_nan, pasn->peer_addr);
+        publish_id = entry ? (entry->requestor_instance_id >> 24) : secure_nan->pub_sub_id;
     }
 
     pos = extra_ies;
@@ -2354,11 +2393,14 @@ void nan_pairing_add_setup_ies(struct wpa_secure_nan *secure_nan,
     csia->len = sizeof(nan_csia) - offsetof(nan_csia, caps);
     csia->len += sizeof(nan_csa);
     csia->caps = secure_nan->csia_cap_info;
-    csia->csa[0].cipher = NCS_PK_PASN_128;
-    csia->csa[0].pub_id = secure_nan->pub_sub_id;
+    if (cipher == NAN_CIPHER_SUITE_PUBLIC_KEY_PASN_256_MASK)
+        csia->csa[0].cipher = NCS_PK_PASN_256;
+    else
+        csia->csa[0].cipher = NCS_PK_PASN_128;
+    csia->csa[0].pub_id = publish_id;
     if (peer_role == SECURE_NAN_PAIRING_INITIATOR) {
         csia->csa[1].cipher = NCS_SK_128;
-        csia->csa[1].pub_id = secure_nan->pub_sub_id;
+        csia->csa[1].pub_id = publish_id;
         csia->len += sizeof(nan_csa);
         pos += sizeof(nan_csa);
     }
@@ -2380,21 +2422,23 @@ void nan_pairing_add_setup_ies(struct wpa_secure_nan *secure_nan,
 }
 
 void nan_pairing_add_verification_ies(struct wpa_secure_nan *secure_nan,
-                                      struct pasn_data *pasn, int peer_role)
+                                      struct pasn_data *pasn, int peer_role,
+                                      u32 cipher)
 {
     u8 *pos;
-    nan_dcea *dcea;
     nan_csia *csia;
     nan_nira *nira;
     u8 *extra_ies;
     size_t extra_ies_len;
+    struct nan_pairing_peer_info *entry;
+    u16 publish_id;
 
     if (!secure_nan || !pasn || !secure_nan->dev_nik) {
         ALOGE("NAN: NIK not initialized");
         return;
     }
 
-    extra_ies_len = NAN_IE_HEADER + sizeof(nan_dcea) +
+    extra_ies_len = NAN_IE_HEADER +
                     sizeof(nan_csia) + sizeof(nan_csa) +
                     offsetof(nan_nira, nonce_tag) +
                     secure_nan->dev_nik->nira_nonce_len +
@@ -2410,6 +2454,13 @@ void nan_pairing_add_verification_ies(struct wpa_secure_nan *secure_nan,
         return;
     }
 
+    if (secure_nan->is_publish) {
+        publish_id = secure_nan->pub_sub_id;
+    } else {
+        entry = nan_pairing_add_peer_to_list(secure_nan, pasn->peer_addr);
+        publish_id = entry ? (entry->requestor_instance_id >> 24) : secure_nan->pub_sub_id;
+    }
+
     pos = extra_ies;
 
     // NAN IE header
@@ -2418,25 +2469,19 @@ void nan_pairing_add_verification_ies(struct wpa_secure_nan *secure_nan,
     WPA_PUT_BE32(pos, NAN_IE_VENDOR_TYPE);
     pos += 4;
 
-    dcea = (nan_dcea *)pos;
-    dcea->attr_id = NAN_ATTR_ID_DCEA;
-    dcea->len = sizeof(nan_dcea) - offsetof(nan_dcea, cap_info);
-    if (secure_nan->enable_pairing_setup)
-        dcea->cap_info |= DCEA_PARING_SETUP_ENABLED;
-    if (secure_nan->enable_pairing_cache)
-        dcea->cap_info |= DCEA_NPK_CACHING_ENABLED;
-     pos += sizeof(nan_dcea);
-
     csia = (nan_csia *)pos;
     csia->attr_id = NAN_ATTR_ID_CSIA;
     csia->len = sizeof(nan_csia) - offsetof(nan_csia, caps);
     csia->len += sizeof(nan_csa);
     csia->caps = secure_nan->csia_cap_info;
-    csia->csa[0].cipher = NCS_PK_PASN_128;
-    csia->csa[0].pub_id = secure_nan->pub_sub_id;
+    if (cipher == NAN_CIPHER_SUITE_PUBLIC_KEY_PASN_256_MASK)
+        csia->csa[0].cipher = NCS_PK_PASN_256;
+    else
+        csia->csa[0].cipher = NCS_PK_PASN_128;
+    csia->csa[0].pub_id = publish_id;
     if (peer_role == SECURE_NAN_PAIRING_INITIATOR) {
         csia->csa[1].cipher = NCS_SK_128;
-        csia->csa[1].pub_id = secure_nan->pub_sub_id;
+        csia->csa[1].pub_id = publish_id;
         csia->len += sizeof(nan_csa);
         pos += sizeof(nan_csa);
     }
@@ -2452,7 +2497,7 @@ void nan_pairing_add_verification_ies(struct wpa_secure_nan *secure_nan,
     os_memcpy(&nira->nonce_tag[secure_nan->dev_nik->nira_nonce_len],
               secure_nan->dev_nik->nira_tag, secure_nan->dev_nik->nira_tag_len);
 
-    ALOGV("NAN Pairing Verification IEs: dcea cap_info = %d", dcea->cap_info);
+    ALOGV("NAN Pairing Verification IEs");
     pasn_set_extra_ies(pasn, extra_ies, extra_ies_len);
     os_free(extra_ies);
 }
@@ -2759,6 +2804,8 @@ static void nan_pairing_nik_deinit(struct nanIDkey *nik)
     return;
 }
 
+#define NL80211_EXT_FEATURE_SECURE_NAN 63
+
 int secure_nan_init(wifi_interface_handle iface)
 {
     struct wpa_secure_nan *secure_nan = NULL;
@@ -2768,6 +2815,11 @@ int secure_nan_init(wifi_interface_handle iface)
     if (info->secure_nan) {
         ALOGE("Secure NAN Already initialized");
         return 0;
+    }
+
+    if (!is_feature_supported(iface, NL80211_EXT_FEATURE_SECURE_NAN)) {
+        ALOGE("Secure NAN not supported by driver");
+        return -1;
     }
 
     if (eloop_init()) {

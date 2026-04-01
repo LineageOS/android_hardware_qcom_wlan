@@ -205,6 +205,7 @@ wifi_error nan_pairing_indication_response(transaction_id id,
         } else {
             pasn_set_akmp(pasn, WPA_KEY_MGMT_PASN);
             pasn_set_wpa_key_mgmt(pasn, WPA_KEY_MGMT_PASN);
+            pasn_set_noauth(pasn, 1);
         }
 
         // Configure NIK from the user.
@@ -228,7 +229,8 @@ wifi_error nan_pairing_indication_response(transaction_id id,
             pasn_set_custom_pmkid(pasn, pmkid);
         }
         // construct wrapped data for csia, nira
-        nan_pairing_add_verification_ies(secure_nan, pasn, peer->peer_role);
+        nan_pairing_add_verification_ies(secure_nan, pasn, peer->peer_role,
+                                         msg->cipher_type);
 
         if (msg->key_info.key_type == NAN_SECURITY_KEY_INPUT_PMK &&
             msg->akm == SAE) {
@@ -264,7 +266,8 @@ wifi_error nan_pairing_indication_response(transaction_id id,
             goto fail;
         }
         // construct wrapped data for dcea, csia, npba
-        nan_pairing_add_setup_ies(secure_nan, pasn, peer->peer_role);
+        nan_pairing_add_setup_ies(secure_nan, pasn, peer->peer_role,
+                                  msg->cipher_type);
     }
 
     if (secure_nan->rsnxe)
@@ -382,7 +385,7 @@ int nan_pairing_handle_pasn_auth(wifi_handle handle, const u8 *data, size_t len)
                           len - offsetof(struct ieee80211_mgmt,
                           u.auth.variable), NAN_ATTR_ID_CSIA);
 
-        if (nan_attr_ie) {
+        if (entry && nan_attr_ie) {
             nan_csia *csia = (nan_csia *)nan_attr_ie;
             entry->csia_cap_info = csia->caps;
         }
@@ -461,7 +464,7 @@ int nan_pairing_handle_pasn_auth(wifi_handle handle, const u8 *data, size_t len)
             ALOGE("PASN Responder: Handle PASN Auth3 failed ");
             return WIFI_ERROR_UNKNOWN;
         }
-        if (!(entry->dcea_cap_info & DCEA_NPK_CACHING_ENABLED)) {
+        if (entry->is_paired || !(entry->dcea_cap_info & DCEA_NPK_CACHING_ENABLED)) {
         // Send Pairing Confirmation as Followup with Peer NIK is not mandatory
             NanPairingConfirmInd evt;
             evt.pairing_instance_id = entry->pairing_instance_id;
@@ -478,6 +481,11 @@ int nan_pairing_handle_pasn_auth(wifi_handle handle, const u8 *data, size_t len)
                 evt.npk_security_association.akm = PASN;
             else
                 evt.npk_security_association.akm = SAE;
+
+            if (pasn_get_cipher(pasn) == WPA_CIPHER_CCMP_256)
+                evt.npk_security_association.cipher_type = NAN_CIPHER_SUITE_PUBLIC_KEY_PASN_256_MASK;
+            else
+                evt.npk_security_association.cipher_type = NAN_CIPHER_SUITE_PUBLIC_KEY_PASN_128_MASK;
 
             if (info->secure_nan->dev_nik)
                 memcpy(evt.npk_security_association.local_nan_identity_key,
