@@ -7723,7 +7723,7 @@ static int get_ant_div_response_handler(struct nl_msg *msg, void *arg)
 	struct nlattr *vendor_data;
 	int vendor_len;
 	struct resp_info *info = (struct resp_info *)arg;
-	struct wpa_driver_nl80211_data *drv = info->drv;
+	struct wpa_driver_nl80211_data *drv;
 	uint32_t chain_rssi[CHAIN_MAX_NUM] = {0};
 	int32_t chain_evm[CHAIN_MAX_NUM] = {0};
 	uint32_t ant_id[CHAIN_MAX_NUM] = {0};
@@ -7732,6 +7732,12 @@ static int get_ant_div_response_handler(struct nl_msg *msg, void *arg)
 
 	if (!info) {
 		wpa_printf(MSG_ERROR, "Invalid arg");
+		return NL_STOP;
+	}
+
+	drv = info->drv;
+	if (!drv) {
+		wpa_printf(MSG_ERROR, "Invalid driver data");
 		return NL_STOP;
 	}
 
