@@ -2169,6 +2169,8 @@ struct nan_pairing_peer_info {
     struct pasn_auth_frame *frame;
     /* dialog token in bootstrapping request/response */
     u8 dialog_token;
+    /* cipher type used for pairing */
+    u32 cipher_type;
 };
 
 struct wpa_secure_nan {

@@ -100,6 +100,7 @@
 #define TWT_CLEAR_STATS_STR  "twt_session_clear_stats "
 #define TWT_GET_CAP_STR      "twt_get_capability"
 #define TWT_SET_PARAM_STR    "twt_set_param "
+#define TWT_EARLY_TERMINATION_IND_STR    "twt_session_early_end_ind "
 
 #define TWT_SETUP_STRLEN         strlen(TWT_SETUP_STR)
 #define TWT_TERMINATE_STR_LEN    strlen(TWT_TERMINATE_STR)
@@ -111,6 +112,7 @@
 #define TWT_CLEAR_STATS_STR_LEN  strlen(TWT_CLEAR_STATS_STR)
 #define TWT_GET_CAP_STR_LEN      strlen(TWT_GET_CAP_STR)
 #define TWT_SET_PARAM_STR_LEN    strlen(TWT_SET_PARAM_STR)
+#define TWT_EARLY_TERMINATION_IND_STR_LEN strlen(TWT_EARLY_TERMINATION_IND_STR)
 
 #define TWT_CMD_NOT_EXIST -EINVAL
 #define DEFAULT_IFNAME "wlan0"
@@ -195,6 +197,13 @@
 #define MGMT_FRAME_VALUE_MAX     0x2FFF
 #define CTRL_FRAME_VALUE_MAX     0x8FFF
 #define DATA_FRAME_VALUE_MAX     0x8FFF
+
+/**
+ * NAN PS configuration constant
+ */
+#define NAN_PS_CONFIG_TRANSACTION_ID 1000
+
+#define MAX_GPIO_MUX_CONFIG 15
 
 static int twt_async_support = -1;
 
@@ -2796,6 +2805,9 @@ static int check_for_twt_cmd(char *cmd)
 	} else if (os_strncasecmp(cmd, TWT_SET_PARAM_STR,
 				  TWT_SET_PARAM_STR_LEN) == 0) {
 		return QCA_WLAN_TWT_SET_PARAM;
+	} else if (os_strncasecmp(cmd, TWT_EARLY_TERMINATION_IND_STR,
+				  TWT_EARLY_TERMINATION_IND_STR_LEN) == 0) {
+		return QCA_WLAN_TWT_EARLY_TERMINATION_IND;
 	} else {
 		return TWT_CMD_NOT_EXIST;
 	}
@@ -3918,6 +3930,68 @@ fail:
 	return -EINVAL;
 }
 
+static int prepare_twt_early_terminate_params(struct nl_msg *nlmsg, char *cmd)
+{
+	u8 dialog_id;
+	struct nlattr *twt_attr;
+	int ret = 0;
+	uint8_t peer_mac[MAC_ADDR_LEN];
+
+	if (check_cmd_input(cmd))
+		return -EINVAL;
+
+	cmd = skip_white_space(cmd);
+
+	if (nla_put_u8(nlmsg, QCA_WLAN_VENDOR_ATTR_CONFIG_TWT_OPERATION,
+		       QCA_WLAN_TWT_EARLY_TERMINATION_IND)) {
+		wpa_printf(MSG_ERROR, "TWT: Failed to put QCA_WLAN_TWT_EARLY_TERMINATION_IND");
+		goto fail;
+	}
+
+	twt_attr = nla_nest_start(nlmsg,
+				  QCA_WLAN_VENDOR_ATTR_CONFIG_TWT_PARAMS);
+	if (twt_attr == NULL)
+		goto fail;
+
+	if (os_strncasecmp(cmd, DIALOG_ID_STR, DIALOG_ID_STR_LEN) == 0) {
+		cmd = move_to_next_str(cmd);
+		dialog_id = get_u8_from_string(cmd, &ret);
+		if (ret < 0)
+			goto fail;
+		if (nla_put_u8(nlmsg, QCA_WLAN_VENDOR_ATTR_TWT_EARLY_TERM_FLOW_ID,
+			       dialog_id)) {
+			wpa_printf(MSG_DEBUG, "TWT: Failed to put dialog_id");
+			goto fail;
+		}
+		cmd = move_to_next_str(cmd);
+		if (os_strncasecmp(cmd, MAC_ADDRESS_STR, strlen(MAC_ADDRESS_STR)) == 0) {
+			cmd = move_to_next_str(cmd);
+			if (convert_string_to_bytes(peer_mac, cmd, MAC_ADDR_LEN) !=
+						    MAC_ADDR_LEN) {
+				wpa_printf(MSG_ERROR, "TWT: invalid mac addr");
+				goto fail;
+			}
+			if (nla_put(nlmsg, QCA_WLAN_VENDOR_ATTR_TWT_EARLY_TERM_PEER_MAC_ADDR,
+				    MAC_ADDR_LEN, peer_mac)) {
+				wpa_printf(MSG_ERROR,
+					   "TWT: Failed to put mac address");
+				goto fail;
+			}
+		}
+	} else {
+		wpa_printf(MSG_ERROR, "TWT: no dialog_id found");
+		goto fail;
+	}
+
+	nla_nest_end(nlmsg, twt_attr);
+	wpa_printf(MSG_DEBUG, "TWT: early terminate sent with dialog_id: %x",
+		   dialog_id);
+
+	return 0;
+fail:
+	return -EINVAL;
+}
+
 static int pack_nlmsg_twt_params(struct nl_msg *twt_nl_msg, char *cmd,
 				 enum qca_wlan_twt_operation type)
 {
@@ -3982,6 +4056,9 @@ static int pack_nlmsg_twt_params(struct nl_msg *twt_nl_msg, char *cmd,
 		break;
 	case QCA_WLAN_TWT_GET:
 		ret = prepare_twt_get_params_nlmsg(twt_nl_msg, cmd);
+		break;
+	case QCA_WLAN_TWT_EARLY_TERMINATION_IND:
+		ret = prepare_twt_early_terminate_params(twt_nl_msg, cmd);
 		break;
 	default:
 		wpa_printf(MSG_DEBUG, "Unsupported command: %d", type);
@@ -5022,6 +5099,7 @@ static int wpa_driver_twt_cmd_handler(struct wpa_driver_nl80211_data *drv,
 	case QCA_WLAN_TWT_RESUME:
 	case QCA_WLAN_TWT_NUDGE:
 	case QCA_WLAN_TWT_SET_PARAM:
+	case QCA_WLAN_TWT_EARLY_TERMINATION_IND:
 		if (check_wifi_twt_async_feature(drv, ifname) == 0) {
 			wpa_printf(MSG_ERROR, "Asynchronous TWT Feature is missing");
 			ret = -EINVAL;
@@ -6832,6 +6910,151 @@ nlmsg_fail:
 	return ret;
 }
 
+/**
+ * wpa_driver_nan_ps_config()- Sends the nan powersave params to the driver.
+ *
+ * @bss: Pointer to the BSS context
+ * @cmd: NAN PS vendor command
+ *
+ * Return: returns 0 on Success, error code on invalid response.
+ */
+static int wpa_driver_nan_ps_config(struct i802_bss *bss, char *cmd)
+{
+	struct wpa_driver_nl80211_data *drv = bss->drv;
+	struct nl_msg *nlmsg = NULL;
+	struct nlattr *attr;
+	int ret, status = 0;
+	u32 value;
+
+	if (!cmd) {
+		wpa_printf(MSG_ERROR, "nan_ps: Invalid command");
+		return -EINVAL;
+	}
+
+	cmd = skip_white_space(cmd);
+	if (*cmd == '\0') {
+		wpa_printf(MSG_ERROR, "nan_ps: Insufficient parameters");
+		return -EINVAL;
+	}
+
+	nlmsg = prepare_vendor_nlmsg(drv, bss->ifname,
+				     QCA_NL80211_VENDOR_SUBCMD_NDP);
+	if (!nlmsg) {
+		wpa_printf(MSG_ERROR,
+			   "nan_ps: Failed to allocate nl message");
+		return -ENOMEM;
+	}
+
+	attr = nla_nest_start(nlmsg, NL80211_ATTR_VENDOR_DATA);
+	if (!attr) {
+		wpa_printf(MSG_ERROR, "nan_ps: Failed to start nesting");
+		ret = -ENOMEM;
+		goto fail;
+	}
+
+	ret = nla_put_u32(nlmsg, QCA_WLAN_VENDOR_ATTR_NDP_SUBCMD,
+			  QCA_WLAN_VENDOR_NDP_SUB_CMD_UPDATE_CONFIG);
+	if (ret) {
+		wpa_printf(MSG_ERROR,
+			   "nan_ps: Failed to add attr_ndp_submd %d", ret);
+		goto fail;
+	}
+
+	ret = nla_put_u16(nlmsg, QCA_WLAN_VENDOR_ATTR_NDP_TRANSACTION_ID,
+			  NAN_PS_CONFIG_TRANSACTION_ID);
+	if (ret) {
+		wpa_printf(MSG_ERROR,
+			   "nan_ps: Failed to add transaction id %d", ret);
+		goto fail;
+	}
+
+	if (os_strncasecmp(cmd, "ndp_instance_id ", 16) == 0) {
+		cmd += 16;
+		cmd = skip_white_space(cmd);
+	} else {
+		wpa_printf(MSG_ERROR, "nan_ps: Invalid ndp_instance_id parameter");
+		ret = -EINVAL;
+		goto fail;
+	}
+
+	value = get_u32_from_string(cmd, &status);
+	if (status < 0) {
+		wpa_printf(MSG_ERROR, "nan_ps: Invalid ndp_instance_id value");
+		ret = -EINVAL;
+		goto fail;
+	}
+
+	ret = nla_put_u32(nlmsg, QCA_WLAN_VENDOR_ATTR_NDP_INSTANCE_ID, value);
+	if (ret) {
+		wpa_printf(MSG_ERROR,
+			   "nan_ps: Failed to add ndp_instance_id attr %d", ret);
+		goto fail;
+	}
+
+	cmd = move_to_next_str(cmd);
+
+	if (os_strncasecmp(cmd, "latency ", 8) == 0) {
+		cmd += 8;
+		cmd = skip_white_space(cmd);
+	} else {
+		wpa_printf(MSG_ERROR, "nan_ps: Invalid latency_in_ms parameter");
+		ret = -EINVAL;
+		goto fail;
+	}
+
+	value = get_u32_from_string(cmd, &status);
+	if (status < 0) {
+		wpa_printf(MSG_ERROR, "nan_ps: Invalid latency_in_ms value");
+		ret = -EINVAL;
+		goto fail;
+	}
+
+	ret = nla_put_u32(nlmsg, QCA_WLAN_VENDOR_ATTR_NDP_MAX_LATENCY_MS,
+			  value);
+	if (ret) {
+		wpa_printf(MSG_ERROR,
+			   "nan_ps: Failed to add latency attr %d", ret);
+		goto fail;
+	}
+
+	cmd = move_to_next_str(cmd);
+
+	if (os_strncasecmp(cmd, "throughput ", 11) == 0) {
+		cmd += 11;
+		cmd = skip_white_space(cmd);
+	} else {
+		wpa_printf(MSG_ERROR, "nan_ps: Invalid throughput parameter");
+		ret = -EINVAL;
+		goto fail;
+	}
+
+	value = get_u32_from_string(cmd, &status);
+	if (status < 0) {
+		wpa_printf(MSG_ERROR, "nan_ps: Invalid throughput value");
+		ret = -EINVAL;
+		goto fail;
+	}
+
+	ret = nla_put_u32(nlmsg, QCA_WLAN_VENDOR_ATTR_NDP_TPUT, value);
+	if (ret) {
+		wpa_printf(MSG_ERROR,
+			   "nan_ps: Failed to add throughput attr %d", ret);
+		goto fail;
+	}
+
+	nla_nest_end(nlmsg, attr);
+
+	ret = send_nlmsg((struct nl_sock *)drv->global->nl, nlmsg, NULL, NULL);
+
+	if (ret)
+		wpa_printf(MSG_ERROR, "nan_ps: Error sending nlmsg %d", ret);
+
+	return ret;
+fail:
+	nlmsg_free(nlmsg);
+	return ret;
+}
+
 static int wpa_driver_cfg_coex_traffic_shaping(struct i802_bss *bss, char *cmd)
 {
 	struct wpa_driver_nl80211_data *drv;
@@ -6884,6 +7107,333 @@ static int wpa_driver_cfg_coex_traffic_shaping(struct i802_bss *bss, char *cmd)
 	if (ret)
 		wpa_printf(MSG_ERROR, "Failed to send traffic_shaping_mode nlmsg, error:%d", ret);
 	return ret;
+nlmsg_fail:
+	nlmsg_free(nlmsg);
+	return ret;
+}
+
+static int process_gpio_pull_type(char *cmd, struct nl_msg *nlmsg)
+{
+	int ret;
+	u32 val = get_u32_from_string(cmd, &ret);
+
+	if (ret < 0) {
+		wpa_printf(MSG_ERROR, "Input error: gpio_pull_type");
+		return ret;
+	}
+	if (val >= QCA_WLAN_GPIO_PULL_MAX) {
+		wpa_printf(MSG_ERROR, "Invalid gpio_pull_type value %d", val);
+		return -EINVAL;
+	}
+
+	ret = nla_put_u32(nlmsg, QCA_WLAN_VENDOR_ATTR_GPIO_PARAM_PULL_TYPE, val);
+	if (ret)
+		wpa_printf(MSG_ERROR, "Failed to put gpio_pull_type");
+
+	return ret;
+}
+
+static int process_gpio_inter_mode(char *cmd, struct nl_msg *nlmsg)
+{
+	int ret;
+	u32 val = get_u32_from_string(cmd, &ret);
+
+	if (ret < 0) {
+		wpa_printf(MSG_ERROR, "Input error: gpio_inter_mode");
+		return ret;
+	}
+	if (val >= QCA_WLAN_GPIO_INTMODE_MAX) {
+		wpa_printf(MSG_ERROR, "Invalid gpio_inter_mode value %d", val);
+		return -EINVAL;
+	}
+
+	ret = nla_put_u32(nlmsg, QCA_WLAN_VENDOR_ATTR_GPIO_PARAM_INTR_MODE, val);
+	if (ret)
+		wpa_printf(MSG_ERROR, "Failed to put gpio_inter_mode");
+
+	return ret;
+}
+
+static int process_gpio_dir(char *cmd, struct nl_msg *nlmsg)
+{
+	int ret;
+	u32 val = get_u32_from_string(cmd, &ret);
+
+	if (ret < 0) {
+		wpa_printf(MSG_ERROR, "Input error: gpio_dir");
+		return ret;
+	}
+	if (val >= QCA_WLAN_GPIO_DIR_MAX) {
+		wpa_printf(MSG_ERROR, "Invalid gpio_dir value %d", val);
+		return -EINVAL;
+	}
+
+	ret = nla_put_u32(nlmsg, QCA_WLAN_VENDOR_ATTR_GPIO_PARAM_DIR, val);
+	if (ret)
+		wpa_printf(MSG_ERROR, "Failed to put gpio_dir");
+
+	return ret;
+}
+
+static int process_gpio_mux_config(char *cmd, struct nl_msg *nlmsg)
+{
+	int ret;
+	u32 val = get_u32_from_string(cmd, &ret);
+
+	if (ret < 0) {
+		wpa_printf(MSG_ERROR, "Input error: gpio_mux_config value");
+		return ret;
+	}
+
+	if (val > MAX_GPIO_MUX_CONFIG) {
+		wpa_printf(MSG_ERROR, "Invalid gpio_mux_config value %d", val);
+		return -EINVAL;
+	}
+
+	ret = nla_put_u32(nlmsg, QCA_WLAN_VENDOR_ATTR_GPIO_PARAM_MUX_CONFIG, val);
+	if (ret)
+		wpa_printf(MSG_ERROR, "Failed to put gpio_mux_config value");
+
+	return ret;
+}
+
+static int gpio_handle_output(struct wpa_driver_nl80211_data *drv,
+			      struct nl_msg *nlmsg,
+			      struct nlattr *attr,
+			      char *cmd)
+{
+	int ret;
+	u32 val;
+
+	if (os_strncasecmp(cmd, "GPIO_VALUE ", 11) != 0) {
+		wpa_printf(MSG_ERROR, "Invalid gpio cmd");
+		ret = -EINVAL;
+		goto nlmsg_fail;
+	}
+
+	cmd += 11;
+	cmd = skip_white_space(cmd);
+	val = get_u32_from_string(cmd, &ret);
+	if (ret < 0) {
+		wpa_printf(MSG_ERROR, "Input error: gpio_value");
+		goto nlmsg_fail;
+	}
+
+	if(val != QCA_WLAN_GPIO_LEVEL_LOW && val != QCA_WLAN_GPIO_LEVEL_HIGH) {
+		wpa_printf(MSG_ERROR, "Invalid gpio_value %d", val);
+		ret = -EINVAL;
+		goto nlmsg_fail;
+	}
+
+	ret = nla_put_u32(nlmsg,
+			  QCA_WLAN_VENDOR_ATTR_GPIO_PARAM_VALUE,
+			  val);
+	if (ret) {
+		wpa_printf(MSG_ERROR, "Failed to put gpio_value");
+		goto nlmsg_fail;
+	}
+
+	nla_nest_end(nlmsg, attr);
+	ret = send_nlmsg((struct nl_sock *)drv->global->nl, nlmsg, NULL, NULL);
+	if (ret)
+		wpa_printf(MSG_ERROR, "Error sending nlmsg, ret: %d", ret);
+
+	return ret;
+nlmsg_fail:
+	nlmsg_free(nlmsg);
+	return ret;
+}
+
+static int gpio_handle_config(struct wpa_driver_nl80211_data *drv,
+			      struct nl_msg *nlmsg,
+			      struct nlattr *attr,
+			      char *cmd)
+{
+	int ret, len;
+	u32 val;
+	bool flag_pull = false, flag_inter = false, flag_dir = false;
+	const char *cmd_end;
+	int internal_config = 0;
+
+	while (*cmd != '\0') {
+		if (os_strncasecmp(cmd, "GPIO_PULL_TYPE ", 15) == 0) {
+			cmd += 15;
+			cmd = skip_white_space(cmd);
+			ret = process_gpio_pull_type(cmd, nlmsg);
+			if (ret)
+				goto nlmsg_fail;
+			cmd = move_to_next_str(cmd);
+			flag_pull = true;
+		} else if (os_strncasecmp(cmd, "GPIO_INTER_MODE ", 16) == 0) {
+			cmd += 16;
+			cmd = skip_white_space(cmd);
+			ret = process_gpio_inter_mode(cmd, nlmsg);
+			if (ret)
+				goto nlmsg_fail;
+			cmd = move_to_next_str(cmd);
+			flag_inter = true;
+		} else if (os_strncasecmp(cmd, "GPIO_DIR ", 9) == 0) {
+			cmd += 9;
+			cmd = skip_white_space(cmd);
+			ret = process_gpio_dir(cmd, nlmsg);
+			if (ret)
+				goto nlmsg_fail;
+			cmd = move_to_next_str(cmd);
+			flag_dir = true;
+		} else if (os_strncasecmp(cmd, "GPIO_MUX_CONFIG ", 16) == 0) {
+			cmd += 16;
+			cmd = skip_white_space(cmd);
+			ret = process_gpio_mux_config(cmd, nlmsg);
+			if (ret)
+				goto nlmsg_fail;
+			cmd = move_to_next_str(cmd);
+		} else if (os_strncasecmp(cmd, "GPIO_DRIVE ", 11) == 0) {
+			cmd += 11;
+			cmd = skip_white_space(cmd);
+			val = get_u32_from_string(cmd, &ret);
+			if (ret < 0 || val >= QCA_WLAN_GPIO_DRIVE_MAX) {
+				wpa_printf(MSG_ERROR, "Invalid gpio_drive value %d", val);
+				ret = -EINVAL;
+				goto nlmsg_fail;
+			}
+			ret = nla_put_u32(nlmsg,
+					  QCA_WLAN_VENDOR_ATTR_GPIO_PARAM_DRIVE,
+					  val);
+			if (ret) {
+				wpa_printf(MSG_ERROR, "Failed to put gpio_drive");
+				goto nlmsg_fail;
+			}
+			cmd = move_to_next_str(cmd);
+		} else if (os_strncasecmp(cmd, "INTERNAL_CONFIG ", 16) == 0) {
+			cmd = cmd + 16;
+			cmd = skip_white_space(cmd);
+			val = get_u32_from_string(cmd, &ret);
+			if (ret < 0) {
+				wpa_printf(MSG_ERROR, "Input error:internal_config");
+				goto nlmsg_fail;
+			}
+			internal_config = val;
+			ret = nla_put_u32(nlmsg,
+				  QCA_WLAN_VENDOR_ATTR_GPIO_PARAM_INTERNAL_CONFIG,
+				  val);
+			if (ret) {
+				wpa_printf(MSG_ERROR, "Failed to put internal_config");
+				goto nlmsg_fail;
+			}
+			cmd = move_to_next_str(cmd);
+		} else {
+			cmd_end = cmd;
+			while (*cmd_end != '\0' && *cmd_end != ' ')
+				cmd_end++;
+			len = cmd_end - cmd;
+			wpa_printf(MSG_ERROR, "Invalid attribute: '%.*s'", len, cmd);
+			break;
+		}
+	}
+	if ((flag_pull == false || flag_inter == false || flag_dir == false) &&
+	    (internal_config == 0)) {
+		wpa_printf(MSG_ERROR, "Missing mandatory GPIO config fields");
+		ret  = -EINVAL;
+		goto nlmsg_fail;
+	}
+
+	nla_nest_end(nlmsg, attr);
+	ret = send_nlmsg((struct nl_sock *)drv->global->nl, nlmsg, NULL, NULL);
+	if (ret)
+		wpa_printf(MSG_ERROR, "Error: sending nlmsg, ret: %d", ret);
+
+	return ret;
+nlmsg_fail:
+	nlmsg_free(nlmsg);
+	return ret;
+}
+
+static int wpa_driver_gpio_config_cmd(struct i802_bss *bss, char *cmd)
+{
+	int ret;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
+	struct nl_msg *nlmsg;
+	struct nlattr *attr;
+	u32 val, gpio_cmd_val;
+
+	cmd = skip_white_space(cmd);
+	if (*cmd == '\0') {
+		wpa_printf(MSG_ERROR, "Invalid GPIO command");
+		return -EINVAL;
+	}
+
+	nlmsg = prepare_vendor_nlmsg(drv,
+				     bss->ifname,
+				     QCA_NL80211_VENDOR_SUBCMD_GPIO_CONFIG_COMMAND);
+
+	if (!nlmsg) {
+		wpa_printf(MSG_ERROR, "Failed to allocate nl message");
+		return -ENOMEM;
+	}
+
+	attr = nla_nest_start(nlmsg, NL80211_ATTR_VENDOR_DATA);
+	if (!attr) {
+		wpa_printf(MSG_ERROR, "Failed to create attribute");
+		ret = -ENOMEM;
+		goto nlmsg_fail;
+	}
+
+	if (os_strncasecmp(cmd, "GPIO_COMMAND ", 13) != 0) {
+		wpa_printf(MSG_ERROR, "Invalid gpio command");
+		ret = -EINVAL;
+		goto nlmsg_fail;
+	}
+
+	cmd += 13;
+	cmd = skip_white_space(cmd);
+	val = get_u32_from_string(cmd, &ret);
+	if (ret < 0) {
+		wpa_printf(MSG_ERROR, "Input error: gpio_command");
+		goto nlmsg_fail;
+	}
+
+	if(val != QCA_WLAN_VENDOR_GPIO_CONFIG && val != QCA_WLAN_VENDOR_GPIO_OUTPUT) {
+		wpa_printf(MSG_ERROR, "Invalid gpio_command value %d", val);
+		ret = -EINVAL;
+		goto nlmsg_fail;
+	}
+
+	ret = nla_put_u32(nlmsg,
+			  QCA_WLAN_VENDOR_ATTR_GPIO_PARAM_COMMAND,
+			  val);
+	if (ret) {
+		wpa_printf(MSG_ERROR, "Failed to put gpio_command value");
+		goto nlmsg_fail;
+	}
+
+	gpio_cmd_val = val;
+	cmd = move_to_next_str(cmd);
+	if (os_strncasecmp(cmd, "GPIO_PINNUM ", 12) != 0) {
+		ret = -EINVAL;
+		goto nlmsg_fail;
+	}
+
+	cmd += 12;
+	cmd = skip_white_space(cmd);
+	val = get_u32_from_string(cmd, &ret);
+	if (ret < 0) {
+		wpa_printf(MSG_ERROR, "Input error: gpio_pinnum");
+		goto nlmsg_fail;
+	}
+
+	ret = nla_put_u32(nlmsg, QCA_WLAN_VENDOR_ATTR_GPIO_PARAM_PINNUM, val);
+	if (ret) {
+		wpa_printf(MSG_ERROR, "Failed to put gpio_pinnum value");
+		goto nlmsg_fail;
+	}
+
+	cmd = move_to_next_str(cmd);
+
+	if (gpio_cmd_val == QCA_WLAN_VENDOR_GPIO_OUTPUT)
+		return gpio_handle_output(drv, nlmsg, attr, cmd);
+	else
+		return gpio_handle_config(drv, nlmsg, attr, cmd);
+
 nlmsg_fail:
 	nlmsg_free(nlmsg);
 	return ret;
@@ -7291,6 +7841,30 @@ int wpa_driver_nl80211_driver_cmd(void *priv, char *cmd, char *buf,
 		cmd += 25;
 		return wpa_driver_set_mlo_links_control_mode(bss, cmd, buf,
 							     buf_len);
+	} else if (os_strncasecmp(cmd, "SET_NAN_PS_CONFIG ", 18) == 0) {
+		/**
+		 * DRIVER SET_NAN_PS_CONFIG ndp_instance_id <val> latency
+		 * <val> throughput <val>
+		 * value 0 - NDP instance id
+		 * value 1 - Latency (in ms)
+		 * value 2 - Throughput (in Mbps)
+		 */
+		cmd += 18;
+		return wpa_driver_nan_ps_config(bss, cmd);
+	} else if (os_strncasecmp(cmd, "GPIO_CONFIG ", 12) == 0) {
+		/**
+		 * Driver cmd to set gpio pins
+		 * Syntax:
+		 * 1. DRIVER GPIO_CONFIG GPIO_COMMAND 1 GPIO_PINNUM <gpio_num>
+		 *    GPIO_VALUE <output_value>
+		 *
+		 * 2. DRIVER GPIO_CONFIG GPIO_COMMAND 0 GPIO_PINNUM <gpio_num>
+		 *    GPIO_PULL_TYPE <pull_value> GPIO_INTER_MODE <inter_mode_val>
+		 *    GPIO_DIR <dir_val> [GPIO_MUX_CONFIG <mux_value> GPIO_DRIVE <drive_value>
+		 *    INTERNAL_CONFIG <internal_config_value>]
+		 */
+		cmd += 12;
+		return wpa_driver_gpio_config_cmd(bss, cmd);
 	} else { /* Use private command */
 		memset(&ifr, 0, sizeof(ifr));
 		memset(&priv_cmd, 0, sizeof(priv_cmd));

@@ -256,6 +256,9 @@ void nan_ssi_cache_clear_all(void)
     pthread_mutex_unlock(&g_nan_ssi_lock);
 }
 
+#define NAN_CIPHER_SUITE_GTK_CCMP_128_MASK 0x10
+#define NAN_CIPHER_SUITE_GTK_GCMP_256_MASK 0x20
+
 wifi_error NanCommand::putNanEnable(transaction_id id, const NanEnableRequest *pReq,
                                     u8 followup_mgmt_rx_enable)
 {
@@ -1169,7 +1172,10 @@ wifi_error NanCommand::putNanPublish(transaction_id id, const NanPublishRequest 
         u16 tlv_type = NAN_TLV_TYPE_NAN_CSID;
 
         if (pReq->nan_pairing_config.enable_pairing_setup)
-            pNanCsidType.csid_type |= NAN_CIPHER_SUITE_PUBLIC_KEY_PASN_128_MASK;
+            pNanCsidType.csid_type |= (NAN_CIPHER_SUITE_PUBLIC_KEY_PASN_128_MASK |
+                                       NAN_CIPHER_SUITE_PUBLIC_KEY_PASN_256_MASK |
+                                       NAN_CIPHER_SUITE_GTK_CCMP_128_MASK |
+                                       NAN_CIPHER_SUITE_GTK_GCMP_256_MASK);
 
         if (pNanCsidType.csid_type & NAN_EXT_CSID_TYPE_MASK)
             tlv_type = NAN_TLV_TYPE_NAN_CSID_EXT;
@@ -1640,7 +1646,10 @@ wifi_error NanCommand::putNanSubscribe(transaction_id id,
         u16 tlv_type = NAN_TLV_TYPE_NAN_CSID;
 
         if (pReq->nan_pairing_config.enable_pairing_setup)
-            pNanCsidType.csid_type |= NAN_CIPHER_SUITE_PUBLIC_KEY_PASN_128_MASK;
+            pNanCsidType.csid_type |= (NAN_CIPHER_SUITE_PUBLIC_KEY_PASN_128_MASK |
+                                       NAN_CIPHER_SUITE_PUBLIC_KEY_PASN_256_MASK |
+                                       NAN_CIPHER_SUITE_GTK_CCMP_128_MASK |
+                                       NAN_CIPHER_SUITE_GTK_GCMP_256_MASK);
 
         if (pNanCsidType.csid_type & NAN_EXT_CSID_TYPE_MASK)
             tlv_type = NAN_TLV_TYPE_NAN_CSID_EXT;
@@ -1938,7 +1947,7 @@ wifi_error NanCommand::putNanSharedKeyDescriptorReq(transaction_id id,
         (pReq->shared_key_attr_len ? SIZEOF_TLV_HDR + pReq->shared_key_attr_len : 0);
 
     /* SDA Attribute */
-    message_len += (SIZEOF_TLV_HDR + strlen("SHARED_KEY_DESCRIPTOR_REQUEST"));
+    message_len += SIZEOF_TLV_HDR;
     /* Mac address needs to be added in TLV */
     message_len += (SIZEOF_TLV_HDR + sizeof(pReq->peer_disc_mac_addr));
 
@@ -1970,8 +1979,8 @@ wifi_error NanCommand::putNanSharedKeyDescriptorReq(transaction_id id,
 
     u16 tlv_type = NAN_TLV_TYPE_SERVICE_SPECIFIC_INFO;
 
-    tlvs = addTlv(tlv_type, strlen("SHARED_KEY_DESCRIPTOR_REQUEST"),
-                  (const u8*)"SHARED_KEY_DESCRIPTOR_REQUEST", tlvs);
+    /* Pass empty SSI */
+    tlvs = addTlv(tlv_type, 0, (const u8*)"", tlvs);
 
     if (pReq->shared_key_attr_len) {
         ALOGI("Adding Shared Key Attr");
