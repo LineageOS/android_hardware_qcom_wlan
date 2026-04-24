@@ -664,8 +664,7 @@ int NanCommand::handleNanBootstrappingIndication()
                                          pRsp->followupIndParams.matchHandle;
            memcpy(bootstrapReqInd.peer_disc_mac_addr, mac, NAN_MAC_ADDR_LEN);
            bootstrapReqInd.request_bootstrapping_method =
-                                          params->bootstrapping_method_bitmap;
-           handleNanBootstrappingReqInd(&bootstrapReqInd);
+             get_matching_bootstrap_method(params->bootstrapping_method_bitmap);
            entry = nan_pairing_add_peer_to_list(info->secure_nan, mac);
            if (entry) {
                entry->requestor_instance_id = bootstrapReqInd.requestor_instance_id;
@@ -674,14 +673,25 @@ int NanCommand::handleNanBootstrappingIndication()
                                       bootstrapReqInd.bootstrapping_instance_id;
                entry->peer_role = SECURE_NAN_BOOTSTRAPPING_INITIATOR;
                entry->peer_supported_bootstrap =
-                                   bootstrapReqInd.request_bootstrapping_method;
+                                      params->bootstrapping_method_bitmap;
+               entry->dialog_token = params->dialog_token;
            }
+           handleNanBootstrappingReqInd(&bootstrapReqInd);
        } else if (params->type == NAN_BS_TYPE_RESPONSE) {
            entry = nan_pairing_get_peer_from_list(info->secure_nan, mac);
            if (entry == NULL) {
                ALOGE("%s: peer not found: ADDR=" MACSTR, __FUNCTION__, MAC2STR(mac));
                return WIFI_ERROR_UNKNOWN;
            }
+
+           if (entry->dialog_token != params->dialog_token) {
+               ALOGE("Dialog token not matching. Req token: %d, Rsp token: %d",
+                      entry->dialog_token, params->dialog_token);
+#ifdef CONFIG_NAN_STRICT_MODE
+               return WIFI_ERROR_UNKNOWN;
+#endif /* CONFIG_NAN_STRICT_MODE */
+           }
+
            NanBootstrappingConfirmInd *bootstrapConfirmInd =
              (NanBootstrappingConfirmInd *)malloc(sizeof(NanBootstrappingConfirmInd)
                                                   + cookie_length);
@@ -703,7 +713,7 @@ int NanCommand::handleNanBootstrappingIndication()
            bootstrapConfirmInd->reason_code =
                                           (NanStatusType)params->reason_code;
            bootstrapConfirmInd->come_back_delay =
-                                          (NanStatusType)params->comeback_after;
+                                          params->comeback_after;
            bootstrapConfirmInd->cookie_length = cookie_length;
            if (cookie_length)
                memcpy(bootstrapConfirmInd->cookie, cookie, cookie_length);
@@ -816,13 +826,17 @@ int NanCommand::handleNanSharedKeyDescIndication()
     }
 
     pasn = entry->pasn;
+
+    if (entry->is_paired) {
+        wpa_pasn_reset(pasn);
+        entry->is_pairing_in_progress = false;
+        return retval;
+    }
+
     evt.pairing_instance_id = entry->pairing_instance_id;
     evt.rsp_code = NAN_PAIRING_REQUEST_ACCEPT;
     evt.reason_code = NAN_STATUS_SUCCESS;
-    if (entry->is_paired)
-        evt.nan_pairing_request_type = NAN_PAIRING_VERIFICATION;
-    else
-        evt.nan_pairing_request_type = NAN_PAIRING_SETUP;
+    evt.nan_pairing_request_type = NAN_PAIRING_SETUP;
 
     evt.enable_pairing_cache = !!(entry->dcea_cap_info & DCEA_NPK_CACHING_ENABLED);
 
@@ -830,6 +844,11 @@ int NanCommand::handleNanSharedKeyDescIndication()
         evt.npk_security_association.akm = PASN;
     else
         evt.npk_security_association.akm = SAE;
+
+    if (pasn_get_cipher(pasn) == WPA_CIPHER_CCMP_256)
+        evt.npk_security_association.cipher_type = NAN_CIPHER_SUITE_PUBLIC_KEY_PASN_256_MASK;
+    else
+        evt.npk_security_association.cipher_type = NAN_CIPHER_SUITE_PUBLIC_KEY_PASN_128_MASK;
 
     if (info->secure_nan->dev_nik)
         memcpy(evt.npk_security_association.local_nan_identity_key,
@@ -857,6 +876,9 @@ int NanCommand::handleNanSharedKeyDescIndication()
 
 int NanCommand::getNanFollowup(NanFollowupInd *event)
 {
+    struct nan_pairing_peer_info *entry;
+    hal_info *info = getHalInfo(wifiHandle());
+
     if (event == NULL || mNanVendorEvent == NULL) {
         ALOGE("%s: Invalid input argument event:%p mNanVendorEvent:%p",
               __func__, event, mNanVendorEvent);
@@ -917,6 +939,31 @@ int NanCommand::getNanFollowup(NanFollowupInd *event)
         pInputTlv += readLen;
         memset(&outputTlv, 0, sizeof(outputTlv));
     }
+
+    if (info && info->secure_nan) {
+        entry = nan_pairing_get_peer_from_list(info->secure_nan, event->addr);
+        if (entry) {
+            if (event->publish_subscribe_id &&
+                entry->pub_sub_id != event->publish_subscribe_id) {
+                ALOGI("Update previous pub sub id: %d with new id: %d",
+                      entry->pub_sub_id, event->publish_subscribe_id);
+                entry->pub_sub_id = event->publish_subscribe_id;
+            }
+            if (event->requestor_instance_id &&
+                entry->requestor_instance_id != event->requestor_instance_id) {
+                ALOGI("Update previous requestor instance id: %d with new id: %d",
+                      entry->requestor_instance_id, event->requestor_instance_id);
+                entry->requestor_instance_id = event->requestor_instance_id;
+            }
+        } else {
+            entry = nan_pairing_add_peer_to_list(info->secure_nan, event->addr);
+            if (entry) {
+                entry->pub_sub_id = event->publish_subscribe_id;
+                entry->requestor_instance_id = event->requestor_instance_id;
+            }
+        }
+    }
+
     return WIFI_SUCCESS;
 }
 

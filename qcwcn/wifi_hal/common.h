@@ -305,6 +305,7 @@ wifi_error wifi_twt_session_setup(wifi_request_id id,
 wifi_error wifi_twt_session_teardown(wifi_request_id id,
                                      wifi_interface_handle iface,
                                      int session_id);
+int is_feature_supported(wifi_interface_handle iface_handle, int feature);
 // some common macros
 
 #define min(x, y)       ((x) < (y) ? (x) : (y))
