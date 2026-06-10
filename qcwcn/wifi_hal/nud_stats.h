@@ -44,7 +44,9 @@
 #include <netlink/netlink.h>
 #include <netlink/socket.h>
 #include <hardware_legacy/wifi_hal.h>
+#ifdef ANDROID
 #include <bits/in_addr.h>
+#endif
 
 #define INET6_ADDRSTRLEN 46
 
