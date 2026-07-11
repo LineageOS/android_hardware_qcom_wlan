@@ -789,15 +789,15 @@ wifi_error WifihalGeneric::wifi_parse_radio_combinations_matrix() {
     u8 *buff_ptr;
 
     static struct nla_policy
-        radio_combination_policy[QCA_WLAN_VENDOR_ATTR_RADIO_COMBINATIONS_MAX + 1] = {
-            [QCA_WLAN_VENDOR_ATTR_RADIO_COMBINATIONS_CFGS] = { .type = NLA_NESTED },
-        };
+        radio_combination_policy[QCA_WLAN_VENDOR_ATTR_RADIO_COMBINATIONS_MAX + 1];
+    radio_combination_policy[
+        QCA_WLAN_VENDOR_ATTR_RADIO_COMBINATIONS_CFGS].type = NLA_NESTED;
 
     static struct nla_policy
-        radio_cfg_policy[QCA_WLAN_VENDOR_ATTR_SUPPORTED_RADIO_CFG_MAX + 1] = {
-            [QCA_WLAN_VENDOR_ATTR_SUPPORTED_RADIO_CFG_BAND] = { .type = NLA_U32 },
-            [QCA_WLAN_VENDOR_ATTR_SUPPORTED_RADIO_CFG_ANTENNA] = { .type = NLA_U8 },
-        };
+        radio_cfg_policy[QCA_WLAN_VENDOR_ATTR_SUPPORTED_RADIO_CFG_MAX + 1];
+    radio_cfg_policy[
+        QCA_WLAN_VENDOR_ATTR_SUPPORTED_RADIO_CFG_BAND].type = NLA_U32;
+    radio_cfg_policy[QCA_WLAN_VENDOR_ATTR_SUPPORTED_RADIO_CFG_ANTENNA].type = NLA_U8;
 
     if (nla_parse(tbVendor, QCA_WLAN_VENDOR_ATTR_RADIO_MATRIX_MAX,
                 (struct nlattr *)mVendorData,mDataLen, NULL)) {
@@ -945,11 +945,10 @@ wifi_error WifihalGeneric::wifiParseRadarHistory() {
     struct nlattr *tb[QCA_WLAN_VENDOR_ATTR_RADAR_HISTORY_MAX + 1];
     struct nlattr *attr;
     static struct nla_policy
-      policy[QCA_WLAN_VENDOR_ATTR_RADAR_HISTORY_MAX + 1] = {
-            [QCA_WLAN_VENDOR_ATTR_RADAR_HISTORY_FREQ] = { .type = NLA_U32 },
-            [QCA_WLAN_VENDOR_ATTR_RADAR_HISTORY_TIMESTAMP] = { .type = NLA_U64 },
-            [QCA_WLAN_VENDOR_ATTR_RADAR_HISTORY_DETECTED] = { .type = NLA_FLAG },
-    };
+      policy[QCA_WLAN_VENDOR_ATTR_RADAR_HISTORY_MAX + 1];
+    policy[QCA_WLAN_VENDOR_ATTR_RADAR_HISTORY_FREQ].type = NLA_U32;
+    policy[QCA_WLAN_VENDOR_ATTR_RADAR_HISTORY_TIMESTAMP].type = NLA_U64;
+    policy[QCA_WLAN_VENDOR_ATTR_RADAR_HISTORY_DETECTED].type = NLA_FLAG;
     radar_history_result *newEntry;
     radar_history_result *temp;
     u32 totalEntrySize = 0;

@@ -41,15 +41,12 @@
 #include <fcntl.h>
 
 #include "stdlib.h"
-
-#ifdef ANDROID
 #include <dirent.h>
 #include <grp.h>
 #include <pwd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <cutils/sockets.h>
-#endif /* ANDROID */
 
 #ifdef  __cplusplus
 extern "C" {
