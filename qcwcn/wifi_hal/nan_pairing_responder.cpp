@@ -283,6 +283,7 @@ wifi_error nan_pairing_indication_response(transaction_id id,
     pasn_set_responder_pmksa(pasn, secure_nan->responder_pmksa);
     peer->trans_id = id;
     peer->trans_id_valid = true;
+    peer->cipher_type = msg->cipher_type;
 
     ret = handle_auth_pasn_1(pasn, secure_nan->own_addr, (u8 *)mgmt->sa, mgmt,
                              peer->frame->len, reject);
