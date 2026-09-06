@@ -2821,8 +2821,8 @@ void print_setup_cmd_values(struct twt_setup_parameters *twt_setup_params)
 		   twt_setup_params->min_wake_duration);
 	wpa_printf(MSG_DEBUG, "TWT: max wake duration: %d ",
 		   twt_setup_params->max_wake_duration);
-	wpa_printf(MSG_DEBUG, "TWT: wake tsf: 0x%lx ",
-		   twt_setup_params->wake_tsf);
+	/* wpa_printf(MSG_DEBUG, "TWT: wake tsf: 0x%lx ",
+		   twt_setup_params->wake_tsf); */
 	wpa_printf(MSG_DEBUG, "TWT: announce timeout(in us): %u",
 		   twt_setup_params->announce_timeout_us);
 }
@@ -5673,7 +5673,7 @@ static int wpa_driver_tsf_cmd_resp_handler(struct resp_info *info,
 		return NL_SKIP;
 	}
 	ret = os_snprintf(info->reply_buf, info->reply_buf_len,
-			  "tsf_value:%lul host_time:%lul", tsf_value, host_time);
+			  "tsf_value:%llu host_time:%llu", tsf_value, host_time);
 	if (os_snprintf_error(info->reply_buf_len, ret)) {
 		wpa_printf(MSG_ERROR, "%s:Fail to print buffer", __func__);
 		return -ENOMEM;
