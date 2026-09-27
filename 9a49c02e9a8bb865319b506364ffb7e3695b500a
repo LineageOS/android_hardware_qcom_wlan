@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "82cba400_4e6c498e",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 10067
+      },
+      "writtenOn": "2026-09-27T12:56:41Z",
+      "side": 1,
+      "message": "doesn\u0027t break canoe, wifi and vowifi connect fine.",
+      "revId": "9a49c02e9a8bb865319b506364ffb7e3695b500a",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    }
+  ]
+}
