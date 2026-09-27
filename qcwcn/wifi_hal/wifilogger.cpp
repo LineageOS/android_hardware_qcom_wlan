@@ -272,6 +272,10 @@ wifi_error wifi_get_logger_supported_feature_set(wifi_interface_handle iface,
     struct nlattr *nlData;
     interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
+    if (!ifaceInfo) {
+        ALOGE("%s: null iface handle", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
 
     /* No request id from caller, so generate one and pass it on to the driver.
      * Generate one randomly.
@@ -415,6 +419,10 @@ wifi_error wifi_get_firmware_version(wifi_interface_handle iface,
     struct nlattr *nlData;
     interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
+    if (!ifaceInfo) {
+        ALOGE("%s: null iface handle", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
 
     /* No request id from caller, so generate one and pass it on to the driver.
      * Generate one randomly.
@@ -476,6 +484,10 @@ wifi_error wifi_get_driver_version(wifi_interface_handle iface,
     struct nlattr *nlData;
     interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
+    if (!ifaceInfo) {
+        ALOGE("%s: null iface handle", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
 
     /* No request id from caller, so generate one and pass it on to the driver.
      * Generate one randomly.

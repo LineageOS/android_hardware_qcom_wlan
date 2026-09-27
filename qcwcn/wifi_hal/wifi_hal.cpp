@@ -118,6 +118,8 @@
 #define POLL_DRIVER_DURATION_US (100000)
 #define POLL_DRIVER_MAX_TIME_MS (10000)
 
+#define SOCK_BUF_SIZE (256 * 1024)
+
 static int attach_monitor_sock(wifi_handle handle, wifihal_ctrl_req_t *ctrl_msg);
 
 static int dettach_monitor_sock(wifi_handle handle, wifihal_ctrl_req_t *ctrl_msg);
@@ -161,13 +163,11 @@ wifi_error
     wifi_get_cached_scan_results(wifi_interface_handle iface,
                                  wifi_cached_scan_result_handler handler);
 
-#ifndef TARGET_SUPPORTS_WEARABLES
 wifi_error wifi_get_supported_iface_combination(wifi_interface_handle iface_handle);
 
 wifi_error wifi_get_supported_iface_concurrency_matrix(
         wifi_handle handle,
         wifi_iface_concurrency_matrix *iface_concurrency_matrix);
-#endif /* TARGET_SUPPORTS_WEARABLES */
 
 #ifdef WPA_PASN_LIB
 void wifihal_event_mgmt_tx_status(wifi_handle handle, struct nlattr *cookie,
@@ -352,6 +352,10 @@ static wifi_error acquire_supported_features(wifi_interface_handle iface,
     wifi_error ret;
     interface_info *iinfo = getIfaceInfo(iface);
     wifi_handle handle = getWifiHandle(iface);
+    if (!iinfo) {
+        ALOGE("%s: null iface handle", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
     *set = 0;
 
     WifihalGeneric supportedFeatures(handle, 0,
@@ -514,7 +518,7 @@ static wifi_error wifi_init_user_sock(hal_info *info)
     }
 
     /* Set the socket buffer size */
-    if (nl_socket_set_buffer_size(user_sock, (256*1024), 0) < 0) {
+    if (nl_socket_set_buffer_size(user_sock, (SOCK_BUF_SIZE), 0) < 0) {
         ALOGE("Could not set size for user_sock: %s",
                    strerror(errno));
         /* continue anyway with the default (smaller) buffer */
@@ -545,6 +549,13 @@ static wifi_error wifi_init_user_sock(hal_info *info)
     }
 
     info->user_sock = user_sock;
+    int opt = 1;
+    ret = setsockopt(nl_socket_get_fd(user_sock), SOL_NETLINK,
+                     NETLINK_NO_ENOBUFS, &opt, sizeof(opt));
+    ALOGV("configured NETLINK_NO_ENOBUFS sockopt %d", ret);
+    ret = setsockopt(nl_socket_get_fd(user_sock), SOL_NETLINK,
+                     NETLINK_BROADCAST_ERROR, &opt, sizeof(opt));
+    ALOGV("configured NETLINK_BROADCAST_ERROR sockopt %d", ret);
     ALOGV("Initiialized diag sock successfully");
     return WIFI_SUCCESS;
 }
@@ -1213,10 +1224,8 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn) {
     fn->wifi_get_usable_channels = wifi_get_usable_channels;
     fn->wifi_get_supported_radio_combinations_matrix =
                                 wifi_get_supported_radio_combinations_matrix;
-#ifndef TARGET_SUPPORTS_WEARABLES
     fn->wifi_get_supported_iface_concurrency_matrix =
                                 wifi_get_supported_iface_concurrency_matrix;
-#endif /* TARGET_SUPPORTS_WEARABLES */
     fn->wifi_nan_suspend_request = nan_suspend_request;
     fn->wifi_nan_resume_request = nan_resume_request;
     fn->wifi_nan_pairing_request = nan_pairing_request;
@@ -1588,13 +1597,11 @@ wifi_error wifi_initialize(wifi_handle *handle)
         goto unload;
     }
 
-#ifndef TARGET_SUPPORTS_WEARABLES
     ret = wifi_get_supported_iface_combination(iface_handle);
     if (ret != WIFI_SUCCESS) {
         ALOGE("Failed to get driver supported interface combinations");
         goto unload;
     }
-#endif /* TARGET_SUPPORTS_WEARABLES */
 
     ret = wifi_get_sar_version(iface_handle);
     if (ret != WIFI_SUCCESS) {
@@ -2681,7 +2688,12 @@ wifi_error wifi_get_supported_feature_set(wifi_interface_handle iface,
         feature_set *set)
 {
     int ret = 0;
+    interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle handle = getWifiHandle(iface);
+    if (!ifaceInfo) {
+        ALOGE("%s: null iface handle", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
     *set = 0;
     hal_info *info = getHalInfo(handle);
 
@@ -2705,6 +2717,10 @@ wifi_error wifi_get_concurrency_matrix(wifi_interface_handle handle,
     WifihalGeneric *vCommand = NULL;
     interface_info *ifaceInfo = getIfaceInfo(handle);
     wifi_handle wifiHandle = getWifiHandle(handle);
+    if (!ifaceInfo) {
+        ALOGE("%s: null iface handle", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
 
     if (set == NULL) {
         ALOGE("%s: NULL set pointer provided. Exit.",
@@ -2835,6 +2851,10 @@ wifi_error wifi_set_nodfs_flag(wifi_interface_handle handle, u32 nodfs)
     WifiVendorCommand *vCommand = NULL;
     interface_info *ifaceInfo = getIfaceInfo(handle);
     wifi_handle wifiHandle = getWifiHandle(handle);
+    if (!ifaceInfo) {
+        ALOGE("%s: null iface handle", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
 
     vCommand = new WifiVendorCommand(wifiHandle, 0,
             OUI_QCA,
@@ -2887,6 +2907,11 @@ wifi_error wifi_start_sending_offloaded_packet(wifi_request_id id,
     wifi_error ret;
     struct nlattr *nlData;
     WifiVendorCommand *vCommand = NULL;
+    interface_info *ifaceInfo = getIfaceInfo(iface);
+    if (!ifaceInfo) {
+        ALOGE("%s: null iface handle", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
 
     ret = initialize_vendor_cmd(iface, id,
                                 QCA_NL80211_VENDOR_SUBCMD_OFFLOADED_PACKETS,
@@ -2969,6 +2994,11 @@ wifi_error wifi_stop_sending_offloaded_packet(wifi_request_id id,
     wifi_error ret;
     struct nlattr *nlData;
     WifiVendorCommand *vCommand = NULL;
+    interface_info *ifaceInfo = getIfaceInfo(iface);
+    if (!ifaceInfo) {
+        ALOGE("%s: null iface handle", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
 
     ret = initialize_vendor_cmd(iface, id,
                                 QCA_NL80211_VENDOR_SUBCMD_OFFLOADED_PACKETS,
@@ -3017,8 +3047,13 @@ static wifi_error wifi_set_packet_filter(wifi_interface_handle iface,
     struct nlattr *nlData;
     WifiVendorCommand *vCommand = NULL;
     u32 current_offset = 0;
+    interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
     hal_info *info = getHalInfo(wifiHandle);
+    if (!ifaceInfo) {
+        ALOGE("%s: null iface handle", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
 
     /* len=0 clears the filters in driver/firmware */
     if (len != 0 && program == NULL) {
@@ -3104,6 +3139,10 @@ static wifi_error wifi_get_packet_filter_capabilities(
     WifihalGeneric *vCommand = NULL;
     interface_info *ifaceInfo = getIfaceInfo(handle);
     wifi_handle wifiHandle = getWifiHandle(handle);
+    if (!ifaceInfo) {
+        ALOGE("%s: null iface handle", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
 
     if (version == NULL || max_len == NULL) {
         ALOGE("%s: NULL version/max_len pointer provided. Exit.",
@@ -3171,6 +3210,11 @@ static wifi_error wifi_configure_nd_offload(wifi_interface_handle iface,
     wifi_error ret;
     struct nlattr *nlData;
     WifiVendorCommand *vCommand = NULL;
+    interface_info *ifaceInfo = getIfaceInfo(iface);
+    if (!ifaceInfo) {
+        ALOGE("%s: null iface handle", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
 
     ret = initialize_vendor_cmd(iface, get_requestid(),
                                 QCA_NL80211_VENDOR_SUBCMD_ND_OFFLOAD,
@@ -3390,6 +3434,10 @@ static wifi_error wifi_read_packet_filter(wifi_interface_handle handle,
     interface_info *ifaceInfo = getIfaceInfo(handle);
     wifi_handle wifiHandle = getWifiHandle(handle);
     hal_info *info = getHalInfo(wifiHandle);
+    if (!ifaceInfo) {
+        ALOGE("%s: null iface handle", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
 
     /* Length to be passed to this function should be non-zero
      * Return invalid argument if length is passed as zero
@@ -3587,7 +3635,6 @@ static int wifi_is_nan_ext_cmd_supported(wifi_interface_handle iface_handle)
     }
 }
 
-#ifndef TARGET_SUPPORTS_WEARABLES
 char *get_iface_mask_str(u32 mask, char *buf, size_t buflen) {
     char * pos, *end;
     int res;
@@ -3821,17 +3868,16 @@ public:
                     struct nlattr *nl_limit, *nl_mode;
                     int err, rem_limit, rem_mode, j = 0;
                     static struct nla_policy
-                    iface_combination_policy[NUM_NL80211_IFACE_COMB] = {
-                        [NL80211_IFACE_COMB_LIMITS] = { .type = NLA_NESTED },
-                        [NL80211_IFACE_COMB_MAXNUM] = { .type = NLA_U32 },
-                        [NL80211_IFACE_COMB_STA_AP_BI_MATCH] = { .type = NLA_FLAG },
-                        [NL80211_IFACE_COMB_NUM_CHANNELS] = { .type = NLA_U32 },
-                        [NL80211_IFACE_COMB_RADAR_DETECT_WIDTHS] = { .type = NLA_U32 },
-                    },
-                    iface_limit_policy[NUM_NL80211_IFACE_LIMIT] = {
-                        [NL80211_IFACE_LIMIT_TYPES] = { .type = NLA_NESTED },
-                        [NL80211_IFACE_LIMIT_MAX] = { .type = NLA_U32 },
-                    };
+                        iface_combination_policy[NUM_NL80211_IFACE_COMB],
+                        iface_limit_policy[NUM_NL80211_IFACE_LIMIT];
+
+                    iface_combination_policy[NL80211_IFACE_COMB_LIMITS].type = NLA_NESTED;
+                    iface_combination_policy[NL80211_IFACE_COMB_MAXNUM].type = NLA_U32;
+                    iface_combination_policy[NL80211_IFACE_COMB_STA_AP_BI_MATCH].type = NLA_FLAG;
+                    iface_combination_policy[NL80211_IFACE_COMB_NUM_CHANNELS].type = NLA_U32;
+                    iface_combination_policy[NL80211_IFACE_COMB_RADAR_DETECT_WIDTHS].type = NLA_U32;
+                    iface_limit_policy[NL80211_IFACE_LIMIT_TYPES].type = NLA_NESTED;
+                    iface_limit_policy[NL80211_IFACE_LIMIT_MAX].type = NLA_U32;
 
                     err = nla_parse_nested(tb_comb, MAX_NL80211_IFACE_COMB,
                                            nl_combi, iface_combination_policy);
@@ -3956,7 +4002,6 @@ wifi_error wifi_get_supported_iface_combination(wifi_interface_handle iface_hand
 
     return ret;
 }
-#endif /* TARGET_SUPPORTS_WEARABLES */
 
 wifi_error wifi_get_radar_history(wifi_interface_handle handle,
        radar_history_result *resultBuf, int resultBufSize, int *numResults)
@@ -4129,7 +4174,6 @@ cleanup:
     return ret;
 }
 
-#ifndef TARGET_SUPPORTS_WEARABLES
 wifi_error wifi_get_supported_iface_concurrency_matrix(
         wifi_handle handle, wifi_iface_concurrency_matrix *iface_comb_matrix)
 {
@@ -4164,7 +4208,6 @@ wifi_error wifi_get_supported_iface_concurrency_matrix(
     }
     return WIFI_SUCCESS;
 }
-#endif /* TARGET_SUPPORTS_WEARABLES */
 
 #ifdef WPA_PASN_LIB
 
@@ -4184,7 +4227,7 @@ void wifihal_event_mgmt_tx_status(wifi_handle handle, struct nlattr *cookie,
 
     peer = nan_pairing_get_peer_from_list(info->secure_nan, (u8 *)mgmt->da);
     if (!peer) {
-        ALOGE("nl80211: Peer not found in the pairing list");
+        ALOGV("nl80211: Peer not found in the pairing list");
         return;
     }
 
@@ -4413,6 +4456,7 @@ wifi_error wifi_enable_sta_channel_for_peer_network(wifi_handle handle,
     wifi_interface_handle iface = NULL;
     hal_info *info;
     uint8_t peer_protocol_indoor_bitmap = 0;
+    uint8_t enable_dfs_scc_p2p = 0;
 
     info = getHalInfo(handle);
     if (!info) {
@@ -4436,11 +4480,25 @@ wifi_error wifi_enable_sta_channel_for_peer_network(wifi_handle handle,
         peer_protocol_indoor_bitmap |= 0x2;  // Set bit 1 for NAN
     }
 
+    enable_dfs_scc_p2p = (channelCategoryEnableFlag & 0x2) ? 1 : 0;
+
+    ALOGV("%s: channelCategoryEnableFlag=0x%x, Indoor bitmap=0x%x, DFS SCC P2P=%u",
+          __func__, channelCategoryEnableFlag, peer_protocol_indoor_bitmap,
+          enable_dfs_scc_p2p);
+
     if (peer_protocol_indoor_bitmap &&
         !check_feature(QCA_WLAN_VENDOR_FEATURE_SUPPORT_STA_INDOOR_CH_SCC,
                        &info->driver_supported_features)) {
         ALOGE("%s: STA Indoor Channel SCC is not supported by "
               "the driver (feature flag not set).", __func__);
+        return WIFI_ERROR_NOT_SUPPORTED;
+    }
+
+    if (enable_dfs_scc_p2p &&
+        !check_feature(QCA_WLAN_VENDOR_FEATURE_SUPPORT_STA_DFS_CH_SCC_P2P,
+                      &info->driver_supported_features)) {
+        ALOGE("%s: STA DFS Channel SCC P2P is not supported by the "
+              "driver (feature flag not set).", __func__);
         return WIFI_ERROR_NOT_SUPPORTED;
     }
 
@@ -4464,6 +4522,10 @@ wifi_error wifi_enable_sta_channel_for_peer_network(wifi_handle handle,
           "QCA_WLAN_VENDOR_ATTR_CONFIG_ALLOW_PEER_PROTOCOL_INDOOR_CH_STA_SCC to %u",
           __func__, peer_protocol_indoor_bitmap);
 
+    ALOGV("%s: Attempting to set "
+          "QCA_WLAN_VENDOR_ATTR_CONFIG_ALLOW_STA_DFS_CH_SCC_P2P to %u",
+          __func__, enable_dfs_scc_p2p);
+
     // Add the indoor channel SCC attribute with its u8 value.
     ret = vCommand->put_u8(QCA_WLAN_VENDOR_ATTR_CONFIG_ALLOW_PEER_PROTOCOL_INDOOR_CH_STA_SCC,
                            peer_protocol_indoor_bitmap);
@@ -4471,6 +4533,15 @@ wifi_error wifi_enable_sta_channel_for_peer_network(wifi_handle handle,
         ALOGE("%s: Failed to put "
               "QCA_WLAN_VENDOR_ATTR_CONFIG_ALLOW_PEER_PROTOCOL_INDOOR_CH_STA_SCC,"
               " error: %d", __func__, ret);
+        goto cleanup;
+    }
+
+    // Add the DFS channel SCC P2P attribute with its u8 value
+    ret = vCommand->put_u8(QCA_WLAN_VENDOR_ATTR_CONFIG_ALLOW_STA_DFS_CH_SCC_P2P,
+                           enable_dfs_scc_p2p);
+    if (ret != WIFI_SUCCESS) {
+        ALOGE("%s: Failed to put QCA_WLAN_VENDOR_ATTR_CONFIG_ALLOW_STA_DFS_CH_SCC_P2P, "
+              "error: %d", __func__, ret);
         goto cleanup;
     }
 

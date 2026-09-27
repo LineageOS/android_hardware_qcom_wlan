@@ -262,8 +262,13 @@ wifi_error wifi_start_rssi_monitoring(wifi_request_id id,
     wifi_error ret;
     struct nlattr *nlData;
     WifiVendorCommand *vCommand = NULL;
+    interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
     RSSIMonitorCommand *rssiCommand;
+    if (!ifaceInfo) {
+        ALOGE("%s: null iface handle", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
 
     ret = initialize_vendor_cmd(iface, id,
                                 QCA_NL80211_VENDOR_SUBCMD_MONITOR_RSSI,

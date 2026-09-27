@@ -1593,11 +1593,16 @@ wifi_error nan_data_request_initiator(transaction_id id,
     struct nlattr *nlData, *nlCfgQos;
     NanCommand *nanCommand = NULL;
     NanCommand *t_nanCommand = NULL;
+    interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
     hal_info *info = getHalInfo(wifiHandle);
 #ifdef WPA_PASN_LIB
     struct ptksa_cache_entry *entry = NULL;
 #endif
+    if (!ifaceInfo) {
+        ALOGE("%s: null iface handle", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
     if (msg == NULL)
         return WIFI_ERROR_INVALID_ARGS;
 
@@ -1814,12 +1819,17 @@ wifi_error nan_data_indication_response(transaction_id id,
     struct nlattr *nlData, *nlCfgQos;
     NanCommand *nanCommand = NULL;
     NanCommand *t_nanCommand = NULL;
+    interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
     hal_info *info = getHalInfo(wifiHandle);
 #ifdef WPA_PASN_LIB
     struct ptksa_cache_entry *entry = NULL;
     struct nan_pairing_peer_info *peer = NULL;
 #endif
+    if (!ifaceInfo) {
+        ALOGE("%s: null iface handle", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
 
     if (msg == NULL)
         return WIFI_ERROR_INVALID_ARGS;

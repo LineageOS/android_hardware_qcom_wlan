@@ -51,6 +51,10 @@ typedef struct radio_event_handler_s {
 
 wifi_error initializeRadioHandler(hal_info *info)
 {
+    if (!info) {
+        ALOGE("%s: hal_info is NULL", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
     info->radio_handlers = (radio_event_handlers *)malloc(
             sizeof(radio_event_handlers));
     if (info->radio_handlers) {
@@ -119,6 +123,10 @@ RADIOModeCommand* RADIOModeCommand::instance(wifi_handle handle,
     hal_info *info = getHalInfo(handle);
     if (!info) {
         ALOGE("hal_info is invalid");
+        return NULL;
+    }
+    if (!info->radio_handlers) {
+        ALOGE("radio_handlers is NULL");
         return NULL;
     }
     RADIOModeCommand* instance = info->radio_handlers->mRADIOModeCommandInstance;
@@ -296,9 +304,13 @@ wifi_error wifi_set_radio_mode_change_handler(wifi_request_id id,
 {
     wifi_error ret;
     WifiVendorCommand *vCommand = NULL;
-    wifi_handle wifiHandle = getWifiHandle(iface);
     RADIOModeCommand *radiomodeCommand;
 
+    if (!iface) {
+        ALOGE("%s: iface handle is NULL", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+    wifi_handle wifiHandle = getWifiHandle(iface);
     ret = initialize_vendor_cmd(iface, id,
                                 QCA_NL80211_VENDOR_SUBCMD_WLAN_MAC_INFO,
                                 &vCommand);

@@ -794,6 +794,16 @@ void nan_rx_mgmt_auth(wifi_handle handle, const u8 *frame, size_t len)
                 nan_csia *csia = (nan_csia *)nan_attr_ie;
                 peer->csia_cap_info = csia->caps;
             }
+
+            nan_attr_ie = nan_get_attr_from_ies(mgmt->u.auth.variable,
+                             len - offsetof(struct ieee80211_mgmt, u.auth.variable),
+                             NAN_ATTR_ID_NIRA);
+            if (nan_attr_ie) {
+                nan_nira *nira = (nan_nira *)nan_attr_ie;
+                nan_cache_peer_nira(peer, nira->nonce_tag,
+                                    &nira->nonce_tag[NAN_IDENTITY_NONCE_LEN]);
+            }
+
             ptksa_cache_add(info->secure_nan->ptksa, info->secure_nan->own_addr,
                             peer->bssid, pasn_get_cipher(pasn), nanPMKLifetime,
                             pasn_get_ptk(pasn), NULL, NULL, pasn_get_akmp(pasn));
@@ -1863,6 +1873,7 @@ int nan_pairing_set_keys_from_cache(wifi_handle handle, u8 *src_addr, u8 *bssid,
     ALOGD("PASN:" MACSTR "present in PTKSA cache",
           MAC2STR(bssid));
 
+    nan_flush_peer_alias_key_by_nik(info, peer);
     nan_pairing_set_key(info, alg, bssid, 0, 1, NULL, 0, tk, tk_len,
                         KEY_FLAG_PAIRWISE_RX_TX);
 
@@ -1941,6 +1952,7 @@ int nan_pairing_set_keys_from_cache(wifi_handle handle, u8 *src_addr, u8 *bssid,
         nanCommand->handleNanPairingConfirm(&evt);
         peer->is_paired = true;
         peer->is_pairing_in_progress = false;
+        nan_pairing_remove_peers_with_nik(info, peer->peer_nik, peer->bssid);
     }
     return WIFI_SUCCESS;
 }
@@ -2939,11 +2951,71 @@ wifi_error nan_pairing_end(transaction_id id,
     peer = nan_pairing_get_peer_from_id(info->secure_nan, msg->pairing_instance_id);
     if (peer) {
         peer->is_pairing_in_progress = false;
+        ptksa_cache_flush(info->secure_nan->ptksa, peer->bssid,
+                          WPA_CIPHER_NONE);
         nan_pairing_set_key(info, WPA_ALG_NONE, peer->bssid, 0, 0, NULL, 0,
                             NULL, 0, KEY_FLAG_PAIRWISE);
         nan_pairing_delete_peer_from_list(info->secure_nan, peer->bssid);
     }
     return WIFI_SUCCESS;
+}
+
+void nan_cache_peer_nira(struct nan_pairing_peer_info *entry,
+                         u8 *nira_nonce, u8 *nira_tag)
+{
+    if (!entry || !nira_nonce || !nira_tag)
+        return;
+
+    memcpy(entry->nira_nonce, nira_nonce, NAN_IDENTITY_NONCE_LEN);
+    memcpy(entry->nira_tag, nira_tag, NAN_IDENTITY_TAG_LEN);
+    entry->is_nira_valid = true;
+}
+
+void nan_flush_peer_alias_key_by_nik(hal_info *info,
+                                     struct nan_pairing_peer_info *c_entry)
+{
+    struct nan_pairing_peer_info *entry, *tmp;
+    int ret;
+    u8 tag[NAN_MAX_HASH_LEN];
+    u8 data[NIR_STR_LEN + NAN_IDENTITY_NONCE_LEN + ETH_ALEN];
+    struct wpa_secure_nan *secure_nan = info->secure_nan;
+
+    if (!c_entry->is_paired || !c_entry->is_nira_valid) {
+        ALOGV("%s Peer " MACSTR " not paired yet or NIRA invalid",
+              __FUNCTION__, MAC2STR(c_entry->bssid));
+        return;
+    }
+
+    memset(tag, 0, sizeof(tag));
+    memset(data, 0, sizeof(data));
+    memcpy(data, "NIR", NIR_STR_LEN);
+    memcpy(&data[NIR_STR_LEN], c_entry->bssid, ETH_ALEN);
+    memcpy(&data[NIR_STR_LEN + ETH_ALEN], c_entry->nira_nonce,
+              NAN_IDENTITY_NONCE_LEN);
+
+    list_for_each_entry_safe(entry, tmp, &info->secure_nan->peers, list) {
+        if (is_zero_nan_identity_key(entry->peer_nik) ||
+            (memcmp(entry->bssid, c_entry->bssid, ETH_ALEN) == 0))
+            continue;
+
+        ret = hmac_sha256(entry->peer_nik, NAN_IDENTITY_KEY_LEN,
+                          data, sizeof(data), tag);
+        if (ret < 0) {
+            ALOGV("%s Could not derive NIRA Tag, retval = %d",
+                  __FUNCTION__, ret);
+            continue;
+        }
+        if (memcmp(tag, c_entry->nira_tag, NAN_IDENTITY_TAG_LEN) != 0)
+            continue;
+
+        memcpy(c_entry->peer_nik, entry->peer_nik, NAN_IDENTITY_KEY_LEN);
+        ptksa_cache_flush(secure_nan->ptksa, entry->bssid, WPA_CIPHER_NONE);
+        nan_pairing_set_key(info, WPA_ALG_NONE, entry->bssid, 0, 0, NULL, 0,
+                            NULL, 0, KEY_FLAG_PAIRWISE);
+        ALOGD("%s Flush keys of stale peer " MACSTR " -new active peer:" MACSTR,
+              __FUNCTION__, MAC2STR(entry->bssid), MAC2STR(c_entry->bssid));
+        return;
+    }
 }
 
 #else  /* WPA_PASN_LIB */

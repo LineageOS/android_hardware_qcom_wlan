@@ -61,7 +61,7 @@
  const char *getprogname() { return (__progname); }
 #endif
 
-#define SOCK_BUF_SIZE (256*1024)
+#define SOCK_BUF_SIZE (256 * 1024)
 
 #ifdef __LINUX__
   #define LOG_TAG "CLD80211"
@@ -549,7 +549,13 @@ void *cld80211_init(void)
 		ALOGE("%s: Failed to initialize exit sockets", getprogname());
 		goto cleanup;
 	}
-
+	int opt = 1;
+	int ret = setsockopt(nl_socket_get_fd(ctx->sock), SOL_NETLINK,
+			     NETLINK_NO_ENOBUFS, &opt, sizeof(opt));
+	ALOGE("cld80211_init: configured NETLINK_NO_ENOBUFS %d", ret);
+	ret = setsockopt(nl_socket_get_fd(ctx->sock), SOL_NETLINK,
+			 NETLINK_BROADCAST_ERROR, &opt, sizeof(opt));
+	ALOGE("cld80211_init: configured NETLINK_BROADCAST_ERROR %d", ret);
 	return ctx;
 cleanup:
 	if (ctx->sock) {

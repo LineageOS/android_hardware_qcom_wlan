@@ -40,6 +40,26 @@
 #define SIZEOF_TLV_HDR 4
 #define MAX_OEM_BUF_LEN 1024
 
+/*
+ * PA report TLV per-channel record sizes.
+ * Version is auto-detected from the TLV length field.
+ *
+ * v1 record (8 bytes):  4-byte freq + 4-byte pdadc
+ *   pdadc bits  0- 7: chain 0 current
+ *   pdadc bits  8-15: chain 1 current
+ *   pdadc bits 16-23: chain 2 current
+ *   pdadc bits 24-31: chain 3 current
+ *
+ * v2 record (12 bytes): 4-byte freq + 4-byte current_pdadc + 4-byte golden_pdadc
+ *   byte 0: chain 0 current    byte 4: chain 0 golden
+ *   byte 1: chain 1 current    byte 5: chain 1 golden
+ *   byte 2: chain 2 current    byte 6: chain 2 golden
+ *   byte 3: chain 3 current    byte 7: chain 3 golden
+ * Note: 2G only has 2 active chains; FW zero-pads chains 2-3 for uniform layout.
+ */
+#define PA_REPORT_V1_RECORD_SIZE   8
+#define PA_REPORT_V2_RECORD_SIZE  12
+
 static int oem_data_response_handler(struct nl_msg *msg, void *arg);
 
 struct oem_data_header {
@@ -317,56 +337,83 @@ static int oem_data_response_handler(struct nl_msg *msg, void *arg)
 			case OEM_DATA_TLV_PA_REPORT:
 				valid_report = 1;
 				if (tlv.length == 0) {
-					// No data available
+					/* No PA damage detected */
 					wpa_printf(MSG_DEBUG, "PA_REPORT: Empty data");
-					snprintf(info->reply_buf, info->reply_buf_len, "PA_REPORT: Empty data");
+					snprintf(info->reply_buf, info->reply_buf_len,
+						 "PA_REPORT: Empty data");
+				} else if (tlv.length == PA_REPORT_V1_RECORD_SIZE ||
+					   tlv.length == PA_REPORT_V1_RECORD_SIZE * 2) {
+					/*
+					 * Version 1: each record = 4-byte freq +
+					 * 4-byte pdadc (chain 0-3 packed as bytes)
+					 */
+					int num_ch = tlv.length / PA_REPORT_V1_RECORD_SIZE;
+					int buf_pos = 0;
+					int ch;
+
+					for (ch = 0; ch < num_ch &&
+					     buf_pos < (int)info->reply_buf_len - 1; ch++) {
+						u32 freq  = WPA_GET_LE32(tlv.value + ch * PA_REPORT_V1_RECORD_SIZE);
+						u32 pdadc = WPA_GET_LE32(tlv.value + ch * PA_REPORT_V1_RECORD_SIZE + 4);
+
+						wpa_printf(MSG_DEBUG,
+							   "PA_REPORT v1: Channel[%d] freq=%u, PDADC: "
+							   "chain0=%u chain1=%u chain2=%u chain3=%u",
+							   ch, freq,
+							   pdadc & 0xFF, (pdadc >> 8) & 0xFF,
+							   (pdadc >> 16) & 0xFF, (pdadc >> 24) & 0xFF);
+
+						buf_pos += snprintf(info->reply_buf + buf_pos,
+								    info->reply_buf_len - buf_pos,
+								    "%sPA_REPORT: Channel[%d] freq=%u, PDADC: "
+								    "chain0=%u chain1=%u chain2=%u chain3=%u",
+								    ch ? "\n" : "", ch, freq,
+								    pdadc & 0xFF, (pdadc >> 8) & 0xFF,
+								    (pdadc >> 16) & 0xFF, (pdadc >> 24) & 0xFF);
+					}
+				} else if (tlv.length == PA_REPORT_V2_RECORD_SIZE ||
+					   tlv.length == PA_REPORT_V2_RECORD_SIZE * 2) {
+					/*
+					 * Version 2: each record = 4-byte freq +
+					 * 4-byte current_pdadc + 4-byte golden_pdadc.
+					 * 2G chains 2-3 are zero-padded by FW.
+					 */
+					int num_ch = tlv.length / PA_REPORT_V2_RECORD_SIZE;
+					int buf_pos = 0;
+					int ch;
+
+					for (ch = 0; ch < num_ch &&
+					     buf_pos < (int)info->reply_buf_len - 1; ch++) {
+						u32 freq   = WPA_GET_LE32(tlv.value + ch * PA_REPORT_V2_RECORD_SIZE);
+						u32 cur    = WPA_GET_LE32(tlv.value + ch * PA_REPORT_V2_RECORD_SIZE + 4);
+						u32 golden = WPA_GET_LE32(tlv.value + ch * PA_REPORT_V2_RECORD_SIZE + 8);
+
+						wpa_printf(MSG_DEBUG,
+							   "PA_REPORT v2: Channel[%d] freq=%u, "
+							   "Current PDADC: chain0=%u chain1=%u chain2=%u chain3=%u, "
+							   "Golden PDADC:  chain0=%u chain1=%u chain2=%u chain3=%u",
+							   ch, freq,
+							   cur & 0xFF, (cur >> 8) & 0xFF,
+							   (cur >> 16) & 0xFF, (cur >> 24) & 0xFF,
+							   golden & 0xFF, (golden >> 8) & 0xFF,
+							   (golden >> 16) & 0xFF, (golden >> 24) & 0xFF);
+
+						buf_pos += snprintf(info->reply_buf + buf_pos,
+								    info->reply_buf_len - buf_pos,
+								    "%sPA_REPORT: Channel[%d] freq=%u, "
+								    "Current PDADC: chain0=%u chain1=%u chain2=%u chain3=%u, "
+								    "Golden PDADC:  chain0=%u chain1=%u chain2=%u chain3=%u",
+								    ch ? "\n" : "", ch, freq,
+								    cur & 0xFF, (cur >> 8) & 0xFF,
+								    (cur >> 16) & 0xFF, (cur >> 24) & 0xFF,
+								    golden & 0xFF, (golden >> 8) & 0xFF,
+								    (golden >> 16) & 0xFF, (golden >> 24) & 0xFF);
+					}
 				} else {
-					// Case 1: Single channel info (8 bytes total: 4 freq + 4 pdadc)
-					if (tlv.length >= 8) {
-						u32 freq = WPA_GET_LE32(tlv.value);
-						u32 pdadc = WPA_GET_LE32(tlv.value + 4);
-
-						u8 chain0_pdadc = pdadc & 0xFF;
-						u8 chain1_pdadc = (pdadc >> 8) & 0xFF;
-						u8 chain2_pdadc = (pdadc >> 16) & 0xFF;
-						u8 chain3_pdadc = (pdadc >> 24) & 0xFF;
-
-						wpa_printf(MSG_DEBUG,
-						   "PA_REPORT: Channel[0] freq=%u, PDADC values: "
-						   "chain0=%u, chain1=%u, chain2=%u, chain3=%u",
-						   freq, chain0_pdadc, chain1_pdadc, chain2_pdadc, chain3_pdadc);
-
-						snprintf(info->reply_buf, info->reply_buf_len,
-						    "PA_REPORT: Channel[0] freq=%u, PDADC values: "
-						    "chain0=%u, chain1=%u, chain2=%u, chain3=%u",
-						    freq, chain0_pdadc, chain1_pdadc, chain2_pdadc, chain3_pdadc);
-					}
-
-					// Case 2: Two channel info (16 bytes total: 2*(4 freq + 4 pdadc))
-					if (tlv.length >= 16) {
-						u32 freq2 = WPA_GET_LE32(tlv.value + 8);
-						u32 pdadc2 = WPA_GET_LE32(tlv.value + 12);
-
-						u8 chain0_pdadc2 = pdadc2 & 0xFF;
-						u8 chain1_pdadc2 = (pdadc2 >> 8) & 0xFF;
-						u8 chain2_pdadc2 = (pdadc2 >> 16) & 0xFF;
-						u8 chain3_pdadc2 = (pdadc2 >> 24) & 0xFF;
-
-						wpa_printf(MSG_DEBUG,
-						   "PA_REPORT: channel[1] freq=%u, PDADC values: "
-						   "chain0=%u, chain1=%u, chain2=%u, chain3=%u",
-						   freq2, chain0_pdadc2, chain1_pdadc2, chain2_pdadc2, chain3_pdadc2);
-
-						// For second channel, append to existing buffer
-						int current_len = strlen(info->reply_buf);
-						if (current_len < info->reply_buf_len - 1) {
-							snprintf(info->reply_buf + current_len,
-							    info->reply_buf_len - current_len,
-							    "\nPA_REPORT: Channel[1] freq=%u, PDADC values: "
-							    "chain0=%u, chain1=%u, chain2=%u, chain3=%u",
-							freq2, chain0_pdadc2, chain1_pdadc2, chain2_pdadc2, chain3_pdadc2);
-						}
-					}
+					wpa_printf(MSG_ERROR,
+						   "PA_REPORT: unexpected TLV length %u", tlv.length);
+					snprintf(info->reply_buf, info->reply_buf_len,
+						 "PA_REPORT: unexpected TLV length %u", tlv.length);
 				}
 				break;
 			}

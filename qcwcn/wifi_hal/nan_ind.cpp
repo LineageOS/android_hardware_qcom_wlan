@@ -742,6 +742,8 @@ int NanCommand::handleNanSharedKeyDescIndication()
     u16 shared_key_attr_len = 0;
     u8 shared_key_attr[NAN_MAX_SHARED_KEY_ATTR_LEN];
     wifi_interface_handle ifaceHandle;
+    u16 publish_subscribe_id;
+    u32 requestor_instance_id;
 
     if (mNanVendorEvent == NULL) {
         ALOGE("%s: Invalid mNanVendorEvent:%p",
@@ -750,6 +752,9 @@ int NanCommand::handleNanSharedKeyDescIndication()
     }
 
     pNanFollowupIndMsg pRsp = (pNanFollowupIndMsg)mNanVendorEvent;
+    publish_subscribe_id = pRsp->fwHeader.handle;
+    requestor_instance_id = pRsp->followupIndParams.matchHandle;
+
     u8 *pInputTlv = pRsp->ptlv;
     NanTlv outputTlv;
     u16 readLen = 0;
@@ -826,6 +831,19 @@ int NanCommand::handleNanSharedKeyDescIndication()
     if (!entry) {
         ALOGE("%s NAN Pairing: peer not found", __FUNCTION__);
         return retval;
+    }
+
+    if (publish_subscribe_id &&
+        entry->pub_sub_id != publish_subscribe_id) {
+          ALOGI("Update previous pub sub id: %d with new id: %d",
+                entry->pub_sub_id, publish_subscribe_id);
+          entry->pub_sub_id = publish_subscribe_id;
+    }
+    if (requestor_instance_id &&
+        entry->requestor_instance_id != requestor_instance_id) {
+          ALOGI("Update previous requestor instance id: %d with new id: %d",
+                entry->requestor_instance_id, requestor_instance_id);
+          entry->requestor_instance_id = requestor_instance_id;
     }
 
     if (entry->peer_role == SECURE_NAN_PAIRING_INITIATOR) {

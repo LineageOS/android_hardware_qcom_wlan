@@ -108,6 +108,10 @@ wifi_error wifi_get_valid_channels(wifi_interface_handle handle,
     struct nlattr *nlData;
     interface_info *ifaceInfo = getIfaceInfo(handle);
     wifi_handle wifiHandle = getWifiHandle(handle);
+    if (!ifaceInfo) {
+        ALOGE("%s: null iface handle", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
 
     /* No request id from caller, so generate one and pass it on to the driver.
      * Generate one randomly.
@@ -1176,6 +1180,10 @@ wifi_error wifi_set_scanning_mac_oui(wifi_interface_handle handle, oui scan_oui)
     WifiVendorCommand *vCommand = NULL;
     interface_info *iinfo = getIfaceInfo(handle);
     wifi_handle wifiHandle = getWifiHandle(handle);
+    if (!iinfo) {
+        ALOGE("%s: null iface handle", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
 
     vCommand = new WifiVendorCommand(wifiHandle, 0,
             OUI_QCA,

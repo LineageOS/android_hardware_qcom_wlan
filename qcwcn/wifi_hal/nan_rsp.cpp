@@ -338,6 +338,8 @@ struct errorCode errorCodeTranslation[] = {
      "NAN is Already enabled"},
     {NAN_STATUS_FOLLOWUP_QUEUE_FULL, NAN_I_STATUS_FOLLOWUP_QUEUE_FULL,
      "Follow-up queue full"},
+    {NAN_STATUS_INTERNAL_FAILURE, NAN_I_STATUS_SVC_SUSPEND_RESUME_FAILURE,
+     "NAN Suspend Resume failure"},
     {NAN_STATUS_INTERNAL_FAILURE, NAN_I_STATUS_IC_MODE_FAIL,
      "Instant Mode failed"},
 

@@ -56,7 +56,6 @@ soong_config_module_type {
     ],
     bool_variables: [
         "mac_privacy_logging", // CONFIG_MAC_PRIVACY_LOGGING
-        "target_supports_wearables", // TARGET_SUPPORTS_WEARABLES
     ],
     variables: [
         "libpasn_support", //$(wildcard external/wpa_supplicant_8/src/pasn/pasn_common.c)
@@ -85,9 +84,6 @@ wifi_hal_cc_defaults {
         },
         mac_privacy_logging: {
             cflags: ["-DCONFIG_MAC_PRIVACY_LOGGING"],
-        },
-        target_supports_wearables: {
-            cflags: ["-DTARGET_SUPPORTS_WEARABLES"],
         },
         libpasn_support: {
             true: {

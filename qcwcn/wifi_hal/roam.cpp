@@ -359,6 +359,10 @@ wifi_error wifi_enable_firmware_roaming(wifi_interface_handle iface, fw_roaming_
     interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
     qca_roaming_policy policy;
+    if (!ifaceInfo) {
+        ALOGE("%s: null iface handle", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
 
     ALOGV("%s: set firmware roam state : %d", __FUNCTION__, state);
 

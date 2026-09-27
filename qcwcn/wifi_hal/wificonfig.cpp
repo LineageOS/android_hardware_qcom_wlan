@@ -301,7 +301,12 @@ wifi_error wifi_set_country_code(wifi_interface_handle iface,
     int requestId, count, wiphy_index;
     wifi_error ret;
     WiFiConfigCommand *wifiConfigCommand;
+    interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
+    if (!ifaceInfo) {
+        ALOGE("%s: null iface handle", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
     hal_info *info = getHalInfo(wifiHandle);
     char current_country_code[4];
     bool check_update = false;
@@ -929,6 +934,10 @@ wifi_error wifi_reset_tx_power_scenario(wifi_interface_handle handle)
     struct nlattr *nlData;
     interface_info *ifaceInfo = getIfaceInfo(handle);
     wifi_handle wifiHandle = getWifiHandle(handle);
+    if (!ifaceInfo) {
+        ALOGE("%s: null iface handle", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
 
     wifiConfigCommand = new WiFiConfigCommand(
                             wifiHandle,
