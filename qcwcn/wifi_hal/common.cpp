@@ -248,28 +248,6 @@ u16 lowiMajorVersion = 0;
 /* LowiSupportedCapabilities read */
 u32 lowiSupportedCapabilities = 0;
 
-int compareLowiVersion(u16 major, u16 minor, u16 micro)
-{
-    u32 currVersion = 0x10000*(WIFIHAL_LOWI_MAJOR_VERSION) + \
-                      0x100*(WIFIHAL_LOWI_MINOR_VERSION) + \
-                      WIFIHAL_LOWI_MICRO_VERSION;
-
-    u32 lowiVersion = 0x10000*(major) + \
-                      0x100*(minor) + \
-                      micro;
-
-    ALOGV("%s: comparing versions - current: 0x%08x, lowi: 0x%08x",
-          __FUNCTION__, currVersion, lowiVersion);
-
-    if (lowiVersion > currVersion) {
-        return 1;
-    } else if (lowiVersion < currVersion) {
-        return -1;
-    } else {
-        return 0;
-    }
-}
-
 /*
  * This function will open the lowi shared library and obtain the
  * Lowi Callback table and the capabilities supported.
@@ -314,7 +292,6 @@ wifi_error fetchLowiCbTableAndCapabilities(lowi_cb_table_t **lowi_wifihal_api,
         lowiMajorVersion = WIFIHAL_LOWI_MAJOR_VERSION;
         u16 lowiMinorVersion = WIFIHAL_LOWI_MINOR_VERSION;
         u16 lowiMicroVersion = WIFIHAL_LOWI_MICRO_VERSION;
-        int versionCheck = -1;
 
         ret = (*lowi_wifihal_api)->get_lowi_version(&lowiMajorVersion,
                                                     &lowiMinorVersion,
@@ -329,13 +306,10 @@ wifi_error fetchLowiCbTableAndCapabilities(lowi_cb_table_t **lowi_wifihal_api,
               lowiMajorVersion, lowiMinorVersion,
               lowiMicroVersion);
 
-        /* Compare the version with version in wifihal_internal.h */
-        versionCheck = compareLowiVersion(lowiMajorVersion,
-                                          lowiMinorVersion,
-                                          lowiMicroVersion);
-        if (versionCheck < 0) {
-            ALOGE("%s: Version Check failed:%d", __FUNCTION__,
-                  versionCheck);
+        if (((lowiMajorVersion << 16) | (lowiMinorVersion << 8) |
+             lowiMicroVersion) < 0x020101) {
+            ALOGE("%s: Version Check failed:%d.%d.%d", __FUNCTION__,
+                  lowiMajorVersion, lowiMinorVersion, lowiMicroVersion);
             retVal = WIFI_ERROR_NOT_SUPPORTED;
             goto cleanup;
         }
