@@ -119,6 +119,7 @@ private:
     std::vector<std::pair<transaction_id, NanResponseMsg> > mNanResponseMsgVec;
     VendorNanCallbackHandler mVendorHandler;
     u8 mNanFollowupRxSupport;
+    u8 mNanInstantModeSupport;
     bool mNanEnabled;
 
     //Function to check the initial few bytes of data to

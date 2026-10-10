@@ -761,6 +761,8 @@ int NanCommand::getNanResponse(transaction_id *id, NanResponseMsg *pRsp)
                        pFwRsp->numRxChainsSupported;
             pRsp->body.nan_capabilities.is_instant_mode_supported = \
                        pFwRsp->nan_instant_mode_supported;
+            mNanCommandInstance->mNanInstantModeSupport = \
+                       pFwRsp->nan_instant_mode_supported;
             pRsp->body.nan_capabilities.is_suspension_supported = \
                        pFwRsp->nan_suspension_supported;
 

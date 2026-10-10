@@ -2263,6 +2263,7 @@ NanCommand::NanCommand(wifi_handle handle, int id, u32 vendor_id, u32 subcmd)
     mNanMaxSubscribes = 0;
     mConfigDiscoveryIndications = 0;
     mNanFollowupRxSupport = 0;
+    mNanInstantModeSupport = 0;
     mNanEnabled = false;
 }
 

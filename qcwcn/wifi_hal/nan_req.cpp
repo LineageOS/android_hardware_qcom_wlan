@@ -263,6 +263,9 @@ wifi_error NanCommand::putNanEnable(transaction_id id, const NanEnableRequest *p
                                     u8 followup_mgmt_rx_enable)
 {
     wifi_error ret;
+    NanCommand *t_nanCommand = NanCommand::instance(wifiHandle());
+    u8 instant_mode_support = t_nanCommand ?
+                              t_nanCommand->mNanInstantModeSupport : 0;
     ALOGV("NAN_ENABLE");
     size_t message_len = NAN_MAX_ENABLE_REQ_SIZE;
     int freq_24g;
@@ -411,7 +414,7 @@ wifi_error NanCommand::putNanEnable(transaction_id id, const NanEnableRequest *p
           sizeof(pReq->enable_unsync_srvdsc)) : 0 \
         ) + \
         (
-           pReq->config_enable_instant_mode ? (SIZEOF_TLV_HDR + \
+           (instant_mode_support && pReq->config_enable_instant_mode) ? (SIZEOF_TLV_HDR + \
            sizeof(u32)) : 0 \
         );
 
@@ -611,7 +614,7 @@ wifi_error NanCommand::putNanEnable(transaction_id id, const NanEnableRequest *p
         tlvs = addTlv(NAN_TLV_TYPE_DW_EARLY_TERMINATION, sizeof(u32),
                       (const u8*)&pReq->enable_dw_termination, tlvs);
     }
-    if (pReq->config_enable_instant_mode) {
+    if (instant_mode_support && pReq->config_enable_instant_mode) {
         u32 nan_instant_mode = 0;
 
         if (pReq->enable_instant_mode)
@@ -738,6 +741,9 @@ wifi_error NanCommand::putNanDisable(transaction_id id)
 wifi_error NanCommand::putNanConfig(transaction_id id, const NanConfigRequest *pReq)
 {
     wifi_error ret;
+    NanCommand *t_nanCommand = NanCommand::instance(wifiHandle());
+    u8 instant_mode_support = t_nanCommand ?
+                              t_nanCommand->mNanInstantModeSupport : 0;
     ALOGV("NAN_CONFIG");
     size_t message_len = 0;
     int idx = 0;
@@ -828,7 +834,7 @@ wifi_error NanCommand::putNanConfig(transaction_id id, const NanConfigRequest *p
            sizeof(u32)) : 0 \
         ) + \
         (
-           pReq->config_enable_instant_mode ? (SIZEOF_TLV_HDR + \
+           (instant_mode_support && pReq->config_enable_instant_mode) ? (SIZEOF_TLV_HDR + \
            sizeof(u32)) : 0 \
         );
 
@@ -990,7 +996,7 @@ wifi_error NanCommand::putNanConfig(transaction_id id, const NanConfigRequest *p
                       (const u8*)&pReq->enable_dw_termination, tlvs);
     }
 
-    if (pReq->config_enable_instant_mode) {
+    if (instant_mode_support && pReq->config_enable_instant_mode) {
         u32 nan_instant_mode = 0;
 
         if (pReq->enable_instant_mode)
